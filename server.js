@@ -25,6 +25,11 @@ async function wp(method,path,payload){
  const t=await r.text(); let data; try{data=JSON.parse(t)}catch{data={raw:t}};
  return {status:r.status,data};
 }
+function yesNo(value, fallback="no"){
+ if(value===true||value==="yes") return "yes";
+ if(value===false||value==="no") return "no";
+ return fallback;
+}
 async function runCommand(){
  let c; try{c=JSON.parse(await readFile(new URL("./command.json",import.meta.url),"utf8"));}catch(e){console.error("COMMAND read error",e.message);return;}
  if(!c||c.action==="noop"){console.log("COMMAND idle",c?.id||"none");return;}
@@ -45,7 +50,18 @@ async function runCommand(){
  const st=await wp("POST","/storage/drive",{request_id:"drive-"+c.id,drive_file_id:c.drive_file_id});
  console.log("COMMAND storage",c.id,st.status,JSON.stringify(st.data));
  if(st.status<200||st.status>=300||!st.data?.storage_id) return;
- const prep=await wp("POST","/prepare",{request_id:"prepare-"+c.id,storage_id:st.data.storage_id,title:c.title,caption:c.caption||"",facebook_caption:c.facebook_caption||c.caption||"",targets:c.targets,youtube_privacy:c.youtube_privacy||"private",made_for_kids:c.made_for_kids==="yes",synthetic_media:c.synthetic_media==="yes"});
+ const prepPayload={
+  request_id:"prepare-"+c.id,
+  storage_id:st.data.storage_id,
+  title:c.title,
+  caption:c.caption||"",
+  facebook_caption:c.facebook_caption||c.caption||"",
+  targets:c.targets,
+  youtube_privacy:c.youtube_privacy||"private",
+  made_for_kids:yesNo(c.made_for_kids),
+  synthetic_media:yesNo(c.synthetic_media)
+ };
+ const prep=await wp("POST","/prepare",prepPayload);
  console.log("COMMAND prepare",c.id,prep.status,JSON.stringify(prep.data));
  if(prep.data?.job_id){const job=await wp("GET","/jobs/"+encodeURIComponent(prep.data.job_id));console.log("COMMAND status",c.id,job.status,JSON.stringify(job.data));}
  console.log("COMMAND end",c.id,"— no publication");
