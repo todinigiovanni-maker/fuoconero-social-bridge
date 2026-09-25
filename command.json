@@ -1,8 +1,5 @@
 {
   "version": 1,
-  "id": "confirm-dryrun-sogni-20260925",
-  "action": "confirm",
-  "job_id": "5f8dfc29-d51c-4dd1-8969-73de445e7f6f",
-  "digest": "f252390a4c65df29fd8ee998c3be8ee51328b87561b916cc0c281466585128a3",
-  "confirmed": true
+  "id": "idle-after-confirm-dryrun-20260925",
+  "action": "noop"
 }
