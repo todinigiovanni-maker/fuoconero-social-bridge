@@ -1,8 +1,5 @@
 {
   "version": 1,
-  "id": "confirm-pruriti-fallback-20260926-0024",
-  "action": "confirm",
-  "job_id": "98e022c5-dda6-4513-8ce4-46d009148f3b",
-  "digest": "7b6c6b202f356e3f91452942e05357dd6fc907b75a377822f7aa3980b34e2a8c",
-  "confirmed": true
+  "id": "idle-after-pruriti-20260926",
+  "action": "noop"
 }
