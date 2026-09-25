@@ -1,5 +1,6 @@
 {
   "version": 1,
-  "id": "idle-after-pruriti-20260926",
-  "action": "noop"
+  "id": "status-pruriti-20260926-0025",
+  "action": "status",
+  "job_id": "98e022c5-dda6-4513-8ce4-46d009148f3b"
 }
