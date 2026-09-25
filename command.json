@@ -1,13 +1,8 @@
 {
   "version": 1,
-  "id": "prepare-pruriti-all-20260926-0021",
-  "action": "prepare",
-  "drive_file_id": "1R_EHFzEAE9JfyaZP9B6nIoEte2oKDXVg",
-  "title": "Pruriti — Quando imparare significa modificare la carne",
-  "caption": "PRURITI — Quando imparare significa modificare la carne. Una poesia di Fuoconero: imparare, ricordare, cambiare. Leggila su fuoconero.com. #Fuoconero #Poesie #Pruriti",
-  "facebook_caption": "PRURITI — Quando imparare significa modificare la carne. Una poesia di Fuoconero: imparare, ricordare, cambiare.\n\nhttps://fuoconero.com/2026/09/14/pruriti-quando-imparare-significa-modificare-la-carne/\n\n#Fuoconero #Poesie #Pruriti",
-  "targets": ["ig_reel", "ig_story", "fb_reel", "fb_story", "youtube_short"],
-  "youtube_privacy": "public",
-  "made_for_kids": "no",
-  "synthetic_media": "yes"
+  "id": "confirm-pruriti-all-20260926-0022",
+  "action": "confirm",
+  "job_id": "aba8a5b7-8a70-4e25-abd8-bb545d1e131d",
+  "digest": "8b1e8b01a9aeaeea7e2d03570281c30ada7d8f7bac2d5be7c677c9763b641750",
+  "confirmed": true
 }
