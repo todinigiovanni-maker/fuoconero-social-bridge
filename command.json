@@ -1,8 +1,1 @@
-{
-  "version": 1,
-  "id": "confirm-pruriti-fb-reel-only-20260926",
-  "action": "confirm",
-  "job_id": "cc1834d2-07f1-46be-af7e-366257dca7ae",
-  "digest": "542a0f36b1abbb699bf3e49e8d6db99ddb96729741d268b212562d77cf1bea3f",
-  "confirmed": true
-}
+{"version":1,"id":"idle-after-fb-reel-test-20260926","action":"noop"}
