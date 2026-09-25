@@ -28,23 +28,26 @@ async function wp(method,path,payload){
 async function runCommand(){
  let c; try{c=JSON.parse(await readFile(new URL("./command.json",import.meta.url),"utf8"));}catch(e){console.error("COMMAND read error",e.message);return;}
  if(!c||c.action==="noop"){console.log("COMMAND idle",c?.id||"none");return;}
+ if(!c.id){console.error("COMMAND invalid: missing id");return;}
+ if(c.action==="confirm"){
+  if(!c.job_id||!c.digest||c.confirmed!==true){console.error("COMMAND invalid confirm");return;}
+  console.log("COMMAND confirm requested",c.id,"job",c.job_id);
+  const job=await wp("GET","/jobs/"+encodeURIComponent(c.job_id));
+  console.log("COMMAND confirm precheck",c.id,job.status,JSON.stringify(job.data));
+  if(job.status!==200||job.data?.status!=="prepared"||job.data?.digest!==c.digest){console.error("COMMAND confirm blocked: job not prepared or digest mismatch");return;}
+  if(process.env.FNS_ALLOW_CONFIRM!=="1"){console.log("COMMAND confirm dry-run OK",c.id,"— server-side confirm disabled");return;}
+  const conf=await wp("POST","/jobs/"+encodeURIComponent(c.job_id)+"/confirm",{confirmed:true,digest:c.digest});
+  console.log("COMMAND confirm result",c.id,conf.status,JSON.stringify(conf.data)); return;
+ }
  if(c.action!=="prepare"){console.error("COMMAND rejected action",c.action);return;}
- if(!c.id||!c.drive_file_id||!c.title||!Array.isArray(c.targets)||!c.targets.length){console.error("COMMAND invalid");return;}
+ if(!c.drive_file_id||!c.title||!Array.isArray(c.targets)||!c.targets.length){console.error("COMMAND invalid prepare");return;}
  console.log("COMMAND start",c.id);
  const st=await wp("POST","/storage/drive",{request_id:"drive-"+c.id,drive_file_id:c.drive_file_id});
  console.log("COMMAND storage",c.id,st.status,JSON.stringify(st.data));
  if(st.status<200||st.status>=300||!st.data?.storage_id) return;
- const prep=await wp("POST","/prepare",{
-   request_id:"prepare-"+c.id,storage_id:st.data.storage_id,title:c.title,
-   caption:c.caption||"",facebook_caption:c.facebook_caption||c.caption||"",
-   targets:c.targets,youtube_privacy:c.youtube_privacy||"private",
-   made_for_kids:c.made_for_kids==="yes",synthetic_media:c.synthetic_media==="yes"
- });
+ const prep=await wp("POST","/prepare",{request_id:"prepare-"+c.id,storage_id:st.data.storage_id,title:c.title,caption:c.caption||"",facebook_caption:c.facebook_caption||c.caption||"",targets:c.targets,youtube_privacy:c.youtube_privacy||"private",made_for_kids:c.made_for_kids==="yes",synthetic_media:c.synthetic_media==="yes"});
  console.log("COMMAND prepare",c.id,prep.status,JSON.stringify(prep.data));
- if(prep.data?.job_id){
-   const job=await wp("GET","/jobs/"+encodeURIComponent(prep.data.job_id));
-   console.log("COMMAND status",c.id,job.status,JSON.stringify(job.data));
- }
+ if(prep.data?.job_id){const job=await wp("GET","/jobs/"+encodeURIComponent(prep.data.job_id));console.log("COMMAND status",c.id,job.status,JSON.stringify(job.data));}
  console.log("COMMAND end",c.id,"— no publication");
 }
 const server=http.createServer(async(req,res)=>{
