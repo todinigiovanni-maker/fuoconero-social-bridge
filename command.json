@@ -1,5 +1,12 @@
 {
   "version": 1,
-  "id": "idle-20260925",
-  "action": "noop"
+  "id": "chatgpt-sogni-confusi-20260925-2100",
+  "action": "prepare",
+  "drive_file_id": "1R_EHFzEAE9JfyaZP9B6nIoEte2oKDXVg",
+  "title": "Sogni confusi",
+  "caption": "Sogni confusi. Il nuovo viaggio di Fuoconero tra memoria, desiderio e realtà. #Fuoconero #SogniConfusi",
+  "facebook_caption": "Sogni confusi. Il nuovo viaggio di Fuoconero tra memoria, desiderio e realtà. #Fuoconero #SogniConfusi",
+  "targets": [
+    "ig_reel"
+  ]
 }
