@@ -44,6 +44,26 @@ function yesNo(value, fallback="no"){
  if(value===false||value==="no") return "no";
  return fallback;
 }
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+function allDestinationsSucceeded(job){
+ const d=Array.isArray(job?.destinations)?job.destinations:[];
+ return d.length>0 && d.every(x=>x?.status==='success');
+}
+async function cleanupPublishedJob(jobId,storageId){
+ if(!jobId||!storageId)return;
+ for(let attempt=0;attempt<80;attempt++){
+  await sleep(attempt===0?5000:15000);
+  const job=await wp("GET","/jobs/"+encodeURIComponent(jobId));
+  if(job.status!==200){console.warn("CLEANUP status unavailable",jobId,job.status);continue;}
+  const destinations=Array.isArray(job.data?.destinations)?job.data.destinations:[];
+  if(destinations.some(x=>x?.status==='error')){console.warn("CLEANUP retained after publication error",jobId);return;}
+  if(!allDestinationsSucceeded(job.data))continue;
+  const del=await wp("POST","/storage/delete",{request_id:"cleanup-"+jobId,storage_id:storageId});
+  console.log("CLEANUP result",jobId,del.status,JSON.stringify(del.data));
+  return;
+ }
+ console.warn("CLEANUP retained after timeout",jobId);
+}
 async function runCommand(){
  let c; try{c=JSON.parse(await readFile(new URL("./command.json",import.meta.url),"utf8"));}catch(e){console.error("COMMAND read error",e.message);return;}
  if(!c||c.action==="noop"){console.log("COMMAND idle",c?.id||"none");return;}
@@ -105,7 +125,7 @@ const pump=worker(wp);
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.1",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.3",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
