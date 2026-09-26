@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "id": "mondarsi-poesia-test-20260926-v2",
+  "id": "mondarsi-poesia-test-20260926-v3",
   "action": "render",
   "payload": {
-    "request_id": "mondarsi-poesia-test-20260926-v2",
+    "request_id": "mondarsi-poesia-test-20260926-v3",
     "post_id": 4843,
     "category": "poesie",
     "music_title": "ogni giorno diverso unplagged voce mia",
@@ -12,14 +12,17 @@
     ],
     "outputs": {
       "reel": {
-        "preset": "reel",
+        "preset": "poesia",
         "scene_texts": [
           "MONDARSI",
           "Poi non so\nse sia veramente sudore\no lacrime.",
           "Acqua e sali minerali\nper mondarci.",
           "Intanto mi faccio mondare\nmentre piango con tutto il corpo\ne sudo dagli occhi…"
         ],
-        "allow_extended_duration": false
+        "allow_extended_duration": false,
+        "image_ids": [
+          4845
+        ]
       },
       "story": {
         "preset": "story",
@@ -28,9 +31,11 @@
           "Sudore\no lacrime?",
           "Mi faccio mondare\nmentre piango con tutto il corpo\ne sudo dagli occhi…"
         ],
-        "allow_extended_duration": false
+        "allow_extended_duration": false,
+        "image_ids": [
+          4845
+        ]
       }
-    },
-    "preset": "reel"
+    }
   }
 }
