@@ -1,14 +1,8 @@
 {
   "version": 1,
-  "id": "vinghioni-youtube-short-20260926-17",
-  "action": "prepare",
-  "drive_file_id": "1t2Eag9ox2yvlYaJeGi6gsFHq15TBzY0k",
-  "title": "Vinghioni – 7 minuti nel nero | Dossier Fuoconero #06",
-  "caption": "Sette minuti nel nero. Poi Vinghioni tornò. Ma da dove?\n\nDossier #06 – Fuoconero\nhttps://fuoconero.com/2026/07/13/dossier-06-il-vigile-del-fuoco-che-torno-dal-nero/\n\n#Fuoconero #DossierFuoconero #Vinghioni #Shorts",
-  "targets": [
-    "youtube_short"
-  ],
-  "youtube_privacy": "public",
-  "made_for_kids": false,
-  "synthetic_media": false
+  "id": "confirm-vinghioni-youtube-short-20260926-17",
+  "action": "confirm",
+  "job_id": "f8122f9f-6b8c-471d-9709-877176870b5d",
+  "digest": "d1f57d425ee65a940b33790658641d6e40525abf446620d2cc494569031a4f68",
+  "confirmed": true
 }
