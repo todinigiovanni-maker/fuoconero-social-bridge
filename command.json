@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "id": "centralia-7613-remote-render-20260926-02",
+  "id": "centralia-7613-remote-render-20260926-03",
   "action": "render",
   "payload": {
-    "request_id": "centralia-7613-remote-render-20260926-02",
+    "request_id": "centralia-7613-remote-render-20260926-03",
     "post_id": 7613,
     "category": "dossier",
     "music_title": "Fuoconero",
@@ -28,7 +28,7 @@
           "La miniera ha raggiunto il Fuoco.",
           "DOSSIER #11\nfuoconero.com"
         ],
-        "allow_extended_duration": false
+        "allow_extended_duration": true
       },
       "story": {
         "preset": "story",
