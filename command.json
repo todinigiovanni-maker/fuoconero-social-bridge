@@ -1,8 +1,9 @@
 {
   "version": 1,
-  "id": "animali-metallari-story-confirm-20260927-001",
-  "action": "confirm",
-  "job_id": "d56d4ea9-8634-49a3-8a8b-40edb3658aad",
-  "digest": "55aa8eb187c1eab27e6d64ea3fa7a854b4c23ed0a41a2352c5cf25dc5d267f9a",
-  "confirmed": true
+  "id": "inspect-animali-metallari-publication-20260927-001",
+  "action": "inspect",
+  "job_ids": [
+    "c94d0617-67fd-4242-a841-bb792e982ac0",
+    "d56d4ea9-8634-49a3-8a8b-40edb3658aad"
+  ]
 }
