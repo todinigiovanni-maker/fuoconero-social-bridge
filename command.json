@@ -1,13 +1,8 @@
 {
   "version": 1,
-  "id": "publish-vinghioni-story-20260926-01",
-  "action": "prepare",
-  "drive_file_id": "1C2kFw7SsLYduTOG9xqneJgmDbX7xs-VO",
-  "title": "Dossier #06 – Vinghioni",
-  "caption": "",
-  "facebook_caption": "",
-  "targets": [
-    "ig_story",
-    "fb_story"
-  ]
+  "id": "confirm-vinghioni-story-20260926-01",
+  "action": "confirm",
+  "job_id": "b59614cd-89d1-4fbd-8e82-c16c580ab35c",
+  "digest": "13e6d7e01965be61d8ea4f278aa30e110d1ebd9f122d003bf8a119ff7059842a",
+  "confirmed": true
 }
