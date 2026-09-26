@@ -1,12 +1,11 @@
 {
   "version": 1,
-  "id": "animali-metallari-render-fix-20260927",
+  "id": "animali-metallari-render-musicid-20260927",
   "action": "render",
   "payload": {
-    "request_id": "animali-metallari-render-fix-20260927",
+    "request_id": "animali-metallari-render-musicid-20260927",
     "post_id": 5127,
     "category": "ANI…MALE",
-    "music_title": "Fuoconero (rock)",
     "outputs": {
       "reel": {
         "preset": "animale"
@@ -14,6 +13,7 @@
       "story": {
         "preset": "story"
       }
-    }
+    },
+    "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"
   }
 }
