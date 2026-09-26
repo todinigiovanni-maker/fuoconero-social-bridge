@@ -85,5 +85,6 @@ const server=http.createServer(async(req,res)=>{
 });
 server.listen(PORT,()=>{
  console.log("Fuoconero Social Bridge listening on",PORT);
+ Promise.all([wp("GET","/reel-maker/presets"),wp("GET","/reel-maker/article/7443")]).then(([p,a])=>{console.log("AUDIT presets",p.status,JSON.stringify(p.data));console.log("AUDIT article7443",a.status,JSON.stringify(a.data));}).catch(e=>console.error("AUDIT error",e.message));
  runCommand().catch(e=>console.error("COMMAND error",e.message));
 });
