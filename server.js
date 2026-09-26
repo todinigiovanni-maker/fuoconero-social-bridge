@@ -19,6 +19,19 @@ function auth(method,signRoute,raw){
  const sig=crypto.createHmac("sha256",Buffer.from(secret,"hex")).update(canonical).digest("hex");
  return {"Content-Type":"application/json","X-FNS-Key":key,"X-FNS-Timestamp":ts,"X-FNS-Nonce":nonce,"X-FNS-Signature":sig};
 }
+async function forward(req,path,raw){
+ const headers={"Content-Type":"application/json"};
+ for(const name of ["X-FNS-Key","X-FNS-Timestamp","X-FNS-Nonce","X-FNS-Signature"]){
+  const value=req.headers[name.toLowerCase()];
+  if(typeof value!=="string"||!value||value.length>160) return {status:401,data:{error:"authentication_required"}};
+  headers[name]=value;
+ }
+ // Preserve caller identity, raw body and signature. WordPress validates HMAC,
+ // host/route binding, timestamp, durable nonce, scopes and rate limit.
+ const r=await fetch(BASE+REST+path,{method:req.method,headers,body:req.method==="GET"?undefined:raw,signal:AbortSignal.timeout(90000),redirect:"error"});
+ let data;try{data=await r.json();}catch{data={error:"invalid_upstream_response"};}
+ return {status:r.status,data};
+}
 async function wp(method,path,payload){
  const raw=payload===undefined?"":JSON.stringify(payload), restRoute=REST+path, signRoute=SIGN+path;
  const r=await fetch(BASE+restRoute,{method,headers:auth(method,signRoute,raw),body:method==="GET"?undefined:raw});
@@ -70,11 +83,12 @@ const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
   if(req.method==="GET"&&u.pathname==="/health") return json(res,200,{ok:true,service:"fuoconero-social-bridge",mode:"prepare-status-command"});
-  if(req.method==="GET"&&u.pathname==="/capabilities"){const x=await wp("GET","/capabilities");return json(res,x.status,x.data);}
-  if(req.method==="POST"&&u.pathname==="/storage/drive"){const raw=await body(req);const x=await wp("POST","/storage/drive",JSON.parse(raw||"{}"));return json(res,x.status,x.data);}
-  if(req.method==="POST"&&u.pathname==="/prepare"){const raw=await body(req);const x=await wp("POST","/prepare",JSON.parse(raw||"{}"));return json(res,x.status,x.data);}
+  if(u.search) return json(res,400,{error:"query_not_allowed"});
+  if(req.method==="GET"&&u.pathname==="/capabilities"){const x=await forward(req,"/capabilities","");return json(res,x.status,x.data);}
+  if(req.method==="POST"&&u.pathname==="/storage/drive"){const raw=await body(req);const x=await forward(req,"/storage/drive",raw);return json(res,x.status,x.data);}
+  if(req.method==="POST"&&u.pathname==="/prepare"){const raw=await body(req);const x=await forward(req,"/prepare",raw);return json(res,x.status,x.data);}
   const m=u.pathname.match(/^\/jobs\/([^/]+)$/);
-  if(req.method==="GET"&&m){const x=await wp("GET","/jobs/"+encodeURIComponent(m[1]));return json(res,x.status,x.data);}
+  if(req.method==="GET"&&m){const x=await forward(req,"/jobs/"+encodeURIComponent(m[1]),"");return json(res,x.status,x.data);}
   return json(res,404,{error:"not_found"});
  }catch(e){return json(res,500,{error:"bridge_error",message:e.message});}
 });
