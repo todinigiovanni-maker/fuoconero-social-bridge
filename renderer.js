@@ -50,7 +50,7 @@ function text(ctx,lines,rect,size,color,align,font){
  const x=align==='center'?rect.x+rect.width/2:align==='right'?rect.x+rect.width:rect.x;
  const y=rect.y+(rect.height-lines.length*size*1.2)/2;lines.forEach((s,i)=>ctx.fillText(s,x,y+i*size*1.2));
 }
-export async function render(plan,dir,fetchAsset=download,shared={}){
+export async function render(plan,dir,fetchAsset=download,shared={},outputKind='reel'){
  dir=resolve(dir);const p=plan.preset,sceneCards=cards(plan),font=family(p,plan.brand);let duration=sceneCards.reduce((a,b)=>a+b.duration,0);
  console.log('RENDER phase music-download start');const music=shared.music||join(dir,'music.audio');if(!shared.music)await fetchAsset(plan.music.url,music);console.log('RENDER phase music-download end',shared.music?'cached':'downloaded');
  // Decode locally downloaded files only. FFmpeg network protocols are disabled.
@@ -64,7 +64,7 @@ export async function render(plan,dir,fetchAsset=download,shared={}){
  let brandBackground=null;if(p.render.background_source==='brand_background'){
   if(!plan.brand.assets.background?.url)throw new Error('Sfondo brand non configurato.');brandBackground=join(dir,'brand-background');await fetchAsset(plan.brand.assets.background.url,brandBackground);
  }
- console.log('RENDER phase scene-build start',sceneCards.length);const sceneParts=[];const threads=Math.max(1,Number(process.env.FNS_FFMPEG_THREADS||1));for(let i=0;i<sceneCards.length;i++){
+ console.log('RENDER phase scene-build start',sceneCards.length);const renderFps=outputKind==='story'?24:2;const sceneParts=[];const threads=Math.max(1,Number(process.env.FNS_FFMPEG_THREADS||1));for(let i=0;i<sceneCards.length;i++){
   const c=sceneCards[i],source=assets[c.image_index%assets.length],bg=join(dir,`bg-${i}.png`),vis=join(dir,`vis-${i}.png`),overlay=join(dir,`text-${i}.png`);
   const canvas=createCanvas(1080,1920),ctx=canvas.getContext('2d');ctx.fillStyle=p.style.background_color;ctx.fillRect(0,0,1080,1920);
   if(p.render.background_source!=='solid'){
@@ -80,7 +80,7 @@ export async function render(plan,dir,fetchAsset=download,shared={}){
   console.log('RENDER phase scene ready',i+1,'of',sceneCards.length);
   const part=join(dir,`scene-${i}.mp4`);
   const filter=`[0:v][1:v]overlay=${v.x}:${v.y}[b];[b][2:v]overlay=0:0,format=yuv420p,trim=duration=${c.duration},setpts=PTS-STARTPTS[out]`;
-  console.log('RENDER phase scene-video start',i+1,'of',sceneCards.length);await run(ffmpeg,['-nostdin','-v','error','-y','-filter_complex_threads',String(threads),'-threads',String(threads),'-loop','1','-framerate','2','-i',bg,'-loop','1','-framerate','2','-i',vis,'-loop','1','-framerate','2','-i',overlay,'-filter_complex',filter,'-map','[out]','-c:v','libx264','-threads',String(threads),'-preset','ultrafast','-crf','25','-maxrate','3500k','-bufsize','7000k','-pix_fmt','yuv420p','-r','2','-movflags','+faststart',part]);console.log('RENDER phase scene-video end',i+1,'of',sceneCards.length);sceneParts.push(part);
+  console.log('RENDER phase scene-video start',i+1,'of',sceneCards.length);await run(ffmpeg,['-nostdin','-v','error','-y','-filter_complex_threads',String(threads),'-threads',String(threads),'-loop','1','-framerate',String(renderFps),'-i',bg,'-loop','1','-framerate',String(renderFps),'-i',vis,'-loop','1','-framerate',String(renderFps),'-i',overlay,'-filter_complex',filter,'-map','[out]','-c:v','libx264','-threads',String(threads),'-preset','ultrafast','-crf','25','-maxrate','3500k','-bufsize','7000k','-pix_fmt','yuv420p','-r',String(renderFps),'-movflags','+faststart',part]);console.log('RENDER phase scene-video end',i+1,'of',sceneCards.length);sceneParts.push(part);
  }
  console.log('RENDER phase scene-build end');const concatFile=join(dir,'concat.txt');await writeFile(concatFile,sceneParts.map(x=>"file '"+x.replaceAll("'","'\\''")+"'").join('\n')+'\n');const videoOnly=join(dir,'video.mp4');
  console.log('RENDER phase ffmpeg-video start');await run(ffmpeg,['-nostdin','-v','error','-y','-f','concat','-safe','0','-protocol_whitelist','file,pipe','-i',concatFile,'-c','copy','-movflags','+faststart',videoOnly]);console.log('RENDER phase ffmpeg-video end');const output=join(dir,'output.mp4');const fadeIn=Math.min(p.render.fade_in,duration/2),fadeOut=Math.min(p.render.fade_out,duration/2);
