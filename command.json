@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "id": "centralia-7613-diagnostic-20260926-08",
+  "id": "centralia-7613-lowcpu-20260926-09",
   "action": "render",
   "payload": {
-    "request_id": "centralia-7613-diagnostic-20260926-08",
+    "request_id": "centralia-7613-lowcpu-20260926-09",
     "post_id": 7613,
     "category": "dossier",
     "music_title": "Fuoconero",
