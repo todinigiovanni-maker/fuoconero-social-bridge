@@ -15,7 +15,8 @@ function auth(method,signRoute,raw){
  if(!/^[0-9a-fA-F]{64}$/.test(secret)) throw new Error("FNS_SECRET must be 64 hex chars");
  const ts=Math.floor(Date.now()/1000).toString(), nonce=crypto.randomBytes(16).toString("hex");
  const hash=crypto.createHash("sha256").update(raw).digest("hex");
- const canonical=[BASE,method,signRoute,ts,nonce,hash].join("\n");
+ const canonical=[BASE,method,signRoute,ts,nonce,hash].join("
+");
  const sig=crypto.createHmac("sha256",Buffer.from(secret,"hex")).update(canonical).digest("hex");
  return {"Content-Type":"application/json","X-FNS-Key":key,"X-FNS-Timestamp":ts,"X-FNS-Nonce":nonce,"X-FNS-Signature":sig};
 }
@@ -70,7 +71,8 @@ const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
   if(req.method==="GET"&&u.pathname==="/health") return json(res,200,{ok:true,service:"fuoconero-social-bridge",mode:"prepare-status-command"});
-  if(req.method==="GET"&&u.pathname==="/selftest/reel-maker"){\n   const [presets,article]=await Promise.all([wp("GET","/reel-maker/presets"),wp("GET","/reel-maker/article/7443")]);
+  if(req.method==="GET"&&u.pathname==="/selftest/reel-maker"){
+   const [presets,article]=await Promise.all([wp("GET","/reel-maker/presets"),wp("GET","/reel-maker/article/7443")]);
    console.log("SELFTEST reel-maker presets",presets.status,JSON.stringify(presets.data));
    console.log("SELFTEST reel-maker article-7443",article.status,JSON.stringify(article.data));
    return json(res,200,{presets,article});
