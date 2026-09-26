@@ -69,7 +69,7 @@ async function runCommand(){
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health") return json(res,200,{ok:true,service:"fuoconero-social-bridge",mode:"prepare-status-command"});
+  if(req.method==="GET"&&u.pathname==="/health") return json(res,200,{ok:true,service:"fuoconero-social-bridge",mode:"prepare-status-command"});\n  if(req.method==="GET"&&u.pathname==="/selftest/reel-maker"){\n   const [presets,article]=await Promise.all([wp("GET","/reel-maker/presets"),wp("GET","/reel-maker/article/7443")]);\n   console.log("SELFTEST reel-maker presets",presets.status,JSON.stringify(presets.data));\n   console.log("SELFTEST reel-maker article-7443",article.status,JSON.stringify(article.data));\n   return json(res,200,{presets,article});\n  }
   if(req.method==="GET"&&u.pathname==="/capabilities"){const x=await wp("GET","/capabilities");return json(res,x.status,x.data);}
   if(req.method==="GET"&&u.pathname==="/reel-maker/presets"){const x=await wp("GET","/reel-maker/presets");return json(res,x.status,x.data);}
   const rp=u.pathname.match(/^\/reel-maker\/presets\/([^/]+)$/);
