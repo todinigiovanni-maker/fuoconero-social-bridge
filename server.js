@@ -78,7 +78,7 @@ async function runCommand(){
  }
  if(c.action==="render"){
   const p=c.payload;
-  if(!p||typeof p!=="object"||!p.request_id||!Number.isInteger(p.post_id)||!p.category||!p.music_title||!p.outputs||typeof p.outputs!=="object"){
+  if(!p||typeof p!=="object"||!p.request_id||!Number.isInteger(p.post_id)||!p.category||(!p.music_title&&!p.music_id)||!p.outputs||typeof p.outputs!=="object"){
    console.error("COMMAND invalid render");return;
   }
   // Repository-triggered render is deliberately render-only. It uses the existing
