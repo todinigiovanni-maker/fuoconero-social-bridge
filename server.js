@@ -86,6 +86,11 @@ async function runCommand(){
   console.log("COMMAND drivecheck result",c.id,r.status,JSON.stringify(r.data));
   return;
  }
+ if(c.action==="inspect"){
+  const ids=Array.isArray(c.job_ids)?c.job_ids:[c.job_id].filter(Boolean);
+  for(const id of ids){const j=await wp("GET","/jobs/"+encodeURIComponent(id));console.log("COMMAND inspect",c.id,id,j.status,JSON.stringify(j.data));}
+  return;
+ }
  if(c.action==="render"){
   const p={...c.payload};
   if(p.category&&CATEGORY_LIBRARY[p.category]) p.category=CATEGORY_LIBRARY[p.category];
