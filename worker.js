@@ -5,6 +5,7 @@ import {render,download} from './renderer.js';
 export function worker(wp){
  let busy=false,last=0;
  async function call(path,data){const r=await wp('POST','/reel-maker/render-worker'+path,data);if(r.status<200||r.status>=300)throw new Error(r.data?.message||'Worker HTTP '+r.status);return r.data;}
+ async function publishTick(){try{await wp('POST','/publish-worker/tick',{});}catch(e){console.warn('PUBLISH tick failed',e.message);}}
  async function pump(){
   if(busy||Date.now()-last<20000)return;busy=true;last=Date.now();let job,dir;
   try{
@@ -37,5 +38,5 @@ export function worker(wp){
    if(job)try{await call('/'+job.render_job_id+'/fail',{lease:job.lease,error:e.message.replace(/https?:\/\/\S+/g,'[url]')});}catch{/* Durable lease expiry handles recovery; no upload retry. */}
   }finally{if(dir)await rm(dir,{recursive:true,force:true});busy=false;}
  }
- const timer=setInterval(()=>void pump(),20000);timer.unref();return pump;
+ const timer=setInterval(()=>{void pump();void publishTick();},20000);timer.unref();void publishTick();return pump;
 }
