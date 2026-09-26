@@ -1,8 +1,16 @@
 {
   "version": 1,
-  "id": "animali-metallari-reel-confirm-20260927-001",
-  "action": "confirm",
-  "job_id": "c94d0617-67fd-4242-a841-bb792e982ac0",
-  "digest": "ff076fdde86b720e16dc4666e128af2e3404fb8194e33a104bb08584fa8efe2a",
-  "confirmed": true
+  "id": "animali-metallari-story-publish-20260927-001",
+  "action": "prepare",
+  "drive_file_id": "1wFMfIA0unR9dp4-ISUSIf1PJ4fYNtqm4",
+  "title": "Animali metallari",
+  "caption": "",
+  "facebook_caption": "",
+  "targets": [
+    "ig_story",
+    "fb_story"
+  ],
+  "youtube_privacy": "public",
+  "made_for_kids": "no",
+  "synthetic_media": "no"
 }
