@@ -1,12 +1,8 @@
 {
   "version": 1,
-  "id": "vinghioni-fb-story-24fps-publish-20260926-16",
-  "action": "prepare",
-  "drive_file_id": "1O27bKhUYsLnPgDucDDDIchQZfzkpeIRa",
-  "title": "Dossier 06 – Il vigile del fuoco che tornò dal nero",
-  "caption": "Sette minuti nel nero. Poi Vinghioni tornò. Ma da dove? 🔥⚫\n\nDossier #06 – Fuoconero\n#Fuoconero #DossierFuoconero #Vinghioni",
-  "facebook_caption": "Sette minuti nel nero. Poi Vinghioni tornò. Ma da dove? 🔥⚫\n\nDossier #06 – Fuoconero\nhttps://fuoconero.com/2026/07/13/dossier-06-il-vigile-del-fuoco-che-torno-dal-nero/\n#Fuoconero #DossierFuoconero #Vinghioni",
-  "targets": [
-    "fb_story"
-  ]
+  "id": "confirm-vinghioni-fb-story-24fps-20260926-16",
+  "action": "confirm",
+  "job_id": "6be630eb-edd8-4b28-a24c-bbae1103059f",
+  "digest": "43fbaee0f5703fbd21308b9d9e740f746b8963b19f7741e27ee9e2e3a4220887",
+  "confirmed": true
 }
