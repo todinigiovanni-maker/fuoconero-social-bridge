@@ -1,9 +1,5 @@
 {
   "version": 1,
-  "id": "inspect-animali-metallari-publication-20260927-003",
-  "action": "inspect",
-  "job_ids": [
-    "c94d0617-67fd-4242-a841-bb792e982ac0",
-    "d56d4ea9-8634-49a3-8a8b-40edb3658aad"
-  ]
+  "id": "idle-20260927-after-animali-metallari",
+  "action": "noop"
 }
