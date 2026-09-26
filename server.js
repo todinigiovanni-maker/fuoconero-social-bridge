@@ -71,6 +71,11 @@ const server=http.createServer(async(req,res)=>{
   const u=new URL(req.url,"http://localhost");
   if(req.method==="GET"&&u.pathname==="/health") return json(res,200,{ok:true,service:"fuoconero-social-bridge",mode:"prepare-status-command"});
   if(req.method==="GET"&&u.pathname==="/capabilities"){const x=await wp("GET","/capabilities");return json(res,x.status,x.data);}
+  if(req.method==="GET"&&u.pathname==="/audit/reel-maker"){
+   const presets=await wp("GET","/reel-maker/presets");
+   const article=await wp("GET","/reel-maker/article/7443");
+   return json(res,200,{presets,article});
+  }
   if(req.method==="POST"&&u.pathname==="/storage/drive"){const raw=await body(req);const x=await wp("POST","/storage/drive",JSON.parse(raw||"{}"));return json(res,x.status,x.data);}
   if(req.method==="POST"&&u.pathname==="/prepare"){const raw=await body(req);const x=await wp("POST","/prepare",JSON.parse(raw||"{}"));return json(res,x.status,x.data);}
   const m=u.pathname.match(/^\/jobs\/([^/]+)$/);
