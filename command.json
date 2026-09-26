@@ -1,17 +1,28 @@
 {
   "version": 1,
-  "id": "animali-metallari-render-musicid-20260927",
+  "id": "animali-metallari-render-scenes-20260927",
   "action": "render",
   "payload": {
-    "request_id": "animali-metallari-render-musicid-20260927",
+    "request_id": "animali-metallari-render-scenes-20260927",
     "post_id": 5127,
     "category": "ANI…MALE",
     "outputs": {
       "reel": {
-        "preset": "animale"
+        "preset": "animale",
+        "scene_texts": [
+          "Animali così metallari… da avere il ferro nell’armatura.",
+          "La lumaca di ferro incorpora solfuri di ferro nel guscio e nelle scaglie.",
+          "I chitoni hanno denti rinforzati con magnetite. I castori, smalto ricco di ferro.",
+          "Il metal esisteva molto prima delle chitarre distorte."
+        ]
       },
       "story": {
-        "preset": "story"
+        "preset": "story",
+        "scene_texts": [
+          "Animali così metallari… da avere il ferro nell’armatura.",
+          "Lumache corazzate, denti con magnetite e smalto ricco di ferro.",
+          "Il metal? La natura l’aveva inventato prima di noi."
+        ]
       }
     },
     "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"
