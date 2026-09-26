@@ -13,8 +13,13 @@ export function worker(wp){
    for(const [kind,plan] of Object.entries(job.plans)){
     if(job.outputs[kind].status==='completed')continue;
     const folder=join(dir,kind);await mkdir(folder);let beat=Promise.resolve(),leaseError=null;
-    const timer=setInterval(()=>{beat=beat.then(()=>call('/'+job.render_job_id+'/heartbeat',{lease:job.lease})).catch(e=>{leaseError=e;});},60000);
-    let result;try{result=await render(plan,folder);}finally{clearInterval(timer);await beat;}
+    const timer=setInterval(()=>{beat=beat.then(()=>call('/'+job.render_job_id+'/heartbeat',{lease:job.lease})).catch(e=>{leaseError=e;});},20000);
+    // Render Free decides idleness from inbound traffic, while this worker spends
+    // most of its time doing CPU work and outbound calls. Keep the web service
+    // awake only for the lifetime of an active FFmpeg output.
+    const keepAliveUrl=process.env.RENDER_EXTERNAL_URL||process.env.FNS_SELF_URL;
+    const keepAlive=keepAliveUrl?setInterval(()=>{fetch(keepAliveUrl.replace(/\/$/,'')+'/health',{signal:AbortSignal.timeout(15000)}).catch(()=>{});},240000):null;
+    let result;try{result=await render(plan,folder);}finally{clearInterval(timer);if(keepAlive)clearInterval(keepAlive);await beat;}
     if(leaseError)throw new Error('Lease non rinnovato: output non caricato.');
     // One request only. Never retry an upload after a lost/uncertain response.
     const {path,...metadata}=result;
