@@ -1,8 +1,5 @@
 {
   "version": 1,
-  "id": "mondarsi-story-confirm-20260926",
-  "action": "confirm",
-  "job_id": "13696665-c748-4e19-8400-f551550cda93",
-  "digest": "e5e80d26c8ba7a7e0b263d8ae9731945e83bdc70eeefb458ef9c44d80f8e2395",
-  "confirmed": true
+  "id": "idle-after-publish-worker-fix",
+  "action": "noop"
 }
