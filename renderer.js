@@ -64,7 +64,7 @@ export async function render(plan,dir,fetchAsset=download){
  let brandBackground=null;if(p.render.background_source==='brand_background'){
   if(!plan.brand.assets.background?.url)throw new Error('Sfondo brand non configurato.');brandBackground=join(dir,'brand-background');await fetchAsset(plan.brand.assets.background.url,brandBackground);
  }
- console.log('RENDER phase scene-build start',sceneCards.length);const sceneInputs=[];const sceneFilters=[];for(let i=0;i<sceneCards.length;i++){
+ console.log('RENDER phase scene-build start',sceneCards.length);const sceneParts=[];const threads=Math.max(1,Number(process.env.FNS_FFMPEG_THREADS||1));for(let i=0;i<sceneCards.length;i++){
   const c=sceneCards[i],source=assets[c.image_index%assets.length],bg=join(dir,`bg-${i}.png`),vis=join(dir,`vis-${i}.png`),overlay=join(dir,`text-${i}.png`);
   const canvas=createCanvas(1080,1920),ctx=canvas.getContext('2d');ctx.fillStyle=p.style.background_color;ctx.fillRect(0,0,1080,1920);
   if(p.render.background_source!=='solid'){
@@ -77,14 +77,13 @@ export async function render(plan,dir,fetchAsset=download){
   text(ctx,c.lines,p.layout.body,p.typography.body_size,p.style.text_color,p.style.text_align,font);
   ctx.font=`${p.typography.cta_size}px "${font}"`;text(ctx,wrap(ctx,p.cta,p.layout.cta.width),p.layout.cta,p.typography.cta_size,p.style.accent_color,p.style.text_align,font);
   if(logo){ctx.globalAlpha=p.logo.opacity;ctx.drawImage(logo,p.logo.x,p.logo.y);ctx.globalAlpha=1;}await writeFile(overlay,canvas.toBuffer('image/png'));
-  sceneInputs.push('-loop','1','-framerate','15','-i',bg,'-loop','1','-framerate','15','-i',vis,'-loop','1','-framerate','15','-i',overlay);
-  const frames=Math.round(c.duration*15),z=p.render.zoom,dx=p.render.pan_x,dy=p.render.pan_y,base=i*3;
-  console.log('RENDER phase scene ready',i+1,'of',sceneCards.length);sceneFilters.push(`[${base+1}:v]zoompan=z='1+${z-1}*on/${Math.max(1,frames-1)}':x='(iw-iw/zoom)*(0.5+${dx}*0.5*on/${frames})':y='(ih-ih/zoom)*(0.5+${dy}*0.5*on/${frames})':d=1:s=${v.width}x${v.height}:fps=15[z${i}];[${base}:v][z${i}]overlay=${v.x}:${v.y}[b${i}];[b${i}][${base+2}:v]overlay=0:0,format=yuv420p,trim=duration=${c.duration},setpts=PTS-STARTPTS[s${i}]`);
+  console.log('RENDER phase scene ready',i+1,'of',sceneCards.length);
+  const frames=Math.round(c.duration*15),z=p.render.zoom,dx=p.render.pan_x,dy=p.render.pan_y,part=join(dir,`scene-${i}.mp4`);
+  const filter=`[1:v]zoompan=z='1+${z-1}*on/${Math.max(1,frames-1)}':x='(iw-iw/zoom)*(0.5+${dx}*0.5*on/${frames})':y='(ih-ih/zoom)*(0.5+${dy}*0.5*on/${frames})':d=1:s=${v.width}x${v.height}:fps=15[z];[0:v][z]overlay=${v.x}:${v.y}[b];[b][2:v]overlay=0:0,format=yuv420p,trim=duration=${c.duration},setpts=PTS-STARTPTS[out]`;
+  console.log('RENDER phase scene-video start',i+1,'of',sceneCards.length);await run(ffmpeg,['-nostdin','-v','error','-y','-filter_complex_threads',String(threads),'-threads',String(threads),'-loop','1','-framerate','15','-i',bg,'-loop','1','-framerate','15','-i',vis,'-loop','1','-framerate','15','-i',overlay,'-filter_complex',filter,'-map','[out]','-c:v','libx264','-threads',String(threads),'-preset','ultrafast','-crf','25','-maxrate','3500k','-bufsize','7000k','-pix_fmt','yuv420p','-r','15','-movflags','+faststart',part]);console.log('RENDER phase scene-video end',i+1,'of',sceneCards.length);sceneParts.push(part);
  }
- sceneFilters.push(sceneCards.map((_,i)=>`[s${i}]`).join('')+`concat=n=${sceneCards.length}:v=1:a=0[out]`);
- console.log('RENDER phase scene-build end');const videoOnly=join(dir,'video.mp4'),threads=Math.max(1,Number(process.env.FNS_FFMPEG_THREADS||1));
- console.log('RENDER phase ffmpeg-video start');await run(ffmpeg,['-nostdin','-v','error','-y','-filter_complex_threads',String(threads),'-threads',String(threads),...sceneInputs,'-filter_complex',sceneFilters.join(';'),'-map','[out]','-c:v','libx264','-threads',String(threads),'-preset','ultrafast','-crf','25','-maxrate','3500k','-bufsize','7000k','-pix_fmt','yuv420p','-r','15','-movflags','+faststart',videoOnly]);
- console.log('RENDER phase ffmpeg-video end');const output=join(dir,'output.mp4');const fadeIn=Math.min(p.render.fade_in,duration/2),fadeOut=Math.min(p.render.fade_out,duration/2);
+ console.log('RENDER phase scene-build end');const concatFile=join(dir,'concat.txt');await writeFile(concatFile,sceneParts.map(x=>"file '"+x.replaceAll("'","'\\''")+"'").join('\\n')+'\\n');const videoOnly=join(dir,'video.mp4');
+ console.log('RENDER phase ffmpeg-video start');await run(ffmpeg,['-nostdin','-v','error','-y','-f','concat','-safe','0','-protocol_whitelist','file,pipe','-i',concatFile,'-c','copy','-movflags','+faststart',videoOnly]);console.log('RENDER phase ffmpeg-video end');const output=join(dir,'output.mp4');const fadeIn=Math.min(p.render.fade_in,duration/2),fadeOut=Math.min(p.render.fade_out,duration/2);
  console.log('RENDER phase ffmpeg-audio start');await run(ffmpeg,['-nostdin','-v','error','-y','-threads','1','-protocol_whitelist','file,pipe','-i',videoOnly,'-stream_loop','-1','-ss',String(p.render.audio_start),'-protocol_whitelist','file,pipe','-i',music,'-map','0:v:0','-map','1:a:0','-t',String(duration),'-c:v','copy','-c:a','aac','-b:a','128k','-ar','48000','-ac','2','-af',`volume=${p.render.music_gain_db}dB,afade=t=in:st=0:d=${fadeIn},afade=t=out:st=${duration-fadeOut}:d=${fadeOut}`,'-movflags','+faststart',output]);
  console.log('RENDER phase ffmpeg-audio end');const size=(await stat(output)).size;if(size>33554432)throw new Error('MP4 superiore al limite storage di 32 MiB. Nessun upload eseguito.');
  console.log('RENDER phase verify start');const info=JSON.parse(await run(probe.path,['-v','error','-show_streams','-show_format','-of','json',output],30000));const video=info.streams.find(s=>s.codec_type==='video'),audio=info.streams.find(s=>s.codec_type==='audio');
