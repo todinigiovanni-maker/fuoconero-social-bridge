@@ -1,8 +1,25 @@
 {
   "version": 1,
-  "id": "confirm-retry-vinghioni-fb-story-20260926-02",
-  "action": "confirm",
-  "job_id": "7583fbac-23ac-4511-a669-24494ef79c38",
-  "digest": "952a145bec548bf5095ff385303a0b05df36868ebb7b65238d8171ead59738d0",
-  "confirmed": true
+  "id": "vinghioni-6786-story-24fps-20260926-15",
+  "action": "render",
+  "payload": {
+    "request_id": "vinghioni-6786-story-24fps-20260926-15",
+    "post_id": 6786,
+    "category": "dossier",
+    "music_title": "fuoconero rock",
+    "image_ids": [
+      6789
+    ],
+    "outputs": {
+      "story": {
+        "preset": "story",
+        "scene_texts": [
+          "VINGHIONI\n7 minuti nel nero",
+          "«Sotto il cinque per cento.»",
+          "DOSSIER #06\nfuoconero.com"
+        ],
+        "allow_extended_duration": false
+      }
+    }
+  }
 }
