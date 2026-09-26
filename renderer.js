@@ -8,7 +8,7 @@ import ffmpeg from 'ffmpeg-static';
 import probe from 'ffprobe-static';
 GlobalFonts.registerFromPath(new URL('./node_modules/dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf',import.meta.url).pathname,'FNS Sans');
 GlobalFonts.registerFromPath(new URL('./node_modules/dejavu-fonts-ttf/ttf/DejaVuSerif-Bold.ttf',import.meta.url).pathname,'FNS Serif');
-// Render keeps the same visual pipeline/output contract, but lets libvips use the\n// CPU assigned by Render instead of forcing every image operation onto one thread.\nsharp.concurrency(Math.max(1,Number(process.env.FNS_SHARP_THREADS||2)));sharp.cache(false);
+// Render keeps the same visual pipeline/output contract. Render currently has one effective CPU,\n// so avoid oversubscribing libvips/FFmpeg; the main optimization is one FFmpeg encode per output.\nsharp.concurrency(Math.max(1,Number(process.env.FNS_SHARP_THREADS||1)));sharp.cache(false);
 export function run(exe,args,timeout=1200000){return new Promise((resolve,reject)=>{
  const p=spawn(exe,args,{stdio:['ignore','pipe','pipe'],shell:false});let out='',err='';
  const timer=setTimeout(()=>{p.kill('SIGKILL');reject(new Error('Tempo massimo renderer superato.'));},timeout);
@@ -64,8 +64,8 @@ export async function render(plan,dir,fetchAsset=download){
  let brandBackground=null;if(p.render.background_source==='brand_background'){
   if(!plan.brand.assets.background?.url)throw new Error('Sfondo brand non configurato.');brandBackground=join(dir,'brand-background');await fetchAsset(plan.brand.assets.background.url,brandBackground);
  }
- const parts=[];for(let i=0;i<sceneCards.length;i++){
-  const c=sceneCards[i],source=assets[c.image_index%assets.length],bg=join(dir,`bg-${i}.png`),vis=join(dir,`vis-${i}.png`),overlay=join(dir,`text-${i}.png`),part=join(dir,`part-${i}.mp4`);
+ const sceneInputs=[];const sceneFilters=[];for(let i=0;i<sceneCards.length;i++){
+  const c=sceneCards[i],source=assets[c.image_index%assets.length],bg=join(dir,`bg-${i}.png`),vis=join(dir,`vis-${i}.png`),overlay=join(dir,`text-${i}.png`);
   const canvas=createCanvas(1080,1920),ctx=canvas.getContext('2d');ctx.fillStyle=p.style.background_color;ctx.fillRect(0,0,1080,1920);
   if(p.render.background_source!=='solid'){
    let pipe=sharp(brandBackground||source,{limitInputPixels:40000000}).resize(1080,1920,{fit:'cover'});if(p.render.background_blur>0)pipe=pipe.blur(Math.max(.3,p.render.background_blur));
@@ -77,13 +77,15 @@ export async function render(plan,dir,fetchAsset=download){
   text(ctx,c.lines,p.layout.body,p.typography.body_size,p.style.text_color,p.style.text_align,font);
   ctx.font=`${p.typography.cta_size}px "${font}"`;text(ctx,wrap(ctx,p.cta,p.layout.cta.width),p.layout.cta,p.typography.cta_size,p.style.accent_color,p.style.text_align,font);
   if(logo){ctx.globalAlpha=p.logo.opacity;ctx.drawImage(logo,p.logo.x,p.logo.y);ctx.globalAlpha=1;}await writeFile(overlay,canvas.toBuffer('image/png'));
-  const frames=Math.round(c.duration*30),z=p.render.zoom,dx=p.render.pan_x,dy=p.render.pan_y;
-  const filter=`[1:v]zoompan=z='1+${z-1}*on/${Math.max(1,frames-1)}':x='(iw-iw/zoom)*(0.5+${dx}*0.5*on/${frames})':y='(ih-ih/zoom)*(0.5+${dy}*0.5*on/${frames})':d=1:s=${v.width}x${v.height}:fps=30[visual];[0:v][visual]overlay=${v.x}:${v.y}[base];[base][2:v]overlay=0:0,format=yuv420p[out]`;
-  await run(ffmpeg,['-nostdin','-v','error','-y','-filter_complex_threads',String(Math.max(1,Number(process.env.FNS_FFMPEG_THREADS||2))),'-threads',String(Math.max(1,Number(process.env.FNS_FFMPEG_THREADS||2))),'-loop','1','-framerate','30','-i',bg,'-loop','1','-framerate','30','-i',vis,'-loop','1','-framerate','30','-i',overlay,'-filter_complex',filter,'-map','[out]','-t',String(c.duration),'-c:v','libx264','-threads',String(Math.max(1,Number(process.env.FNS_FFMPEG_THREADS||2))),'-preset','ultrafast','-crf','25','-maxrate','3500k','-bufsize','7000k','-an',part]);parts.push(part);
+  sceneInputs.push('-loop','1','-framerate','30','-i',bg,'-loop','1','-framerate','30','-i',vis,'-loop','1','-framerate','30','-i',overlay);
+  const frames=Math.round(c.duration*30),z=p.render.zoom,dx=p.render.pan_x,dy=p.render.pan_y,base=i*3;
+  sceneFilters.push(`[${base+1}:v]zoompan=z='1+${z-1}*on/${Math.max(1,frames-1)}':x='(iw-iw/zoom)*(0.5+${dx}*0.5*on/${frames})':y='(ih-ih/zoom)*(0.5+${dy}*0.5*on/${frames})':d=1:s=${v.width}x${v.height}:fps=30[z${i}];[${base}:v][z${i}]overlay=${v.x}:${v.y}[b${i}];[b${i}][${base+2}:v]overlay=0:0,format=yuv420p,trim=duration=${c.duration},setpts=PTS-STARTPTS[s${i}]`);
  }
- const concat=join(dir,'concat.txt');await writeFile(concat,parts.map(p=>`file '${p}'`).join('\n'));
+ sceneFilters.push(sceneCards.map((_,i)=>`[s${i}]`).join('')+`concat=n=${sceneCards.length}:v=1:a=0[out]`);
+ const videoOnly=join(dir,'video.mp4'),threads=Math.max(1,Number(process.env.FNS_FFMPEG_THREADS||1));
+ await run(ffmpeg,['-nostdin','-v','error','-y','-filter_complex_threads',String(threads),'-threads',String(threads),...sceneInputs,'-filter_complex',sceneFilters.join(';'),'-map','[out]','-c:v','libx264','-threads',String(threads),'-preset','ultrafast','-crf','25','-maxrate','3500k','-bufsize','7000k','-pix_fmt','yuv420p','-r','30','-movflags','+faststart',videoOnly]);
  const output=join(dir,'output.mp4');const fadeIn=Math.min(p.render.fade_in,duration/2),fadeOut=Math.min(p.render.fade_out,duration/2);
- await run(ffmpeg,['-nostdin','-v','error','-y','-threads','1','-f','concat','-safe','0','-protocol_whitelist','file,pipe','-i',concat,'-stream_loop','-1','-ss',String(p.render.audio_start),'-protocol_whitelist','file,pipe','-i',music,'-map','0:v:0','-map','1:a:0','-t',String(duration),'-c:v','copy','-c:a','aac','-b:a','128k','-ar','48000','-ac','2','-af',`volume=${p.render.music_gain_db}dB,afade=t=in:st=0:d=${fadeIn},afade=t=out:st=${duration-fadeOut}:d=${fadeOut}`,'-movflags','+faststart',output]);
+ await run(ffmpeg,['-nostdin','-v','error','-y','-threads','1','-protocol_whitelist','file,pipe','-i',videoOnly,'-stream_loop','-1','-ss',String(p.render.audio_start),'-protocol_whitelist','file,pipe','-i',music,'-map','0:v:0','-map','1:a:0','-t',String(duration),'-c:v','copy','-c:a','aac','-b:a','128k','-ar','48000','-ac','2','-af',`volume=${p.render.music_gain_db}dB,afade=t=in:st=0:d=${fadeIn},afade=t=out:st=${duration-fadeOut}:d=${fadeOut}`,'-movflags','+faststart',output]);
  const size=(await stat(output)).size;if(size>33554432)throw new Error('MP4 superiore al limite storage di 32 MiB. Nessun upload eseguito.');
  const info=JSON.parse(await run(probe.path,['-v','error','-show_streams','-show_format','-of','json',output],30000));const video=info.streams.find(s=>s.codec_type==='video'),audio=info.streams.find(s=>s.codec_type==='audio');
  if(video?.codec_name!=='h264'||audio?.codec_name!=='aac'||video.width!==1080||video.height!==1920||video.pix_fmt!=='yuv420p')throw new Error('Verifica codec o dimensioni non superata.');
