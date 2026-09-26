@@ -48,6 +48,14 @@ async function runCommand(){
  let c; try{c=JSON.parse(await readFile(new URL("./command.json",import.meta.url),"utf8"));}catch(e){console.error("COMMAND read error",e.message);return;}
  if(!c||c.action==="noop"){console.log("COMMAND idle",c?.id||"none");return;}
  if(!c.id){console.error("COMMAND invalid: missing id");return;}
+ if(c.action==="drivecheck"){
+  if(!c.drive_file_id){console.error("COMMAND invalid drivecheck");return;}
+  // Read-only/import diagnostic against an already existing Drive MP4.
+  // It never prepares, confirms or publishes.
+  const r=await wp("POST","/storage/drive",{request_id:"drivecheck-"+c.id,drive_file_id:c.drive_file_id});
+  console.log("COMMAND drivecheck result",c.id,r.status,JSON.stringify(r.data));
+  return;
+ }
  if(c.action==="render"){
   const p=c.payload;
   if(!p||typeof p!=="object"||!p.request_id||!Number.isInteger(p.post_id)||!p.category||!p.music_title||!p.outputs||typeof p.outputs!=="object"){
