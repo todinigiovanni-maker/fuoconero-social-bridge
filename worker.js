@@ -24,7 +24,7 @@ export function worker(wp){
     // awake only for the lifetime of an active FFmpeg output.
     const keepAliveUrl=process.env.RENDER_EXTERNAL_URL||process.env.FNS_SELF_URL;
     const keepAlive=keepAliveUrl?setInterval(()=>{fetch(keepAliveUrl.replace(/\/$/,'')+'/health',{signal:AbortSignal.timeout(15000)}).catch(()=>{});},240000):null;
-    let result;try{result=await render(plan,folder,download,shared);}finally{clearInterval(timer);if(keepAlive)clearInterval(keepAlive);await beat;}
+    let result;try{result=await render(plan,folder,download,shared,kind);}finally{clearInterval(timer);if(keepAlive)clearInterval(keepAlive);await beat;}
     if(leaseError)throw new Error('Lease non rinnovato: output non caricato.');
     // One request only. Never retry an upload after a lost/uncertain response.
     const {path,...metadata}=result;
