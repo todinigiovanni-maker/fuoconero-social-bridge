@@ -1,1 +1,44 @@
-{"version":1,"id":"idle-after-ig-story-business-retry-20260926","action":"noop"}
+{
+  "version": 1,
+  "id": "centralia-7613-remote-render-20260926-01",
+  "action": "render",
+  "payload": {
+    "request_id": "centralia-7613-remote-render-20260926-01",
+    "post_id": 7613,
+    "category": "dossier",
+    "music_title": "Fuoconero",
+    "image_ids": [
+      7885,
+      7896,
+      7886,
+      7903,
+      7895,
+      7894
+    ],
+    "outputs": {
+      "reel": {
+        "preset": "articolo",
+        "scene_texts": [
+          "DOSSIER FUOCONERO #11\nIL FUOCO SOTTO CENTRALIA",
+          "Centralia brucia davvero.\nDAL 1962.",
+          "Ma nel 1983 qualcuno avrebbe trovato\nqualcosa che il fuoco evitava.",
+          "BOREHOLE 47-C\nUna zona fredda dentro una miniera in fiamme.",
+          "Sotto, una cavità\nche non compariva sulle mappe.",
+          "E sulla parete…\nLA STELLA NERA.",
+          "«Non è il fuoco a essere entrato nella miniera.\nÈ la miniera che ha raggiunto il Fuoco.»",
+          "DOSSIER FUOCONERO #11\nLeggilo su fuoconero.com"
+        ],
+        "allow_extended_duration": false
+      },
+      "story": {
+        "preset": "story",
+        "scene_texts": [
+          "Centralia brucia dal 1962",
+          "Ma cosa c’è sotto il fuoco?",
+          "DOSSIER #11\nLeggi su fuoconero.com"
+        ],
+        "allow_extended_duration": false
+      }
+    }
+  }
+}
