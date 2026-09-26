@@ -1,8 +1,15 @@
 {
   "version": 1,
-  "id": "mondarsi-reel-confirm-20260926",
-  "action": "confirm",
-  "job_id": "5f7cb60f-13c6-4575-a378-7845bc3f7a15",
-  "digest": "10790e5b197310cbb1f3e95d2e8f6cb72c52f2ad322e840f8582ceef7094439f",
-  "confirmed": true
+  "id": "mondarsi-story-publish-20260926",
+  "action": "prepare",
+  "drive_file_id": "1OrdjRDsLZez6fb7nAPaHPrzT6kYT_uX7",
+  "title": "Mondarsi",
+  "caption": "Mondarsi — Fuoconero\n\n#Fuoconero #Poesie #Mondarsi",
+  "facebook_caption": "Mondarsi — Fuoconero\nhttps://fuoconero.com/2026/05/09/mondarsi/\n\n#Fuoconero #Poesie #Mondarsi",
+  "targets": [
+    "ig_story",
+    "fb_story"
+  ],
+  "made_for_kids": false,
+  "synthetic_media": false
 }
