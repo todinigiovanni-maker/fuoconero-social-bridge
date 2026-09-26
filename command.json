@@ -1,17 +1,8 @@
 {
   "version": 1,
-  "id": "mondarsi-reel-publish-20260926",
-  "action": "prepare",
-  "drive_file_id": "1tXUvw2o2JIerjil-EHuP-OlFkft6GYXO",
-  "title": "Mondarsi",
-  "caption": "Mondarsi.\nA volte non sai più distinguere il sudore dalle lacrime. E forse non serve nemmeno farlo.\n\nCi sono momenti in cui piangiamo con tutto il corpo e sudiamo dagli occhi.\n\nAcqua e sali minerali per mondarci.\n\n#Fuoconero #Poesie #Mondarsi #Poesia #Parole #MomentiCheDiventanoParole",
-  "facebook_caption": "Mondarsi.\nA volte non sai più distinguere il sudore dalle lacrime. E forse non serve nemmeno farlo.\n\nCi sono momenti in cui piangiamo con tutto il corpo e sudiamo dagli occhi.\n\nAcqua e sali minerali per mondarci.\n\nhttps://fuoconero.com/2026/05/09/mondarsi/\n\n#Fuoconero #Poesie #Mondarsi #Poesia #Parole #MomentiCheDiventanoParole",
-  "targets": [
-    "ig_reel",
-    "fb_reel",
-    "youtube_short"
-  ],
-  "youtube_privacy": "public",
-  "made_for_kids": false,
-  "synthetic_media": false
+  "id": "mondarsi-reel-confirm-20260926",
+  "action": "confirm",
+  "job_id": "5f7cb60f-13c6-4575-a378-7845bc3f7a15",
+  "digest": "10790e5b197310cbb1f3e95d2e8f6cb72c52f2ad322e840f8582ceef7094439f",
+  "confirmed": true
 }
