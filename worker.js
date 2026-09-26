@@ -1,7 +1,7 @@
 import {mkdtemp,mkdir,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {render} from './renderer.js';
+import {render,download} from './renderer.js';
 export function worker(wp){
  let busy=false,last=0;
  async function call(path,data){const r=await wp('POST','/reel-maker/render-worker'+path,data);if(r.status<200||r.status>=300)throw new Error(r.data?.message||'Worker HTTP '+r.status);return r.data;}
@@ -10,6 +10,11 @@ export function worker(wp){
   try{
    ({job}=await call('/claim',{}));if(!job)return;
    dir=await mkdtemp(join(tmpdir(),'fns-render-'));console.log('RENDER start',job.render_job_id);
+   const sharedDir=join(dir,'shared');await mkdir(sharedDir);const shared={images:{}};
+   const plans=Object.values(job.plans),first=plans[0];
+   if(first?.music?.url){shared.music=join(sharedDir,'music.audio');await download(first.music.url,shared.music);}
+   const imageUrls=[...new Set(plans.flatMap(p=>p.images||[]).map(x=>x.url))];for(let i=0;i<imageUrls.length;i++){const file=join(sharedDir,'image-'+i);await download(imageUrls[i],file);shared.images[imageUrls[i]]=file;}
+   console.log('RENDER shared assets ready',imageUrls.length,'images');
    for(const [kind,plan] of Object.entries(job.plans)){
     if(job.outputs[kind].status==='completed')continue;
     const folder=join(dir,kind);await mkdir(folder);let beat=Promise.resolve(),leaseError=null;
@@ -19,7 +24,7 @@ export function worker(wp){
     // awake only for the lifetime of an active FFmpeg output.
     const keepAliveUrl=process.env.RENDER_EXTERNAL_URL||process.env.FNS_SELF_URL;
     const keepAlive=keepAliveUrl?setInterval(()=>{fetch(keepAliveUrl.replace(/\/$/,'')+'/health',{signal:AbortSignal.timeout(15000)}).catch(()=>{});},240000):null;
-    let result;try{result=await render(plan,folder);}finally{clearInterval(timer);if(keepAlive)clearInterval(keepAlive);await beat;}
+    let result;try{result=await render(plan,folder,download,shared);}finally{clearInterval(timer);if(keepAlive)clearInterval(keepAlive);await beat;}
     if(leaseError)throw new Error('Lease non rinnovato: output non caricato.');
     // One request only. Never retry an upload after a lost/uncertain response.
     const {path,...metadata}=result;
