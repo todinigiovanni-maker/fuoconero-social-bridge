@@ -1,6 +1,44 @@
 {
   "version": 1,
-  "id": "drivecheck-existing-mp4-20260926-01",
-  "action": "drivecheck",
-  "drive_file_id": "1MhUlUioP5eF8I_C0UneDGqFbJQi-MLa9"
+  "id": "centralia-7613-drive-retest-20260926-04",
+  "action": "render",
+  "payload": {
+    "request_id": "centralia-7613-drive-retest-20260926-04",
+    "post_id": 7613,
+    "category": "dossier",
+    "music_title": "Fuoconero",
+    "image_ids": [
+      7885,
+      7896,
+      7886,
+      7903,
+      7895,
+      7894
+    ],
+    "outputs": {
+      "reel": {
+        "preset": "articolo",
+        "scene_texts": [
+          "DOSSIER #11\nIL FUOCO SOTTO CENTRALIA",
+          "Centralia brucia davvero.\nDAL 1962.",
+          "Nel 1983, qualcosa\nsembrava sfuggire al fuoco.",
+          "BOREHOLE 47-C\nUna zona fredda nella miniera.",
+          "Sotto, una cavità\nassente dalle mappe.",
+          "Sulla parete…\nLA STELLA NERA.",
+          "La miniera ha raggiunto il Fuoco.",
+          "DOSSIER #11\nfuoconero.com"
+        ],
+        "allow_extended_duration": true
+      },
+      "story": {
+        "preset": "story",
+        "scene_texts": [
+          "Centralia brucia dal 1962",
+          "Ma cosa c’è sotto il fuoco?",
+          "DOSSIER #11\nfuoconero.com"
+        ],
+        "allow_extended_duration": false
+      }
+    }
+  }
 }
