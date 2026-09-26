@@ -48,6 +48,19 @@ async function runCommand(){
  let c; try{c=JSON.parse(await readFile(new URL("./command.json",import.meta.url),"utf8"));}catch(e){console.error("COMMAND read error",e.message);return;}
  if(!c||c.action==="noop"){console.log("COMMAND idle",c?.id||"none");return;}
  if(!c.id){console.error("COMMAND invalid: missing id");return;}
+ if(c.action==="render"){
+  const p=c.payload;
+  if(!p||typeof p!=="object"||!p.request_id||!Number.isInteger(p.post_id)||!p.category||!p.music_title||!p.outputs||typeof p.outputs!=="object"){
+   console.error("COMMAND invalid render");return;
+  }
+  // Repository-triggered render is deliberately render-only. It uses the existing
+  // server-side max-render identity and cannot prepare, confirm or publish.
+  console.log("COMMAND render requested",c.id,"post",p.post_id);
+  const created=await wp("POST","/reel-maker/render-jobs",p);
+  console.log("COMMAND render result",c.id,created.status,JSON.stringify(created.data));
+  if(created.status>=200&&created.status<300) void pump();
+  return;
+ }
  if(c.action==="confirm"){
   if(!c.job_id||!c.digest||c.confirmed!==true){console.error("COMMAND invalid confirm");return;}
   console.log("COMMAND confirm requested",c.id,"job",c.job_id);
