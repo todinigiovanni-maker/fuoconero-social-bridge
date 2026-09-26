@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "id": "animali-metallari-render-finaltest-20260927-001",
+  "id": "animali-metallari-render-presetfix-20260927-001",
   "action": "render",
   "payload": {
-    "request_id": "animali-metallari-render-finaltest-20260927-001",
+    "request_id": "animali-metallari-render-presetfix-20260927-001",
     "post_id": 5127,
     "category": "ani-male",
     "outputs": {
       "reel": {
-        "preset": "animale",
+        "preset": "articolo",
         "scene_texts": [
           "Animali così metallari… da avere il ferro nell’armatura.",
           "La lumaca di ferro incorpora solfuri di ferro nel guscio e nelle scaglie.",
