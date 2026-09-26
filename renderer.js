@@ -50,14 +50,14 @@ function text(ctx,lines,rect,size,color,align,font){
  const x=align==='center'?rect.x+rect.width/2:align==='right'?rect.x+rect.width:rect.x;
  const y=rect.y+(rect.height-lines.length*size*1.2)/2;lines.forEach((s,i)=>ctx.fillText(s,x,y+i*size*1.2));
 }
-export async function render(plan,dir,fetchAsset=download){
+export async function render(plan,dir,fetchAsset=download,shared={}){
  dir=resolve(dir);const p=plan.preset,sceneCards=cards(plan),font=family(p,plan.brand);let duration=sceneCards.reduce((a,b)=>a+b.duration,0);
- console.log('RENDER phase music-download start');const music=join(dir,'music.audio');await fetchAsset(plan.music.url,music);console.log('RENDER phase music-download end');
+ console.log('RENDER phase music-download start');const music=shared.music||join(dir,'music.audio');if(!shared.music)await fetchAsset(plan.music.url,music);console.log('RENDER phase music-download end',shared.music?'cached':'downloaded');
  // Decode locally downloaded files only. FFmpeg network protocols are disabled.
  const musicInfo=JSON.parse(await run(probe.path,['-v','error','-protocol_whitelist','file,pipe','-show_streams','-show_format','-of','json',music],30000));
  if(!musicInfo.streams.some(s=>s.codec_type==='audio'))throw new Error('La base non contiene audio valido.');
  console.log('RENDER phase images-download start',plan.images.length);const assets=[];for(let i=0;i<plan.images.length;i++){
-  const file=join(dir,`source-${i}`);await fetchAsset(plan.images[i].url,file);const meta=await sharp(file,{limitInputPixels:40000000}).metadata();
+  const file=shared.images?.[plan.images[i].url]||join(dir,`source-${i}`);if(!shared.images?.[plan.images[i].url])await fetchAsset(plan.images[i].url,file);const meta=await sharp(file,{limitInputPixels:40000000}).metadata();
   if(!['png','jpeg','webp'].includes(meta.format))throw new Error('Formato immagine non valido.');assets.push(file);console.log('RENDER phase image ready',i+1,'of',plan.images.length);
  }console.log('RENDER phase images-download end');
  let logo=null;if(plan.brand.assets.logo_primary?.url){const file=join(dir,'logo');await fetchAsset(plan.brand.assets.logo_primary.url,file);logo=await loadImage(await sharp(file).resize(p.logo.size,p.logo.size,{fit:'inside'}).png().toBuffer());}
