@@ -8,7 +8,13 @@ const BASE=(process.env.FNS_BASE_URL||"https://fuoconero.com").replace(/\/$/,"")
 const REST="/wp-json/fuoconero-social/v2";
 const SIGN="/fuoconero-social/v2";
 const CATEGORY_LIBRARY={
-  "ani-male":"ANI…MALE","fisica-mente":"FISICA…MENTE","natural-mente":"NATURAL…MENTE","il-mondo-visto-dal-nero":"IL MONDO VISTO DAL NERO","poesie":"POESIE","canzoni":"CANZONI"
+  "ani-male":"animale",
+  "fisica-mente":"fisicamente",
+  "natural-mente":"naturalmente",
+  "il-mondo-visto-dal-nero":"mondo",
+  "poesie":"poesie",
+  "canzoni":"canzoni",
+  "dossier-fuoconero":"dossier"
 };
 
 
