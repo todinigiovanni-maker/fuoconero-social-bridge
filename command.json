@@ -1,12 +1,8 @@
 {
   "version": 1,
-  "id": "retry-vinghioni-fb-story-20260926-02",
-  "action": "prepare",
-  "drive_file_id": "1C2kFw7SsLYduTOG9xqneJgmDbX7xs-VO",
-  "title": "Dossier #06 – Vinghioni",
-  "caption": "",
-  "facebook_caption": "",
-  "targets": [
-    "fb_story"
-  ]
+  "id": "confirm-retry-vinghioni-fb-story-20260926-02",
+  "action": "confirm",
+  "job_id": "7583fbac-23ac-4511-a669-24494ef79c38",
+  "digest": "952a145bec548bf5095ff385303a0b05df36868ebb7b65238d8171ead59738d0",
+  "confirmed": true
 }
