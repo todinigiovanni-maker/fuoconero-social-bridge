@@ -1,30 +1,17 @@
 {
   "version": 1,
-  "id": "animali-metallari-render-presetfix-20260927-001",
-  "action": "render",
-  "payload": {
-    "request_id": "animali-metallari-render-presetfix-20260927-001",
-    "post_id": 5127,
-    "category": "ani-male",
-    "outputs": {
-      "reel": {
-        "preset": "articolo",
-        "scene_texts": [
-          "Animali così metallari… da avere il ferro nell’armatura.",
-          "La lumaca di ferro incorpora solfuri di ferro nel guscio e nelle scaglie.",
-          "I chitoni hanno denti rinforzati con magnetite. I castori, smalto ricco di ferro.",
-          "Il metal esisteva molto prima delle chitarre distorte."
-        ]
-      },
-      "story": {
-        "preset": "story",
-        "scene_texts": [
-          "Animali così metallari… da avere il ferro nell’armatura.",
-          "Lumache corazzate, denti con magnetite e smalto ricco di ferro.",
-          "Il metal? La natura l’aveva inventato prima di noi."
-        ]
-      }
-    },
-    "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"
-  }
+  "id": "animali-metallari-reel-publish-20260927-001",
+  "action": "prepare",
+  "drive_file_id": "1PVUb9Xevbwt6rBhy_hPmJ5Oquo5WGfIc",
+  "title": "Animali metallari",
+  "caption": "Animali così metallari… da avere il ferro nell’armatura. 🤘🦾\n\nUna lumaca che incorpora solfuri di ferro, chitoni con denti rinforzati con magnetite e castori con smalto ricco di ferro.\n\nAltro che heavy metal: la natura ci era arrivata molto prima. 😎\n\n#Fuoconero #AniMALE #Animali #Natura #Scienza #Curiosità",
+  "facebook_caption": "Animali così metallari… da avere il ferro nell’armatura. 🤘🦾\n\nUna lumaca che incorpora solfuri di ferro, chitoni con denti rinforzati con magnetite e castori con smalto ricco di ferro.\n\nAltro che heavy metal: la natura ci era arrivata molto prima. 😎\n\nhttps://fuoconero.com/2026/06/03/ani-male-gli-animali-metallari/\n\n#Fuoconero #AniMALE #Animali #Natura #Scienza #Curiosità",
+  "targets": [
+    "instagram_reel",
+    "facebook_reel",
+    "youtube_short"
+  ],
+  "youtube_privacy": "public",
+  "made_for_kids": "no",
+  "synthetic_media": "no"
 }
