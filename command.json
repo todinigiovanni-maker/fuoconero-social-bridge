@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "id": "animali-metallari-reel-publish-20260927-001",
+  "id": "animali-metallari-reel-publish-20260927-002",
   "action": "prepare",
   "drive_file_id": "1PVUb9Xevbwt6rBhy_hPmJ5Oquo5WGfIc",
   "title": "Animali metallari",
   "caption": "Animali così metallari… da avere il ferro nell’armatura. 🤘🦾\n\nUna lumaca che incorpora solfuri di ferro, chitoni con denti rinforzati con magnetite e castori con smalto ricco di ferro.\n\nAltro che heavy metal: la natura ci era arrivata molto prima. 😎\n\n#Fuoconero #AniMALE #Animali #Natura #Scienza #Curiosità",
   "facebook_caption": "Animali così metallari… da avere il ferro nell’armatura. 🤘🦾\n\nUna lumaca che incorpora solfuri di ferro, chitoni con denti rinforzati con magnetite e castori con smalto ricco di ferro.\n\nAltro che heavy metal: la natura ci era arrivata molto prima. 😎\n\nhttps://fuoconero.com/2026/06/03/ani-male-gli-animali-metallari/\n\n#Fuoconero #AniMALE #Animali #Natura #Scienza #Curiosità",
   "targets": [
-    "instagram_reel",
-    "facebook_reel",
+    "ig_reel",
+    "fb_reel",
     "youtube_short"
   ],
   "youtube_privacy": "public",
