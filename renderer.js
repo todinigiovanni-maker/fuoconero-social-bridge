@@ -52,19 +52,19 @@ function text(ctx,lines,rect,size,color,align,font){
 }
 export async function render(plan,dir,fetchAsset=download){
  dir=resolve(dir);const p=plan.preset,sceneCards=cards(plan),font=family(p,plan.brand);let duration=sceneCards.reduce((a,b)=>a+b.duration,0);
- const music=join(dir,'music.audio');await fetchAsset(plan.music.url,music);
+ console.log('RENDER phase music-download start');const music=join(dir,'music.audio');await fetchAsset(plan.music.url,music);console.log('RENDER phase music-download end');
  // Decode locally downloaded files only. FFmpeg network protocols are disabled.
  const musicInfo=JSON.parse(await run(probe.path,['-v','error','-protocol_whitelist','file,pipe','-show_streams','-show_format','-of','json',music],30000));
  if(!musicInfo.streams.some(s=>s.codec_type==='audio'))throw new Error('La base non contiene audio valido.');
- const assets=[];for(let i=0;i<plan.images.length;i++){
+ console.log('RENDER phase images-download start',plan.images.length);const assets=[];for(let i=0;i<plan.images.length;i++){
   const file=join(dir,`source-${i}`);await fetchAsset(plan.images[i].url,file);const meta=await sharp(file,{limitInputPixels:40000000}).metadata();
-  if(!['png','jpeg','webp'].includes(meta.format))throw new Error('Formato immagine non valido.');assets.push(file);
- }
+  if(!['png','jpeg','webp'].includes(meta.format))throw new Error('Formato immagine non valido.');assets.push(file);console.log('RENDER phase image ready',i+1,'of',plan.images.length);
+ }console.log('RENDER phase images-download end');
  let logo=null;if(plan.brand.assets.logo_primary?.url){const file=join(dir,'logo');await fetchAsset(plan.brand.assets.logo_primary.url,file);logo=await loadImage(await sharp(file).resize(p.logo.size,p.logo.size,{fit:'inside'}).png().toBuffer());}
  let brandBackground=null;if(p.render.background_source==='brand_background'){
   if(!plan.brand.assets.background?.url)throw new Error('Sfondo brand non configurato.');brandBackground=join(dir,'brand-background');await fetchAsset(plan.brand.assets.background.url,brandBackground);
  }
- const sceneInputs=[];const sceneFilters=[];for(let i=0;i<sceneCards.length;i++){
+ console.log('RENDER phase scene-build start',sceneCards.length);const sceneInputs=[];const sceneFilters=[];for(let i=0;i<sceneCards.length;i++){
   const c=sceneCards[i],source=assets[c.image_index%assets.length],bg=join(dir,`bg-${i}.png`),vis=join(dir,`vis-${i}.png`),overlay=join(dir,`text-${i}.png`);
   const canvas=createCanvas(1080,1920),ctx=canvas.getContext('2d');ctx.fillStyle=p.style.background_color;ctx.fillRect(0,0,1080,1920);
   if(p.render.background_source!=='solid'){
@@ -79,15 +79,15 @@ export async function render(plan,dir,fetchAsset=download){
   if(logo){ctx.globalAlpha=p.logo.opacity;ctx.drawImage(logo,p.logo.x,p.logo.y);ctx.globalAlpha=1;}await writeFile(overlay,canvas.toBuffer('image/png'));
   sceneInputs.push('-loop','1','-framerate','30','-i',bg,'-loop','1','-framerate','30','-i',vis,'-loop','1','-framerate','30','-i',overlay);
   const frames=Math.round(c.duration*30),z=p.render.zoom,dx=p.render.pan_x,dy=p.render.pan_y,base=i*3;
-  sceneFilters.push(`[${base+1}:v]zoompan=z='1+${z-1}*on/${Math.max(1,frames-1)}':x='(iw-iw/zoom)*(0.5+${dx}*0.5*on/${frames})':y='(ih-ih/zoom)*(0.5+${dy}*0.5*on/${frames})':d=1:s=${v.width}x${v.height}:fps=30[z${i}];[${base}:v][z${i}]overlay=${v.x}:${v.y}[b${i}];[b${i}][${base+2}:v]overlay=0:0,format=yuv420p,trim=duration=${c.duration},setpts=PTS-STARTPTS[s${i}]`);
+  console.log('RENDER phase scene ready',i+1,'of',sceneCards.length);sceneFilters.push(`[${base+1}:v]zoompan=z='1+${z-1}*on/${Math.max(1,frames-1)}':x='(iw-iw/zoom)*(0.5+${dx}*0.5*on/${frames})':y='(ih-ih/zoom)*(0.5+${dy}*0.5*on/${frames})':d=1:s=${v.width}x${v.height}:fps=30[z${i}];[${base}:v][z${i}]overlay=${v.x}:${v.y}[b${i}];[b${i}][${base+2}:v]overlay=0:0,format=yuv420p,trim=duration=${c.duration},setpts=PTS-STARTPTS[s${i}]`);
  }
  sceneFilters.push(sceneCards.map((_,i)=>`[s${i}]`).join('')+`concat=n=${sceneCards.length}:v=1:a=0[out]`);
- const videoOnly=join(dir,'video.mp4'),threads=Math.max(1,Number(process.env.FNS_FFMPEG_THREADS||1));
- await run(ffmpeg,['-nostdin','-v','error','-y','-filter_complex_threads',String(threads),'-threads',String(threads),...sceneInputs,'-filter_complex',sceneFilters.join(';'),'-map','[out]','-c:v','libx264','-threads',String(threads),'-preset','ultrafast','-crf','25','-maxrate','3500k','-bufsize','7000k','-pix_fmt','yuv420p','-r','30','-movflags','+faststart',videoOnly]);
- const output=join(dir,'output.mp4');const fadeIn=Math.min(p.render.fade_in,duration/2),fadeOut=Math.min(p.render.fade_out,duration/2);
- await run(ffmpeg,['-nostdin','-v','error','-y','-threads','1','-protocol_whitelist','file,pipe','-i',videoOnly,'-stream_loop','-1','-ss',String(p.render.audio_start),'-protocol_whitelist','file,pipe','-i',music,'-map','0:v:0','-map','1:a:0','-t',String(duration),'-c:v','copy','-c:a','aac','-b:a','128k','-ar','48000','-ac','2','-af',`volume=${p.render.music_gain_db}dB,afade=t=in:st=0:d=${fadeIn},afade=t=out:st=${duration-fadeOut}:d=${fadeOut}`,'-movflags','+faststart',output]);
- const size=(await stat(output)).size;if(size>33554432)throw new Error('MP4 superiore al limite storage di 32 MiB. Nessun upload eseguito.');
- const info=JSON.parse(await run(probe.path,['-v','error','-show_streams','-show_format','-of','json',output],30000));const video=info.streams.find(s=>s.codec_type==='video'),audio=info.streams.find(s=>s.codec_type==='audio');
+ console.log('RENDER phase scene-build end');const videoOnly=join(dir,'video.mp4'),threads=Math.max(1,Number(process.env.FNS_FFMPEG_THREADS||1));
+ console.log('RENDER phase ffmpeg-video start');await run(ffmpeg,['-nostdin','-v','error','-y','-filter_complex_threads',String(threads),'-threads',String(threads),...sceneInputs,'-filter_complex',sceneFilters.join(';'),'-map','[out]','-c:v','libx264','-threads',String(threads),'-preset','ultrafast','-crf','25','-maxrate','3500k','-bufsize','7000k','-pix_fmt','yuv420p','-r','30','-movflags','+faststart',videoOnly]);
+ console.log('RENDER phase ffmpeg-video end');const output=join(dir,'output.mp4');const fadeIn=Math.min(p.render.fade_in,duration/2),fadeOut=Math.min(p.render.fade_out,duration/2);
+ console.log('RENDER phase ffmpeg-audio start');await run(ffmpeg,['-nostdin','-v','error','-y','-threads','1','-protocol_whitelist','file,pipe','-i',videoOnly,'-stream_loop','-1','-ss',String(p.render.audio_start),'-protocol_whitelist','file,pipe','-i',music,'-map','0:v:0','-map','1:a:0','-t',String(duration),'-c:v','copy','-c:a','aac','-b:a','128k','-ar','48000','-ac','2','-af',`volume=${p.render.music_gain_db}dB,afade=t=in:st=0:d=${fadeIn},afade=t=out:st=${duration-fadeOut}:d=${fadeOut}`,'-movflags','+faststart',output]);
+ console.log('RENDER phase ffmpeg-audio end');const size=(await stat(output)).size;if(size>33554432)throw new Error('MP4 superiore al limite storage di 32 MiB. Nessun upload eseguito.');
+ console.log('RENDER phase verify start');const info=JSON.parse(await run(probe.path,['-v','error','-show_streams','-show_format','-of','json',output],30000));const video=info.streams.find(s=>s.codec_type==='video'),audio=info.streams.find(s=>s.codec_type==='audio');
  if(video?.codec_name!=='h264'||audio?.codec_name!=='aac'||video.width!==1080||video.height!==1920||video.pix_fmt!=='yuv420p')throw new Error('Verifica codec o dimensioni non superata.');
- return {path:output,sha256:createHash('sha256').update(await readFile(output)).digest('hex'),size,duration:Number(info.format.duration),video_codec:'h264',audio_codec:'aac',width:1080,height:1920,pixel_format:'yuv420p',scene_count:sceneCards.length,font_used:font};
+ console.log('RENDER phase verify end',size);return {path:output,sha256:createHash('sha256').update(await readFile(output)).digest('hex'),size,duration:Number(info.format.duration),video_codec:'h264',audio_codec:'aac',width:1080,height:1920,pixel_format:'yuv420p',scene_count:sceneCards.length,font_used:font};
 }
