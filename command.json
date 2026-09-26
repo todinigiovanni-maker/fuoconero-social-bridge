@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "id": "centralia-7613-single-encode-benchmark-20260926-07",
+  "id": "centralia-7613-diagnostic-20260926-08",
   "action": "render",
   "payload": {
-    "request_id": "centralia-7613-single-encode-benchmark-20260926-07",
+    "request_id": "centralia-7613-diagnostic-20260926-08",
     "post_id": 7613,
     "category": "dossier",
     "music_title": "Fuoconero",
