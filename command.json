@@ -1,8 +1,5 @@
 {
   "version": 1,
-  "id": "confirm-vinghioni-youtube-short-20260926-17",
-  "action": "confirm",
-  "job_id": "f8122f9f-6b8c-471d-9709-877176870b5d",
-  "digest": "d1f57d425ee65a940b33790658641d6e40525abf446620d2cc494569031a4f68",
-  "confirmed": true
+  "id": "idle-after-v043-cleanup",
+  "action": "noop"
 }
