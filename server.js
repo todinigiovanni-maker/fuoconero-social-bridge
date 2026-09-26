@@ -7,6 +7,10 @@ const PORT=process.env.PORT||10000;
 const BASE=(process.env.FNS_BASE_URL||"https://fuoconero.com").replace(/\/$/,"");
 const REST="/wp-json/fuoconero-social/v2";
 const SIGN="/fuoconero-social/v2";
+const CATEGORY_LIBRARY={
+  "ani-male":"ANI…MALE","fisica-mente":"FISICA…MENTE","natural-mente":"NATURAL…MENTE","il-mondo-visto-dal-nero":"IL MONDO VISTO DAL NERO","poesie":"POESIE","canzoni":"CANZONI"
+};
+
 
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8"});res.end(JSON.stringify(data));}
 function body(req){return new Promise((resolve,reject)=>{let s="";req.on("data",c=>{s+=c;if(s.length>2_000_000)req.destroy();});req.on("end",()=>resolve(s));req.on("error",reject);});}
@@ -77,7 +81,8 @@ async function runCommand(){
   return;
  }
  if(c.action==="render"){
-  const p=c.payload;
+  const p={...c.payload};
+  if(p.category&&CATEGORY_LIBRARY[p.category]) p.category=CATEGORY_LIBRARY[p.category];
   if(!p||typeof p!=="object"||!p.request_id||!Number.isInteger(p.post_id)||!p.category||(!p.music_title&&!p.music_id)||!p.outputs||typeof p.outputs!=="object"){
    console.error("COMMAND invalid render");return;
   }
