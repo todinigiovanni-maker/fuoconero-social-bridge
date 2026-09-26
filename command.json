@@ -1,20 +1,13 @@
 {
   "version": 1,
-  "id": "centralia-7613-optimized-benchmark-20260926-05",
+  "id": "centralia-7613-oauth-fixed-benchmark-20260926-06",
   "action": "render",
   "payload": {
-    "request_id": "centralia-7613-optimized-benchmark-20260926-05",
+    "request_id": "centralia-7613-oauth-fixed-benchmark-20260926-06",
     "post_id": 7613,
     "category": "dossier",
     "music_title": "Fuoconero",
-    "image_ids": [
-      7885,
-      7896,
-      7886,
-      7903,
-      7895,
-      7894
-    ],
+    "image_ids": [7885,7896,7886,7903,7895,7894],
     "outputs": {
       "reel": {
         "preset": "articolo",
