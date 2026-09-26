@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "id": "mondarsi-poesia-test-20260926",
+  "id": "mondarsi-poesia-test-20260926-v2",
   "action": "render",
   "payload": {
-    "request_id": "mondarsi-poesia-test-20260926",
+    "request_id": "mondarsi-poesia-test-20260926-v2",
     "post_id": 4843,
     "category": "poesie",
     "music_title": "ogni giorno diverso unplagged voce mia",
@@ -30,6 +30,7 @@
         ],
         "allow_extended_duration": false
       }
-    }
+    },
+    "preset": "reel"
   }
 }
