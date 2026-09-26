@@ -1,41 +1,13 @@
 {
   "version": 1,
-  "id": "vinghioni-6786-static-2fps-rock-20260926-14",
-  "action": "render",
-  "payload": {
-    "request_id": "vinghioni-6786-static-2fps-rock-20260926-14",
-    "post_id": 6786,
-    "category": "dossier",
-    "music_title": "fuoconero rock",
-    "image_ids": [
-      6789
-    ],
-    "outputs": {
-      "reel": {
-        "preset": "articolo",
-        "scene_texts": [
-          "DOSSIER #06\nVINGHIONI – RITORNO DAL NERO",
-          "Sette minuti disperso\ndentro un incendio impossibile.",
-          "La radio tornò a trasmettere.\n«…non sono… qui…»",
-          "Poi Vinghioni riapparve.\nCAMMINANDO.",
-          "«Non toccate il nero\nse è bagnato.»",
-          "Dove sei stato?\n«SOTTO.»",
-          "Sotto cosa?\n«Sotto il cinque per cento.»",
-          "Forse Vinghioni\nnon tornò dal nero.",
-          "Forse il nero\nLO LASCIÒ ANDARE.",
-          "DOSSIER #06\nfuoconero.com"
-        ],
-        "allow_extended_duration": true
-      },
-      "story": {
-        "preset": "story",
-        "scene_texts": [
-          "VINGHIONI\n7 minuti nel nero",
-          "«Sotto il cinque per cento.»",
-          "DOSSIER #06\nfuoconero.com"
-        ],
-        "allow_extended_duration": false
-      }
-    }
-  }
+  "id": "publish-vinghioni-reel-20260926-01",
+  "action": "prepare",
+  "drive_file_id": "1t2Eag9ox2yvlYaJeGi6gsFHq15TBzY0k",
+  "title": "Dossier #06 – Il vigile del fuoco che tornò dal nero",
+  "caption": "Sette minuti nel nero. Poi Vinghioni tornò. Ma da dove? 🔥⚫\n\nDossier #06 – Fuoconero\n#Fuoconero #DossierFuoconero #Vinghioni",
+  "facebook_caption": "Sette minuti nel nero. Poi Vinghioni tornò. Ma da dove? 🔥⚫\n\nDossier #06 – Fuoconero\nhttps://fuoconero.com/2026/07/13/dossier-06-il-vigile-del-fuoco-che-torno-dal-nero/\n#Fuoconero #DossierFuoconero #Vinghioni",
+  "targets": [
+    "ig_reel",
+    "fb_reel"
+  ]
 }
