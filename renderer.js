@@ -8,7 +8,7 @@ import ffmpeg from 'ffmpeg-static';
 import probe from 'ffprobe-static';
 GlobalFonts.registerFromPath(new URL('./node_modules/dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf',import.meta.url).pathname,'FNS Sans');
 GlobalFonts.registerFromPath(new URL('./node_modules/dejavu-fonts-ttf/ttf/DejaVuSerif-Bold.ttf',import.meta.url).pathname,'FNS Serif');
-sharp.concurrency(1);sharp.cache(false);
+// Render keeps the same visual pipeline/output contract, but lets libvips use the\n// CPU assigned by Render instead of forcing every image operation onto one thread.\nsharp.concurrency(Math.max(1,Number(process.env.FNS_SHARP_THREADS||2)));sharp.cache(false);
 export function run(exe,args,timeout=1200000){return new Promise((resolve,reject)=>{
  const p=spawn(exe,args,{stdio:['ignore','pipe','pipe'],shell:false});let out='',err='';
  const timer=setTimeout(()=>{p.kill('SIGKILL');reject(new Error('Tempo massimo renderer superato.'));},timeout);
@@ -79,7 +79,7 @@ export async function render(plan,dir,fetchAsset=download){
   if(logo){ctx.globalAlpha=p.logo.opacity;ctx.drawImage(logo,p.logo.x,p.logo.y);ctx.globalAlpha=1;}await writeFile(overlay,canvas.toBuffer('image/png'));
   const frames=Math.round(c.duration*30),z=p.render.zoom,dx=p.render.pan_x,dy=p.render.pan_y;
   const filter=`[1:v]zoompan=z='1+${z-1}*on/${Math.max(1,frames-1)}':x='(iw-iw/zoom)*(0.5+${dx}*0.5*on/${frames})':y='(ih-ih/zoom)*(0.5+${dy}*0.5*on/${frames})':d=1:s=${v.width}x${v.height}:fps=30[visual];[0:v][visual]overlay=${v.x}:${v.y}[base];[base][2:v]overlay=0:0,format=yuv420p[out]`;
-  await run(ffmpeg,['-nostdin','-v','error','-y','-filter_complex_threads','1','-threads','1','-loop','1','-framerate','30','-i',bg,'-loop','1','-framerate','30','-i',vis,'-loop','1','-framerate','30','-i',overlay,'-filter_complex',filter,'-map','[out]','-t',String(c.duration),'-c:v','libx264','-threads','1','-preset','ultrafast','-crf','25','-maxrate','3500k','-bufsize','7000k','-an',part]);parts.push(part);
+  await run(ffmpeg,['-nostdin','-v','error','-y','-filter_complex_threads',String(Math.max(1,Number(process.env.FNS_FFMPEG_THREADS||2))),'-threads',String(Math.max(1,Number(process.env.FNS_FFMPEG_THREADS||2))),'-loop','1','-framerate','30','-i',bg,'-loop','1','-framerate','30','-i',vis,'-loop','1','-framerate','30','-i',overlay,'-filter_complex',filter,'-map','[out]','-t',String(c.duration),'-c:v','libx264','-threads',String(Math.max(1,Number(process.env.FNS_FFMPEG_THREADS||2))),'-preset','ultrafast','-crf','25','-maxrate','3500k','-bufsize','7000k','-an',part]);parts.push(part);
  }
  const concat=join(dir,'concat.txt');await writeFile(concat,parts.map(p=>`file '${p}'`).join('\n'));
  const output=join(dir,'output.mp4');const fadeIn=Math.min(p.render.fade_in,duration/2),fadeOut=Math.min(p.render.fade_out,duration/2);
