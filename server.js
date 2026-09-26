@@ -1,4 +1,5 @@
 import http from "node:http";
+import {worker} from "./worker.js";
 import crypto from "node:crypto";
 import {readFile} from "node:fs/promises";
 
@@ -34,7 +35,7 @@ async function forward(req,path,raw){
 }
 async function wp(method,path,payload){
  const raw=payload===undefined?"":JSON.stringify(payload), restRoute=REST+path, signRoute=SIGN+path;
- const r=await fetch(BASE+restRoute,{method,headers:auth(method,signRoute,raw),body:method==="GET"?undefined:raw});
+ const r=await fetch(BASE+restRoute,{method,headers:auth(method,signRoute,raw),body:method==="GET"?undefined:raw,signal:AbortSignal.timeout(180000),redirect:"error"});
  const t=await r.text(); let data; try{data=JSON.parse(t)}catch{data={raw:t}};
  return {status:r.status,data};
 }
@@ -79,11 +80,16 @@ async function runCommand(){
  if(prep.data?.job_id){const job=await wp("GET","/jobs/"+encodeURIComponent(prep.data.job_id));console.log("COMMAND status",c.id,job.status,JSON.stringify(job.data));}
  console.log("COMMAND end",c.id,"— no publication");
 }
+const pump=worker(wp);
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health") return json(res,200,{ok:true,service:"fuoconero-social-bridge",mode:"prepare-status-command"});
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.0",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
+  const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
+  if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
+   const raw=req.method==="POST"?await body(req):"";const x=await forward(req,u.pathname,raw);json(res,x.status,x.data);if(x.status>=200&&x.status<300)void pump();return;
+  }
   if(req.method==="GET"&&u.pathname==="/capabilities"){const x=await forward(req,"/capabilities","");return json(res,x.status,x.data);}
   if(req.method==="POST"&&u.pathname==="/storage/drive"){const raw=await body(req);const x=await forward(req,"/storage/drive",raw);return json(res,x.status,x.data);}
   if(req.method==="POST"&&u.pathname==="/prepare"){const raw=await body(req);const x=await forward(req,"/prepare",raw);return json(res,x.status,x.data);}
@@ -94,5 +100,7 @@ const server=http.createServer(async(req,res)=>{
 });
 server.listen(PORT,()=>{
  console.log("Fuoconero Social Bridge listening on",PORT);
+ void pump();
  runCommand().catch(e=>console.error("COMMAND error",e.message));
 });
+

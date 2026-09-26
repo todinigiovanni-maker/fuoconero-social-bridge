@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {cards,download} from '../renderer.js';
+const m=JSON.parse(await readFile(new URL('./presets.json',import.meta.url)));
+const plan={preset:m.presets.articolo,brand:m.brand,scene_texts:['Prima scena leggibile.','Seconda scena leggibile.'],allow_extended_duration:false};
+test('short script stays within advisory duration',()=>{const c=cards(plan);assert.equal(c.length,2);assert.ok(c.reduce((a,b)=>a+b.duration,0)>=18);assert.ok(c.reduce((a,b)=>a+b.duration,0)<=22)});
+test('no artificial card limit and no missing approved words',()=>{const texts=Array.from({length:13},(_,i)=>'Scena numero '+i+' da conservare.');const c=cards({...plan,scene_texts:texts,allow_extended_duration:true});assert.equal(c.length,13);assert.equal(c.map(x=>x.text).join(' '),texts.join(' '))});
+test('long script requires explicit duration choice',()=>assert.throws(()=>cards({...plan,scene_texts:Array(20).fill('Una scena lunga da leggere.')}),/approvare/));
+test('invalid asset hosts rejected before download',async()=>{for(const url of ['http://fuoconero.com/image','https://127.0.0.1/file','https://evil.test/file','https://fuoconero.com.evil.test/file'])await assert.rejects(download(url,'never-created'),/non autorizzato/)});
+test('publication code not imported by worker',async()=>{const s=await readFile(new URL('../worker.js',import.meta.url),'utf8');assert.ok(!s.includes('/confirm'));assert.ok(!s.includes('media_publish'));assert.ok(!s.includes('/prepare'));});

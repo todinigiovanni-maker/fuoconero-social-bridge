@@ -1,1 +1,1 @@
-{"name":"fuoconero-social-bridge","version":"0.1.0","private":true,"type":"module","scripts":{"start":"node server.js"},"engines":{"node":">=20"}}
+{"name":"fuoconero-social-bridge","version":"0.4.0","private":true,"type":"module","scripts":{"start":"node server.js","test":"node --test test/*.test.js"},"engines":{"node":">=20"},"dependencies":{"@napi-rs/canvas":"0.1.80","dejavu-fonts-ttf":"2.37.3","ffmpeg-static":"5.2.0","ffprobe-static":"3.1.0","sharp":"0.34.3"}}
