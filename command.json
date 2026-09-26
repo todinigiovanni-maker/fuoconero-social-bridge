@@ -1,5 +1,19 @@
 {
   "version": 1,
-  "id": "idle-after-publish-worker-fix",
-  "action": "noop"
+  "id": "animali-metallari-render-20260927",
+  "action": "render",
+  "payload": {
+    "request_id": "animali-metallari-render-20260927",
+    "post_id": 5127,
+    "category": "ANI…MALE",
+    "music_title": "fuoconero rock.wav",
+    "outputs": {
+      "reel": {
+        "preset": "animale"
+      },
+      "story": {
+        "preset": "story"
+      }
+    }
+  }
 }
