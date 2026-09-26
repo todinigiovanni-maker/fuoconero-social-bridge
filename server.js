@@ -71,6 +71,11 @@ const server=http.createServer(async(req,res)=>{
   const u=new URL(req.url,"http://localhost");
   if(req.method==="GET"&&u.pathname==="/health") return json(res,200,{ok:true,service:"fuoconero-social-bridge",mode:"prepare-status-command"});
   if(req.method==="GET"&&u.pathname==="/capabilities"){const x=await wp("GET","/capabilities");return json(res,x.status,x.data);}
+  if(req.method==="GET"&&u.pathname==="/reel-maker/presets"){const x=await wp("GET","/reel-maker/presets");return json(res,x.status,x.data);}
+  const rp=u.pathname.match(/^\/reel-maker\/presets\/([^/]+)$/);
+  if(req.method==="GET"&&rp){const x=await wp("GET","/reel-maker/presets/"+encodeURIComponent(rp[1]));return json(res,x.status,x.data);}
+  const ra=u.pathname.match(/^\/reel-maker\/article\/(\d+)$/);
+  if(req.method==="GET"&&ra){const x=await wp("GET","/reel-maker/article/"+encodeURIComponent(ra[1]));return json(res,x.status,x.data);}
   if(req.method==="POST"&&u.pathname==="/storage/drive"){const raw=await body(req);const x=await wp("POST","/storage/drive",JSON.parse(raw||"{}"));return json(res,x.status,x.data);}
   if(req.method==="POST"&&u.pathname==="/prepare"){const raw=await body(req);const x=await wp("POST","/prepare",JSON.parse(raw||"{}"));return json(res,x.status,x.data);}
   const m=u.pathname.match(/^\/jobs\/([^/]+)$/);
