@@ -1,25 +1,12 @@
 {
   "version": 1,
-  "id": "vinghioni-6786-story-24fps-20260926-15",
-  "action": "render",
-  "payload": {
-    "request_id": "vinghioni-6786-story-24fps-20260926-15",
-    "post_id": 6786,
-    "category": "dossier",
-    "music_title": "fuoconero rock",
-    "image_ids": [
-      6789
-    ],
-    "outputs": {
-      "story": {
-        "preset": "story",
-        "scene_texts": [
-          "VINGHIONI\n7 minuti nel nero",
-          "«Sotto il cinque per cento.»",
-          "DOSSIER #06\nfuoconero.com"
-        ],
-        "allow_extended_duration": false
-      }
-    }
-  }
+  "id": "vinghioni-fb-story-24fps-publish-20260926-16",
+  "action": "prepare",
+  "drive_file_id": "1O27bKhUYsLnPgDucDDDIchQZfzkpeIRa",
+  "title": "Dossier 06 – Il vigile del fuoco che tornò dal nero",
+  "caption": "Sette minuti nel nero. Poi Vinghioni tornò. Ma da dove? 🔥⚫\n\nDossier #06 – Fuoconero\n#Fuoconero #DossierFuoconero #Vinghioni",
+  "facebook_caption": "Sette minuti nel nero. Poi Vinghioni tornò. Ma da dove? 🔥⚫\n\nDossier #06 – Fuoconero\nhttps://fuoconero.com/2026/07/13/dossier-06-il-vigile-del-fuoco-che-torno-dal-nero/\n#Fuoconero #DossierFuoconero #Vinghioni",
+  "targets": [
+    "fb_story"
+  ]
 }
