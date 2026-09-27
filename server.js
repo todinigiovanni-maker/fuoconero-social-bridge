@@ -160,7 +160,7 @@ async function telegramNotify(message){
 async function recentPublishedPosts(){
  const u=new URL(BASE+"/wp-json/wp/v2/posts");
  u.searchParams.set("status","publish");u.searchParams.set("per_page","10");u.searchParams.set("orderby","date");u.searchParams.set("order","desc");
- u.searchParams.set("_fields","id,date,link,title,excerpt,categories");
+ u.searchParams.set("_fields","id,date,date_gmt,link,title,excerpt,categories");
  const r=await fetch(u,{headers:{"user-agent":"FuoconeroSocialBridge/0.4.8"},signal:AbortSignal.timeout(30000)});
  if(!r.ok)throw new Error("WordPress posts feed HTTP "+r.status);
  const a=await r.json();
@@ -192,13 +192,14 @@ async function saveAutoState(s){try{await writeFile(AUTO_STATE_URL,JSON.stringif
 async function autoReelTick(){
  if(autoReelBusy)return;autoReelBusy=true;
  try{
-  const posts=(await recentPublishedPosts()).sort((a,b)=>new Date(a.date)-new Date(b.date));
-  console.log("AUTO_REEL scan",posts.length,posts.map(p=>({id:p.id,date:p.date,categories:p.categories,title:p.title})));
+  const postTime=p=>new Date((p.date_gmt||p.date)+"Z").getTime();
+  const posts=(await recentPublishedPosts()).sort((a,b)=>postTime(a)-postTime(b));
+  console.log("AUTO_REEL scan",posts.length,posts.map(p=>({id:p.id,date:p.date,date_gmt:p.date_gmt,categories:p.categories,title:p.title})));
   const state=await autoState(),seen=new Set(state.seen||[]);
   const now=Date.now(),firstRun=!state.initialized;
   for(const post of posts){
    if(seen.has(String(post.id))){console.log("AUTO_REEL skip seen",post.id,post.title);continue;}
-   const age=now-new Date(post.date).getTime();
+   const age=now-postTime(post);
    // On first startup only consider genuinely fresh posts, preventing archive backfill.
    if(firstRun&&(age<0||age>45*60*1000)){console.log("AUTO_REEL skip first-run age",post.id,Math.round(age/60000),post.title);seen.add(String(post.id));continue;}
    const cats=(post.categories||[]).map(String),category=cats.map(x=>AUTO_REEL_CATEGORY_IDS[x]).find(Boolean);
@@ -323,7 +324,7 @@ const pump=worker(wp);
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.13",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.14",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
