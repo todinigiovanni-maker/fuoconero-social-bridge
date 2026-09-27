@@ -303,6 +303,23 @@ async function runCommand(){
   if(!items.length||items.length>25){console.error("COMMAND invalid scheduled_publish_batch");return;}
   let accepted=0;for(const item of items)if(schedulePublicationItem(item))accepted++;
   console.log("COMMAND scheduled_publish_batch",c.id,"accepted",accepted,"of",items.length);
+  // Optional archive backfill: enqueue render-only items in the same startup command,
+  // so deploying the hourly publication schedule does not need a second restart.
+  const renderItems=Array.isArray(c.render_items)?c.render_items:[];
+  if(renderItems.length){
+   if(renderItems.length>25){console.error("COMMAND invalid render_items");return;}
+   console.log("COMMAND scheduled_publish_batch render_items",c.id,renderItems.length);
+   for(const item of renderItems){
+    const p={...(item?.payload||item)};
+    if(p.category&&CATEGORY_LIBRARY[p.category]) p.category=CATEGORY_LIBRARY[p.category];
+    if(!p||typeof p!=="object"||!p.request_id||!Number.isInteger(p.post_id)||!p.category||(!p.music_title&&!p.music_id)||!p.outputs||typeof p.outputs!=="object"){
+     console.error("COMMAND render_items invalid item",p?.request_id||"unknown");continue;
+    }
+    const created=await wp("POST","/reel-maker/render-jobs",p);
+    console.log("COMMAND render_items result",c.id,p.request_id,created.status,JSON.stringify(created.data));
+   }
+   void pump();
+  }
   return;
  }
  if(c.action==="render_batch"){
