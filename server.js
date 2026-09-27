@@ -150,11 +150,12 @@ setInterval(keepScheduledServiceAwake,240000).unref();
 
 async function telegramChatId(){
  if(telegramKnownChatId)return telegramKnownChatId;
+ try{const st=await autoState();if(st?.telegram_chat_id){telegramKnownChatId=String(st.telegram_chat_id);console.log("TELEGRAM chat restored");return telegramKnownChatId;}}catch(e){console.warn("TELEGRAM chat restore failed",e.message);}
  const token=process.env.FNS_TELEGRAM_BOT_TOKEN;if(!token)return null;
  try{
   const r=await fetch("https://api.telegram.org/bot"+token+"/getUpdates",{signal:AbortSignal.timeout(15000)});
   const j=await r.json();const updates=Array.isArray(j?.result)?j.result:[];
-  for(let i=updates.length-1;i>=0;i--){const id=updates[i]?.message?.chat?.id||updates[i]?.callback_query?.message?.chat?.id;if(id){telegramKnownChatId=String(id);return telegramKnownChatId;}}
+  for(let i=updates.length-1;i>=0;i--){const id=updates[i]?.message?.chat?.id||updates[i]?.callback_query?.message?.chat?.id;if(id){telegramKnownChatId=String(id);try{const st=await autoState();st.telegram_chat_id=telegramKnownChatId;await saveAutoState(st);console.log("TELEGRAM chat persisted");}catch(e){console.warn("TELEGRAM chat persist failed",e.message);}return telegramKnownChatId;}}
  }catch(e){console.warn("TELEGRAM chat lookup failed",e.message);}
  return null;
 }
@@ -323,7 +324,7 @@ async function telegramApprovalTick(){
   if(telegramOffset!==null)qs.set("offset",String(telegramOffset));
   const r=await fetch("https://api.telegram.org/bot"+token+"/getUpdates?"+qs,{signal:AbortSignal.timeout(15000)});
   const j=await r.json(),updates=Array.isArray(j?.result)?j.result:[];
-  if(!telegramKnownChatId){for(let i=updates.length-1;i>=0;i--){const id=updates[i]?.message?.chat?.id||updates[i]?.callback_query?.message?.chat?.id;if(id){telegramKnownChatId=String(id);console.log("TELEGRAM chat learned");break;}}}
+  if(!telegramKnownChatId){for(let i=updates.length-1;i>=0;i--){const id=updates[i]?.message?.chat?.id||updates[i]?.callback_query?.message?.chat?.id;if(id){telegramKnownChatId=String(id);console.log("TELEGRAM chat learned");try{const st=await autoState();st.telegram_chat_id=telegramKnownChatId;await saveAutoState(st);console.log("TELEGRAM chat persisted");}catch(e){console.warn("TELEGRAM chat persist failed",e.message);}break;}}}
   const allowed=String(process.env.FNS_TELEGRAM_CHAT_ID||telegramKnownChatId||"");
   if(telegramOffset===null){
    telegramOffset=updates.length?Math.max(...updates.map(x=>Number(x.update_id)||0))+1:0;
@@ -478,7 +479,7 @@ async function runCommand(){
  if(prep.data?.job_id){const job=await wp("GET","/jobs/"+encodeURIComponent(prep.data.job_id));console.log("COMMAND status",c.id,job.status,JSON.stringify(job.data));}
  console.log("COMMAND end",c.id,"— no publication");
 }
-const pump=worker(wp,{getTelegramChatId:()=>process.env.FNS_TELEGRAM_CHAT_ID||telegramKnownChatId||null});
+const pump=worker(wp,{getTelegramChatId:async()=>process.env.FNS_TELEGRAM_CHAT_ID||telegramKnownChatId||await telegramChatId()||null});
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
