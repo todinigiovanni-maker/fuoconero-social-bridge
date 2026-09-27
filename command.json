@@ -1,22 +1,61 @@
 {
   "version": 1,
-  "id": "antico-batterio-render-20260927-002",
-  "action": "render",
-  "payload": {
-    "request_id": "antico-batterio-render-20260927-002",
-    "post_id": 5635,
-    "category": "animale",
-    "outputs": {
-      "reel": {
-        "preset": "articolo",
-        "scene_texts": [
-          "Dentro quasi ogni tua cellula vive il discendente di un antico batterio.",
-          "Due miliardi di anni fa una cellula lo inglobò… ma non lo digerì.",
-          "Quell’antica alleanza diventò il mitocondrio: la centrale energetica delle nostre cellule.",
-          "Una collaborazione iniziata miliardi di anni fa continua a tenerci in vita."
-        ]
+  "id": "fuoconero-render-batch-20260927-001",
+  "action": "render_batch",
+  "items": [
+    {
+      "payload": {
+        "request_id": "antico-batterio-full-20260927-003",
+        "post_id": 5635,
+        "category": "animale",
+        "outputs": {
+          "reel": {
+            "preset": "articolo",
+            "scene_texts": [
+              "Dentro quasi ogni tua cellula vive il discendente di un antico batterio.",
+              "Due miliardi di anni fa una cellula lo inglobò… ma non lo digerì.",
+              "Quell’antica alleanza diventò il mitocondrio: la centrale energetica delle nostre cellule.",
+              "Una collaborazione iniziata miliardi di anni fa continua a tenerci in vita."
+            ]
+          },
+          "story": {
+            "preset": "story",
+            "scene_texts": [
+              "Dentro quasi ogni tua cellula vive un antico batterio.",
+              "Non fu digerito: diventò il mitocondrio.",
+              "Un’alleanza vecchia di miliardi di anni vive ancora dentro di noi."
+            ]
+          }
+        },
+        "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"
       }
     },
-    "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"
-  }
+    {
+      "payload": {
+        "request_id": "luca-full-20260927-002",
+        "post_id": 5682,
+        "category": "animale",
+        "outputs": {
+          "reel": {
+            "preset": "articolo",
+            "scene_texts": [
+              "Tu, un gatto, una quercia e un batterio siete parenti.",
+              "Andando abbastanza indietro, quasi tutta la vita converge verso un antenato comune.",
+              "Gli scienziati lo chiamano L.U.C.A.: Last Universal Common Ancestor.",
+              "La vita sulla Terra non è una collezione di specie. È un’unica, gigantesca famiglia."
+            ]
+          },
+          "story": {
+            "preset": "story",
+            "scene_texts": [
+              "Tu, un gatto e una quercia siete parenti.",
+              "Quasi tutta la vita condivide un antichissimo antenato comune.",
+              "Si chiama L.U.C.A. E la sua storia è anche la nostra."
+            ]
+          }
+        },
+        "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"
+      }
+    }
+  ]
 }
