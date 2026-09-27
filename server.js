@@ -258,7 +258,7 @@ async function autoReelTick(){
   // One-shot recovery for the poisoned legacy 7945 render job. A distinct
   // request id creates a fresh durable job; anti-duplicate protection then
   // resumes normally instead of re-enqueuing the zombie every scan.
-  const recoverPostId=Number(process.env.FNS_RECOVER_POST_ID||7945);
+  const recoverPostId=Number(process.env.FNS_RECOVER_POST_ID||0);
   const recoveryPending=recoverPostId&&!state.recovered_7945;
   const now=Date.now(),firstRun=!state.initialized;
   for(const post of posts){
@@ -295,10 +295,10 @@ async function autoReelTick(){
     seen.add(String(post.id));
     await telegramNotify("🔥 Fuoconero Social\nNuovo articolo rilevato:\n"+post.title+"\n\n⚙️ Reel + Story accodati. Nessuna pubblicazione social senza approvazione.");
     void pump();
-   }else if(isExistingRender(created)){
-    // A deterministic request_id means this article has already entered the
-    // render pipeline. Treat it as processed and never notify it again.
-    console.log("AUTO_REEL skip existing render",post.id,post.title);
+   }else if(isExistingRender(created)||/request_id gi[aà] usato per contenuto diverso/i.test(String(created?.data?.message||""))){
+    // A deterministic request_id collision also proves this post has already
+    // entered the render pipeline. Mark it seen and never notify/retry it.
+    console.log("AUTO_REEL skip existing/colliding render",post.id,post.title);
     seen.add(String(post.id));
    }else if(isArticleNotReady(created)){
     console.log("AUTO_REEL article not ready yet",post.id,"— retry without marking seen");
