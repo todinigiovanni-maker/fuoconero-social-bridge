@@ -1,9 +1,127 @@
 {
   "version": 1,
-  "id": "inspect-polpo-publication-20260927-002",
-  "action": "inspect",
-  "job_ids": [
-    "5f00af78-c8cc-4304-a9f5-87a3d0982a19",
-    "5d56315c-b39c-467c-bfec-d0b218efcb9b"
+  "id": "hourly-approved-backlog-20260927-001",
+  "action": "scheduled_publish_batch",
+  "items": [
+    {
+      "id": "queue-5270",
+      "render_job_id": "129a4112-0a7f-4940-b1c7-6d4e5574bf36",
+      "publish_at": "2026-09-27T12:00:00Z",
+      "title": "Perché i mammiferi producono latte?",
+      "caption": "Perché i mammiferi producono latte?\n\n#Fuoconero #AniMALE",
+      "facebook_caption": "Perché i mammiferi producono latte?\n\nhttps://fuoconero.com/?p=5270\n\n#Fuoconero #AniMALE",
+      "youtube_privacy": "public",
+      "made_for_kids": "no",
+      "synthetic_media": "no",
+      "reel": {
+        "targets": [
+          "ig_reel",
+          "fb_reel",
+          "youtube_short"
+        ]
+      },
+      "story": {
+        "targets": [
+          "ig_story",
+          "fb_story"
+        ]
+      }
+    },
+    {
+      "id": "queue-5635",
+      "render_job_id": "298e9605-b8b9-4c7a-8a66-d5068257d14d",
+      "publish_at": "2026-09-27T13:00:00Z",
+      "title": "L’antico batterio che vive ancora dentro di noi",
+      "caption": "L’antico batterio che vive ancora dentro di noi\n\n#Fuoconero #AniMALE",
+      "facebook_caption": "L’antico batterio che vive ancora dentro di noi\n\nhttps://fuoconero.com/?p=5635\n\n#Fuoconero #AniMALE",
+      "youtube_privacy": "public",
+      "made_for_kids": "no",
+      "synthetic_media": "no",
+      "reel": {
+        "targets": [
+          "ig_reel",
+          "fb_reel",
+          "youtube_short"
+        ]
+      },
+      "story": {
+        "targets": [
+          "ig_story",
+          "fb_story"
+        ]
+      }
+    },
+    {
+      "id": "queue-7629",
+      "render_job_id": "5f62ed66-75e9-427a-8fea-5c54b12b99d3",
+      "publish_at": "2026-09-27T14:00:00Z",
+      "title": "Abbiamo ricostruito ciò che vedeva un topo leggendo soltanto il suo cervello",
+      "caption": "Abbiamo ricostruito ciò che vedeva un topo leggendo soltanto il suo cervello\n\n#Fuoconero #AniMALE",
+      "facebook_caption": "Abbiamo ricostruito ciò che vedeva un topo leggendo soltanto il suo cervello\n\nhttps://fuoconero.com/?p=7629\n\n#Fuoconero #AniMALE",
+      "youtube_privacy": "public",
+      "made_for_kids": "no",
+      "synthetic_media": "no",
+      "reel": {
+        "targets": [
+          "ig_reel",
+          "fb_reel",
+          "youtube_short"
+        ]
+      },
+      "story": {
+        "targets": [
+          "ig_story",
+          "fb_story"
+        ]
+      }
+    },
+    {
+      "id": "queue-7602",
+      "render_job_id": "91e602ed-4e45-4f3d-9e02-91101829d66a",
+      "publish_at": "2026-09-27T15:00:00Z",
+      "title": "Due particelle muoiono quasi subito. Ma prima fanno una cosa “impossibile” insieme",
+      "caption": "Due particelle muoiono quasi subito. Ma prima fanno una cosa “impossibile” insieme\n\n#Fuoconero #FisicaMENTE",
+      "facebook_caption": "Due particelle muoiono quasi subito. Ma prima fanno una cosa “impossibile” insieme\n\nhttps://fuoconero.com/?p=7602\n\n#Fuoconero #FisicaMENTE",
+      "youtube_privacy": "public",
+      "made_for_kids": "no",
+      "synthetic_media": "no",
+      "reel": {
+        "targets": [
+          "ig_reel",
+          "fb_reel",
+          "youtube_short"
+        ]
+      },
+      "story": {
+        "targets": [
+          "ig_story",
+          "fb_story"
+        ]
+      }
+    },
+    {
+      "id": "queue-7605",
+      "render_job_id": "68aeffed-fed3-47cf-8fbf-fe7cf46adbe9",
+      "publish_at": "2026-09-27T16:00:00Z",
+      "title": "L’IA che ha letto 112 milioni di cellule e ha scoperto che la vita parla la stessa lingua",
+      "caption": "L’IA che ha letto 112 milioni di cellule e ha scoperto che la vita parla la stessa lingua\n\n#Fuoconero #NaturalMENTE",
+      "facebook_caption": "L’IA che ha letto 112 milioni di cellule e ha scoperto che la vita parla la stessa lingua\n\nhttps://fuoconero.com/?p=7605\n\n#Fuoconero #NaturalMENTE",
+      "youtube_privacy": "public",
+      "made_for_kids": "no",
+      "synthetic_media": "no",
+      "reel": {
+        "targets": [
+          "ig_reel",
+          "fb_reel",
+          "youtube_short"
+        ]
+      },
+      "story": {
+        "targets": [
+          "ig_story",
+          "fb_story"
+        ]
+      }
+    }
   ]
 }
