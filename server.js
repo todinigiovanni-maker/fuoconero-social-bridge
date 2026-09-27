@@ -253,14 +253,14 @@ async function autoReelTick(){
   const posts=(await recentPublishedPosts()).sort((a,b)=>postTime(a)-postTime(b));
   console.log("AUTO_REEL scan",posts.length,posts.map(p=>({id:p.id,date:p.date,date_gmt:p.date_gmt,categories:p.categories,title:p.title})));
   const state=await autoState(),seen=new Set(state.seen||[]);
-  // A failed render must not permanently poison anti-duplicate state.
-  // 7945 is the recovery case that exposed this: re-admit it once after deploy,
-  // while the deterministic request id still protects against duplicate jobs.
+  // One-shot recovery for the poisoned legacy 7945 render job. A distinct
+  // request id creates a fresh durable job; anti-duplicate protection then
+  // resumes normally instead of re-enqueuing the zombie every scan.
   const recoverPostId=Number(process.env.FNS_RECOVER_POST_ID||7945);
-  if(recoverPostId&&seen.delete(String(recoverPostId)))console.log("AUTO_REEL recover failed post",recoverPostId);
+  const recoveryPending=recoverPostId&&!state.recovered_7945;
   const now=Date.now(),firstRun=!state.initialized;
   for(const post of posts){
-   if(seen.has(String(post.id))){console.log("AUTO_REEL skip seen",post.id,post.title);continue;}
+   if(seen.has(String(post.id))&&!(recoveryPending&&Number(post.id)===recoverPostId)){console.log("AUTO_REEL skip seen",post.id,post.title);continue;}
    const age=now-postTime(post);
    // On first startup only consider genuinely fresh posts, preventing archive backfill.
    if(firstRun&&(age<0||age>120*60*1000)){console.log("AUTO_REEL skip first-run age",post.id,Math.round(age/60000),post.title);seen.add(String(post.id));continue;}
@@ -269,7 +269,7 @@ async function autoReelTick(){
    console.log("AUTO_REEL eligible",post.id,category,Math.round(age/60000),post.title);
    const scenes=autoScenes(post),publication=autoPublicationMeta(post,category);
    const payload={
-    request_id:"fuoconero-auto-v4-post-"+post.id+"-reel-story",post_id:Number(post.id),category,
+    request_id:(recoveryPending&&Number(post.id)===recoverPostId?"fuoconero-auto-v5-recovery-post-"+post.id+"-reel-story":"fuoconero-auto-v4-post-"+post.id+"-reel-story"),post_id:Number(post.id),category,
     music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
     outputs:{reel:{preset:"articolo",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}},
     publication,
@@ -277,6 +277,10 @@ async function autoReelTick(){
    };
    const created=await wp("POST","/reel-maker/render-jobs",payload);
    console.log("AUTO_REEL enqueue",post.id,created.status,JSON.stringify(created.data));
+   if(recoveryPending&&Number(post.id)===recoverPostId&&created.status>=200&&created.status<300){
+    state.recovered_7945=true;
+    console.log("AUTO_REEL recovery job created",post.id,created?.data?.render_job_id||"");
+   }
    if(created.status>=200&&created.status<300){
     const createdStatus=String(created?.data?.status||"").toLowerCase();
     if(createdStatus==="failed"){
