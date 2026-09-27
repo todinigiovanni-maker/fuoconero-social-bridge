@@ -79,6 +79,7 @@ async function cleanupPublishedJob(jobId,storageId,meta={}){
    await telegramNotify("⚠️ Fuoconero Social\\nPubblicazione riuscita, ma non sono riuscito a eliminare il file temporaneo da Drive: "+(meta.title||jobId)+".");
    return false;
   }
+  if(meta.notify!==false)await telegramNotify("🧹 Fuoconero Social\\nCleanup completato: "+(meta.kind==="story"?"Story":"Reel")+" eliminat"+(meta.kind==="story"?"a":"o")+" da Drive — "+(meta.title||jobId)+".");
   return true;
  }
  console.warn("CLEANUP retained after timeout",jobId);
