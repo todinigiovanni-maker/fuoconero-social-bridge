@@ -180,10 +180,28 @@ const autoRetryTimers=new Map();
 let autoReelBusy=false;
 function decodeHtml(s=""){return String(s).replace(/<[^>]*>/g," ").replace(/&#8230;|&hellip;/g,"…").replace(/&#8211;|&ndash;/g,"–").replace(/&#8212;|&mdash;/g,"—").replace(/&#8217;|&rsquo;/g,"’").replace(/&amp;/g,"&").replace(/&quot;/g,'"').replace(/&#\d+;/g," ").replace(/\s+/g," ").trim();}
 function shortText(s,max=118){s=decodeHtml(s);if(s.length<=max)return s;const x=s.slice(0,max-1);return x.slice(0,Math.max(40,x.lastIndexOf(" ")))+"…";}
+function sceneSentence(text,maxWords=13){
+ const clean=decodeHtml(text||"").replace(/\s+/g," ").trim().replace(/[.…]+$/,"");
+ if(!clean)return "";
+ const words=clean.split(" ");
+ if(words.length<=maxWords)return clean;
+ // Never leave an automatic sentence visibly truncated: keep a complete,
+ // compact clause. Ellipses are reserved for text that already uses them
+ // intentionally, not as a character-limit marker.
+ const clauses=clean.split(/[,;:—–-]\s+/).map(s=>s.trim()).filter(Boolean);
+ const complete=clauses.find(s=>s.split(/\s+/).length>=5&&s.split(/\s+/).length<=maxWords);
+ if(complete)return complete.replace(/[.…]+$/,"");
+ return words.slice(0,maxWords).join(" ").replace(/[,;:]$/,"")+".";
+}
+function cleanAutoTitle(title){
+ return decodeHtml(title||"").replace(/^\s*(?:ANI[.…]*MALE|NATURAL[.…]*MENTE|FISICA[.…]*MENTE|IL MONDO VISTO DAL NERO|DOSSIER FUOCONERO)\s*[-—–:]+\s*/i,"").trim();
+}
 function autoScenes(post){
- const title=shortText(post.title,72), excerpt=decodeHtml(post.excerpt||"");
+ const rawTitle=cleanAutoTitle(post.title), excerpt=decodeHtml(post.excerpt||"");
  const bits=excerpt.split(/(?<=[.!?])\s+/).filter(Boolean);
- const middle=shortText(bits[0]||excerpt||title,82), second=shortText(bits[1]||excerpt||"Scopri la storia completa.",76);
+ const title=sceneSentence(rawTitle,11);
+ const middle=sceneSentence(bits[0]||excerpt||rawTitle,13);
+ const second=sceneSentence(bits[1]||"Scopri la storia completa.",13);
  return {
   reel:[title,middle,second,"Scopri di più su fuoconero.com"],
   story:[title,middle,"Continua su fuoconero.com"]
