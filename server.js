@@ -59,6 +59,19 @@ function allDestinationsSucceeded(job){
  const d=Array.isArray(job?.destinations)?job.destinations:[];
  return d.length>0 && d.every(x=>x?.status==='success');
 }
+function verifiedAccountsForTargets(prepData,targets=[]){
+ const snapshot=prepData?.payload?.accounts;
+ const accounts=snapshot?.accounts;
+ if(!snapshot||!Number(snapshot.checked_at)||!accounts||Array.isArray(accounts)) return {ok:false,missing:["verification"]};
+ const required=new Set();
+ for(const t of targets||[]){
+  if(/^ig_/.test(t))required.add("instagram");
+  else if(/^fb_/.test(t))required.add("facebook");
+  else if(t==="youtube_short")required.add("youtube");
+ }
+ const missing=[...required].filter(name=>accounts?.[name]?.ok!==true);
+ return {ok:missing.length===0,missing,checked_at:Number(snapshot.checked_at)||0};
+}
 async function cleanupPublishedJob(jobId,storageId,meta={}){
  if(!jobId||!storageId)return false;
  for(let attempt=0;attempt<80;attempt++){
@@ -110,6 +123,12 @@ async function prepareAndConfirmScheduled(spec,driveFileId,suffix){
  console.log("SCHEDULE prepare",id,prep.status,JSON.stringify(prep.data));
  if(prep.status<200||prep.status>=300||!prep.data?.job_id)throw new Error("prepare failed "+id);
  if(prep.data?.status!=="prepared"||!prep.data?.digest)throw new Error("prepared job unavailable "+id);
+ const verified=verifiedAccountsForTargets(prep.data,spec.targets);
+ if(!verified.ok){
+  console.warn("SCHEDULE blocked: account verification snapshot missing/stale",id,verified.missing.join(","));
+  await telegramNotify("⚠️ Fuoconero Social\nPubblicazione sospesa prima dell’invio: la verifica dei collegamenti WordPress non è disponibile per "+(verified.missing.join(", ")||"i social")+".\nI file restano su Drive e nessun social viene chiamato.");
+  throw new Error("social verification snapshot unavailable "+id);
+ }
  if(process.env.FNS_ALLOW_CONFIRM!=="1")throw new Error("FNS_ALLOW_CONFIRM is disabled");
  const conf=await wp("POST","/jobs/"+encodeURIComponent(prep.data.job_id)+"/confirm",{confirmed:true,digest:prep.data.digest});
  console.log("SCHEDULE confirm",id,conf.status,JSON.stringify(conf.data));
@@ -162,6 +181,9 @@ async function telegramChatId(){
 }
 async function telegramNotify(message){
  const token=process.env.FNS_TELEGRAM_BOT_TOKEN;if(!token)return false;
+ // Older callers stored literal "\\n" sequences. Normalize them so Telegram
+ // renders real line breaks instead of showing backslash-n in the message.
+ message=String(message??"").replace(/\\\\n/g,"\n");
  const chatId=process.env.FNS_TELEGRAM_CHAT_ID||await telegramChatId();
  if(!chatId){console.warn("TELEGRAM no chat id — send /start to the bot");return false;}
  try{
@@ -514,7 +536,7 @@ const pump=worker(wp,{getTelegramChatId:async()=>process.env.FNS_TELEGRAM_CHAT_I
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.21",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.22",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
