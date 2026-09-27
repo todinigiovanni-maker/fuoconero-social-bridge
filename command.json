@@ -1,5 +1,6 @@
 {
-  "id": "inspect-output-7945-20260927",
-  "action": "inspect_render_output",
-  "render_job_id": "49fd476c-deb0-4bc2-8f83-cecbea525d13"
+  "id": "resend-ready-7945-preview-20260927",
+  "action": "resend_render_ready",
+  "render_job_id": "49fd476c-deb0-4bc2-8f83-cecbea525d13",
+  "post_id": 7945
 }
