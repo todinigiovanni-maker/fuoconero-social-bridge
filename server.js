@@ -375,6 +375,12 @@ async function runCommand(){
  let c; try{c=JSON.parse(await readFile(new URL("./command.json",import.meta.url),"utf8"));}catch(e){console.error("COMMAND read error",e.message);return;}
  if(!c||c.action==="noop"){console.log("COMMAND idle",c?.id||"none");return;}
  if(!c.id){console.error("COMMAND invalid: missing id");return;}
+ if(c.action==="inspect_render_output"){
+  if(!c.render_job_id){console.error("COMMAND invalid inspect_render_output");return;}
+  const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(c.render_job_id)+"/output");
+  console.log("COMMAND inspect_render_output",c.id,c.render_job_id,out.status,JSON.stringify(out.data));
+  return;
+ }
  if(c.action==="resend_render_ready"){
   if(!c.render_job_id||!Number.isInteger(c.post_id)){console.error("COMMAND invalid resend_render_ready");return;}
   const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(c.render_job_id)+"/output");
