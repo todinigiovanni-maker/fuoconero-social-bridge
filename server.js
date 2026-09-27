@@ -192,7 +192,8 @@ async function saveAutoState(s){try{await writeFile(AUTO_STATE_URL,JSON.stringif
 async function autoReelTick(){
  if(autoReelBusy)return;autoReelBusy=true;
  try{
-  const posts=(await recentPublishedPosts()).sort((a,b)=>new Date(a.date)-new Date(b.date));\n  console.log("AUTO_REEL scan",posts.length,posts.map(p=>({id:p.id,date:p.date,categories:p.categories,title:p.title})));
+  const posts=(await recentPublishedPosts()).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  console.log("AUTO_REEL scan",posts.length,posts.map(p=>({id:p.id,date:p.date,categories:p.categories,title:p.title})));
   const state=await autoState(),seen=new Set(state.seen||[]);
   const now=Date.now(),firstRun=!state.initialized;
   for(const post of posts){
@@ -321,7 +322,7 @@ const pump=worker(wp);
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.11",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.12",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
