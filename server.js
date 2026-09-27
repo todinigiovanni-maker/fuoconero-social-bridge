@@ -59,20 +59,31 @@ function allDestinationsSucceeded(job){
  const d=Array.isArray(job?.destinations)?job.destinations:[];
  return d.length>0 && d.every(x=>x?.status==='success');
 }
-async function cleanupPublishedJob(jobId,storageId){
- if(!jobId||!storageId)return;
+async function cleanupPublishedJob(jobId,storageId,meta={}){
+ if(!jobId||!storageId)return false;
  for(let attempt=0;attempt<80;attempt++){
   await sleep(attempt===0?5000:15000);
   const job=await wp("GET","/jobs/"+encodeURIComponent(jobId));
   if(job.status!==200){console.warn("CLEANUP status unavailable",jobId,job.status);continue;}
   const destinations=Array.isArray(job.data?.destinations)?job.data.destinations:[];
-  if(destinations.some(x=>x?.status==='error')){console.warn("CLEANUP retained after publication error",jobId);return;}
+  if(destinations.some(x=>x?.status==='error')){
+   console.warn("CLEANUP retained after publication error",jobId);
+   if(meta.notify!==false)await telegramNotify("⚠️ Fuoconero Social\\nPubblicazione incompleta: "+(meta.title||jobId)+" ("+(meta.kind||"media")+").\\nIl file resta su Drive.");
+   return false;
+  }
   if(!allDestinationsSucceeded(job.data))continue;
+  if(meta.notify!==false)await telegramNotify("✅ Fuoconero Social\\n"+(meta.kind==="story"?"Story":"Reel")+" pubblicat"+(meta.kind==="story"?"a":"o")+" correttamente: "+(meta.title||"Fuoconero")+".");
   const del=await wp("POST","/storage/delete",{request_id:"cleanup-"+jobId,storage_id:storageId});
   console.log("CLEANUP result",jobId,del.status,JSON.stringify(del.data));
-  return;
+  if(del.status<200||del.status>=300){
+   await telegramNotify("⚠️ Fuoconero Social\\nPubblicazione riuscita, ma non sono riuscito a eliminare il file temporaneo da Drive: "+(meta.title||jobId)+".");
+   return false;
+  }
+  return true;
  }
  console.warn("CLEANUP retained after timeout",jobId);
+ if(meta.notify!==false)await telegramNotify("⚠️ Fuoconero Social\\nNon ho ancora la conferma finale di tutti i social per "+(meta.title||jobId)+". Il file resta su Drive.");
+ return false;
 }
 
 const scheduledTimers=new Map();
@@ -104,7 +115,7 @@ async function prepareAndConfirmScheduled(spec,driveFileId,suffix){
  console.log("SCHEDULE confirm",id,conf.status,JSON.stringify(conf.data));
  if(conf.status<200||conf.status>=300)throw new Error("confirm failed "+id);
  const storageId=conf.data?.payload?.storage_id||job.data?.payload?.storage_id||st.data.storage_id;
- if(storageId)void cleanupPublishedJob(prep.data.job_id,storageId);
+ if(storageId)void cleanupPublishedJob(prep.data.job_id,storageId,{title:spec.title,kind:suffix,notify:true});
  return prep.data.job_id;
 }
 async function executeScheduledPublication(item){
