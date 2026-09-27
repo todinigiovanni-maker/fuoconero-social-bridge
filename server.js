@@ -179,12 +179,12 @@ let autoReelBusy=false;
 function decodeHtml(s=""){return String(s).replace(/<[^>]*>/g," ").replace(/&#8230;|&hellip;/g,"…").replace(/&#8211;|&ndash;/g,"–").replace(/&#8212;|&mdash;/g,"—").replace(/&#8217;|&rsquo;/g,"’").replace(/&amp;/g,"&").replace(/&quot;/g,'"').replace(/&#\d+;/g," ").replace(/\s+/g," ").trim();}
 function shortText(s,max=118){s=decodeHtml(s);if(s.length<=max)return s;const x=s.slice(0,max-1);return x.slice(0,Math.max(40,x.lastIndexOf(" ")))+"…";}
 function autoScenes(post){
- const title=shortText(post.title,105), excerpt=decodeHtml(post.excerpt||"");
+ const title=shortText(post.title,72), excerpt=decodeHtml(post.excerpt||"");
  const bits=excerpt.split(/(?<=[.!?])\s+/).filter(Boolean);
- const middle=shortText(bits[0]||excerpt||title,125), second=shortText(bits[1]||excerpt||"Scopri cosa racconta l’articolo.",125);
+ const middle=shortText(bits[0]||excerpt||title,82), second=shortText(bits[1]||excerpt||"Scopri la storia completa.",76);
  return {
-  reel:[title,middle,second,"Leggi la storia completa su fuoconero.com"],
-  story:[title,middle,"La storia completa è su fuoconero.com"]
+  reel:[title,middle,second,"Scopri di più su fuoconero.com"],
+  story:[title,middle,"Continua su fuoconero.com"]
  };
 }
 async function autoState(){try{return JSON.parse(await readFile(AUTO_STATE_URL,"utf8"));}catch{return {seen:[]};}}
@@ -208,7 +208,7 @@ async function autoReelTick(){
    await telegramNotify("🔥 Fuoconero Social\nNuovo articolo rilevato:\n"+post.title+"\n\n🎬 Creo Reel + Story.");
    const scenes=autoScenes(post);
    const payload={
-    request_id:"fuoconero-auto-v2-post-"+post.id+"-reel-story",post_id:Number(post.id),category,
+    request_id:"fuoconero-auto-v3-post-"+post.id+"-reel-story",post_id:Number(post.id),category,
     music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
     outputs:{reel:{preset:"articolo",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}},
     publication_authorized:false
