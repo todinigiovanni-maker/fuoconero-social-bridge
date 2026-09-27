@@ -74,6 +74,65 @@ async function cleanupPublishedJob(jobId,storageId){
  }
  console.warn("CLEANUP retained after timeout",jobId);
 }
+
+const scheduledTimers=new Map();
+function findDriveFileId(output,kind){
+ const roots=[output?.[kind],output?.outputs?.[kind],output?.data?.[kind],output?.data?.outputs?.[kind]];
+ for(const x of roots){
+  const id=x?.drive_file_id||x?.drive?.file_id||x?.file_id;
+  if(typeof id==="string"&&id)return id;
+ }
+ return null;
+}
+async function prepareAndConfirmScheduled(spec,driveFileId,suffix){
+ const id=spec.id+"-"+suffix;
+ const st=await wp("POST","/storage/drive",{request_id:"drive-"+id,drive_file_id:driveFileId});
+ console.log("SCHEDULE storage",id,st.status,JSON.stringify(st.data));
+ if(st.status<200||st.status>=300||!st.data?.storage_id)throw new Error("storage import failed "+id);
+ const prep=await wp("POST","/prepare",{
+  request_id:"prepare-"+id,storage_id:st.data.storage_id,title:spec.title,
+  caption:spec.caption||"",facebook_caption:spec.facebook_caption||spec.caption||"",
+  targets:spec.targets,youtube_privacy:spec.youtube_privacy||"public",
+  made_for_kids:yesNo(spec.made_for_kids),synthetic_media:yesNo(spec.synthetic_media)
+ });
+ console.log("SCHEDULE prepare",id,prep.status,JSON.stringify(prep.data));
+ if(prep.status<200||prep.status>=300||!prep.data?.job_id)throw new Error("prepare failed "+id);
+ const job=await wp("GET","/jobs/"+encodeURIComponent(prep.data.job_id));
+ if(job.status!==200||job.data?.status!=="prepared"||!job.data?.digest)throw new Error("prepared job unavailable "+id);
+ if(process.env.FNS_ALLOW_CONFIRM!=="1")throw new Error("FNS_ALLOW_CONFIRM is disabled");
+ const conf=await wp("POST","/jobs/"+encodeURIComponent(prep.data.job_id)+"/confirm",{confirmed:true,digest:job.data.digest});
+ console.log("SCHEDULE confirm",id,conf.status,JSON.stringify(conf.data));
+ if(conf.status<200||conf.status>=300)throw new Error("confirm failed "+id);
+ const storageId=conf.data?.payload?.storage_id||job.data?.payload?.storage_id||st.data.storage_id;
+ if(storageId)void cleanupPublishedJob(prep.data.job_id,storageId);
+ return prep.data.job_id;
+}
+async function executeScheduledPublication(item){
+ console.log("SCHEDULE execute",item.id,item.render_job_id);
+ const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(item.render_job_id)+"/output");
+ if(out.status!==200)throw new Error("render output unavailable "+item.id);
+ const reelId=findDriveFileId(out.data,"reel"),storyId=findDriveFileId(out.data,"story");
+ if(!reelId||!storyId)throw new Error("approved Reel/Story Drive IDs unavailable "+item.id);
+ await prepareAndConfirmScheduled({...item,...item.reel,targets:item.reel?.targets||["instagram_reel","facebook_reel","youtube_short"]},reelId,"reel");
+ await prepareAndConfirmScheduled({...item,...item.story,targets:item.story?.targets||["ig_story","fb_story"]},storyId,"story");
+ console.log("SCHEDULE complete",item.id);
+}
+function schedulePublicationItem(item){
+ if(!item?.id||!item?.render_job_id||!item?.publish_at||!item?.title)return false;
+ const when=Date.parse(item.publish_at);if(!Number.isFinite(when))return false;
+ const run=()=>executeScheduledPublication(item).catch(e=>console.error("SCHEDULE failed",item.id,e.message));
+ const delay=Math.max(0,when-Date.now());
+ const t=setTimeout(run,delay);scheduledTimers.set(item.id,t);
+ console.log("SCHEDULE queued",item.id,item.publish_at,"in_ms",delay);
+ return true;
+}
+function keepScheduledServiceAwake(){
+ if(!scheduledTimers.size)return;
+ const url=process.env.RENDER_EXTERNAL_URL||process.env.FNS_SELF_URL;
+ if(url)fetch(url.replace(/\/$/,"")+"/health",{signal:AbortSignal.timeout(15000)}).catch(()=>{});
+}
+setInterval(keepScheduledServiceAwake,240000).unref();
+
 async function runCommand(){
  let c; try{c=JSON.parse(await readFile(new URL("./command.json",import.meta.url),"utf8"));}catch(e){console.error("COMMAND read error",e.message);return;}
  if(!c||c.action==="noop"){console.log("COMMAND idle",c?.id||"none");return;}
@@ -89,6 +148,13 @@ async function runCommand(){
  if(c.action==="inspect"){
   const ids=Array.isArray(c.job_ids)?c.job_ids:[c.job_id].filter(Boolean);
   for(const id of ids){const j=await wp("GET","/jobs/"+encodeURIComponent(id));console.log("COMMAND inspect",c.id,id,j.status,JSON.stringify(j.data));}
+  return;
+ }
+ if(c.action==="scheduled_publish_batch"){
+  const items=Array.isArray(c.items)?c.items:[];
+  if(!items.length||items.length>25){console.error("COMMAND invalid scheduled_publish_batch");return;}
+  let accepted=0;for(const item of items)if(schedulePublicationItem(item))accepted++;
+  console.log("COMMAND scheduled_publish_batch",c.id,"accepted",accepted,"of",items.length);
   return;
  }
  if(c.action==="render_batch"){
@@ -162,7 +228,7 @@ const pump=worker(wp);
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.5",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.6",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
