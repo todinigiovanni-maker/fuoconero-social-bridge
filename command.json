@@ -1,27 +1,27 @@
 {
   "version": 1,
-  "id": "polpo-stella-marina-render-20260927-001",
+  "id": "antico-batterio-render-20260927-001",
   "action": "render",
   "payload": {
-    "request_id": "polpo-stella-marina-render-20260927-001",
-    "post_id": 5115,
+    "request_id": "antico-batterio-render-20260927-001",
+    "post_id": 5635,
     "category": "animale",
     "outputs": {
       "reel": {
         "preset": "articolo",
         "scene_texts": [
-          "Questa NON è una stella marina.",
-          "È un minuscolo polpo blu, grande più o meno come una pallina da golf.",
-          "Vive a quasi 1.800 metri di profondità, vicino alle Galápagos.",
-          "Nel buio degli abissi, fingersi una stella marina può salvarti la vita."
+          "Dentro quasi ogni tua cellula vive il discendente di un antico batterio.",
+          "Due miliardi di anni fa una cellula lo inglobò… ma non lo digerì.",
+          "Quell’antica alleanza diventò il mitocondrio: la centrale energetica delle nostre cellule.",
+          "Una collaborazione iniziata miliardi di anni fa continua a tenerci in vita."
         ]
       },
       "story": {
         "preset": "story",
         "scene_texts": [
-          "Questa NON è una stella marina.",
-          "È un minuscolo polpo blu che vive a quasi 1.800 metri di profondità.",
-          "Negli abissi, anche sembrare qualcos’altro può salvarti la vita."
+          "Dentro quasi ogni tua cellula vive un antico batterio.",
+          "Non fu digerito: diventò il mitocondrio.",
+          "Un’alleanza vecchia di miliardi di anni vive ancora dentro di noi."
         ]
       }
     },
