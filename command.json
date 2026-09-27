@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "id": "publish-polpo-stella-marina-20260927-001",
+  "id": "publish-polpo-stella-marina-20260927-002",
   "action": "scheduled_publish_batch",
   "items": [
     {
-      "id": "polpo-stella-marina-approved-20260927-001",
+      "id": "polpo-stella-marina-approved-20260927-002",
       "render_job_id": "04a61365-2943-4d4f-9ded-76697e6882b8",
-      "publish_at": "2026-09-27T10:58:00Z",
+      "publish_at": "2026-09-27T11:01:00Z",
       "title": "Il polpo che voleva essere una stella marina",
       "caption": "Questa NON è una stella marina. È un minuscolo polpo blu che vive negli abissi vicino alle Galápagos. Nel buio, sembrare qualcos’altro può salvarti la vita. #Fuoconero #AniMALE",
       "facebook_caption": "Questa NON è una stella marina. È un minuscolo polpo blu che vive negli abissi vicino alle Galápagos. Nel buio, sembrare qualcos’altro può salvarti la vita.\n\nhttps://fuoconero.com/?p=5115\n\n#Fuoconero #AniMALE",
@@ -15,8 +15,8 @@
       "synthetic_media": "no",
       "reel": {
         "targets": [
-          "instagram_reel",
-          "facebook_reel",
+          "ig_reel",
+          "fb_reel",
           "youtube_short"
         ]
       },
