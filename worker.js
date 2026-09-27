@@ -20,10 +20,11 @@ async function telegramReady(job,output){
   if(!chatId){console.warn("TELEGRAM ready no chat id");return;}
   const title=job?.plans&&Object.values(job.plans)[0]?.title||("Articolo "+(job?.post_id||""));
   const reelId=driveFileId(output,"reel"),storyId=driveFileId(output,"story");
-  const reelPreview=previewUrl(output,"reel"),storyPreview=previewUrl(output,"story");
+  const reelPreview=reelId?"https://drive.google.com/file/d/"+encodeURIComponent(reelId)+"/preview":previewUrl(output,"reel");
+  const storyPreview=storyId?"https://drive.google.com/file/d/"+encodeURIComponent(storyId)+"/preview":previewUrl(output,"story");
   const links=[
-   reelPreview?"🎬 Reel: "+reelPreview:(reelId?"🎬 Reel: https://drive.google.com/file/d/"+reelId+"/view":null),
-   storyPreview?"📱 Story: "+storyPreview:(storyId?"📱 Story: https://drive.google.com/file/d/"+storyId+"/view":null)
+   reelPreview?"🎬 Reel: "+reelPreview:null,
+   storyPreview?"📱 Story: "+storyPreview:null
   ].filter(Boolean).join("\\n");
   const suffix=links?"\\n\\n"+links:"";
   const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:"✅ Fuoconero Social\\nReel + Story pronti su Drive.\\n\\n"+title+suffix+"\\n\\nPuoi approvare o rifiutare direttamente qui.",disable_web_page_preview:true,reply_markup:{inline_keyboard:[[ {text:"✅ APPROVA E PUBBLICA",callback_data:"approve:"+job.render_job_id+":"+job.post_id},{text:"❌ RIFIUTA",callback_data:"reject:"+job.render_job_id+":"+job.post_id} ]]}}),signal:AbortSignal.timeout(15000)});
