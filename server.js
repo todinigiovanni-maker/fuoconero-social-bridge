@@ -375,6 +375,21 @@ async function runCommand(){
  let c; try{c=JSON.parse(await readFile(new URL("./command.json",import.meta.url),"utf8"));}catch(e){console.error("COMMAND read error",e.message);return;}
  if(!c||c.action==="noop"){console.log("COMMAND idle",c?.id||"none");return;}
  if(!c.id){console.error("COMMAND invalid: missing id");return;}
+ if(c.action==="resend_render_ready"){
+  if(!c.render_job_id||!Number.isInteger(c.post_id)){console.error("COMMAND invalid resend_render_ready");return;}
+  const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(c.render_job_id)+"/output");
+  if(out.status!==200){console.error("COMMAND resend_render_ready output unavailable",c.render_job_id,out.status);return;}
+  const reelId=findDriveFileId(out.data,"reel"),storyId=findDriveFileId(out.data,"story");
+  if(!reelId||!storyId){console.error("COMMAND resend_render_ready missing Drive IDs",c.render_job_id);return;}
+  const token=process.env.FNS_TELEGRAM_BOT_TOKEN,chatId=process.env.FNS_TELEGRAM_CHAT_ID||await telegramChatId();
+  if(!token||!chatId){console.error("COMMAND resend_render_ready Telegram unavailable");return;}
+  const posts=await recentPublishedPosts(),post=posts.find(x=>Number(x.id)===c.post_id);
+  const title=post?.title||c.title||("Articolo "+c.post_id);
+  const message="✅ Fuoconero Social\\nReel + Story pronti su Drive.\\n\\n"+title+"\\n\\n🎬 Reel: https://drive.google.com/file/d/"+reelId+"/view\\n📱 Story: https://drive.google.com/file/d/"+storyId+"/view\\n\\nPuoi approvare o rifiutare direttamente qui.";
+  const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:message,disable_web_page_preview:true,reply_markup:{inline_keyboard:[[ {text:"✅ APPROVA E PUBBLICA",callback_data:"approve:"+c.render_job_id+":"+c.post_id},{text:"❌ RIFIUTA",callback_data:"reject:"+c.render_job_id+":"+c.post_id} ]]}}),signal:AbortSignal.timeout(15000)});
+  console.log(r.ok?"COMMAND resend_render_ready sent":"COMMAND resend_render_ready failed "+r.status,c.render_job_id);
+  return;
+ }
  if(c.action==="drivecheck"){
   if(!c.drive_file_id){console.error("COMMAND invalid drivecheck");return;}
   // Read-only/import diagnostic against an already existing Drive MP4.
