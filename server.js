@@ -108,16 +108,15 @@ async function prepareAndConfirmScheduled(spec,driveFileId,suffix){
  });
  console.log("SCHEDULE prepare",id,prep.status,JSON.stringify(prep.data));
  if(prep.status<200||prep.status>=300||!prep.data?.job_id)throw new Error("prepare failed "+id);
- const job=await wp("GET","/jobs/"+encodeURIComponent(prep.data.job_id));
- if(job.status!==200||job.data?.status!=="prepared"||!job.data?.digest)throw new Error("prepared job unavailable "+id);
+ if(prep.data?.status!=="prepared"||!prep.data?.digest)throw new Error("prepared job unavailable "+id);
  if(process.env.FNS_ALLOW_CONFIRM!=="1")throw new Error("FNS_ALLOW_CONFIRM is disabled");
- const conf=await wp("POST","/jobs/"+encodeURIComponent(prep.data.job_id)+"/confirm",{confirmed:true,digest:job.data.digest});
+ const conf=await wp("POST","/jobs/"+encodeURIComponent(prep.data.job_id)+"/confirm",{confirmed:true,digest:prep.data.digest});
  console.log("SCHEDULE confirm",id,conf.status,JSON.stringify(conf.data));
  if(conf.status<200||conf.status>=300)throw new Error("confirm failed "+id);
  const tick=await wp("POST","/publish-worker/tick",{});
  console.log("SCHEDULE publish tick",id,tick.status,JSON.stringify(tick.data));
  if(tick.status<200||tick.status>=300)throw new Error("publish tick failed "+id+" HTTP "+tick.status);
- const storageId=conf.data?.payload?.storage_id||job.data?.payload?.storage_id||st.data.storage_id;
+ const storageId=conf.data?.payload?.storage_id||prep.data?.payload?.storage_id||st.data.storage_id;
  if(storageId)void cleanupPublishedJob(prep.data.job_id,storageId,{title:spec.title,kind:suffix,notify:true});
  return prep.data.job_id;
 }
