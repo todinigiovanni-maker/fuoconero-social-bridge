@@ -149,11 +149,12 @@ setInterval(keepScheduledServiceAwake,240000).unref();
 
 
 async function telegramChatId(){
+ if(telegramKnownChatId)return telegramKnownChatId;
  const token=process.env.FNS_TELEGRAM_BOT_TOKEN;if(!token)return null;
  try{
   const r=await fetch("https://api.telegram.org/bot"+token+"/getUpdates",{signal:AbortSignal.timeout(15000)});
   const j=await r.json();const updates=Array.isArray(j?.result)?j.result:[];
-  for(let i=updates.length-1;i>=0;i--){const id=updates[i]?.message?.chat?.id;if(id)return id;}
+  for(let i=updates.length-1;i>=0;i--){const id=updates[i]?.message?.chat?.id||updates[i]?.callback_query?.message?.chat?.id;if(id){telegramKnownChatId=String(id);return telegramKnownChatId;}}
  }catch(e){console.warn("TELEGRAM chat lookup failed",e.message);}
  return null;
 }
@@ -293,7 +294,7 @@ async function autoReelTick(){
 }
 setInterval(()=>void autoReelTick(),300000).unref();
 
-let telegramOffset=null,telegramApprovalBusy=false;
+let telegramOffset=null,telegramApprovalBusy=false,telegramKnownChatId=process.env.FNS_TELEGRAM_CHAT_ID||null;
 const telegramHandled=new Set();
 async function telegramAnswerCallback(token,id,textValue){
  try{await fetch("https://api.telegram.org/bot"+token+"/answerCallbackQuery",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({callback_query_id:id,text:textValue,show_alert:false}),signal:AbortSignal.timeout(15000)});}catch(e){console.warn("TELEGRAM callback answer failed",e.message);}
@@ -302,11 +303,12 @@ async function telegramApprovalTick(){
  if(telegramApprovalBusy)return;telegramApprovalBusy=true;
  try{
   const token=process.env.FNS_TELEGRAM_BOT_TOKEN;if(!token)return;
-  const allowed=String(process.env.FNS_TELEGRAM_CHAT_ID||await telegramChatId()||"");if(!allowed)return;
-  const qs=new URLSearchParams({timeout:"0",limit:"20",allowed_updates:JSON.stringify(["callback_query"])});
+  const qs=new URLSearchParams({timeout:"0",limit:"20",allowed_updates:JSON.stringify(["message","callback_query"])});
   if(telegramOffset!==null)qs.set("offset",String(telegramOffset));
   const r=await fetch("https://api.telegram.org/bot"+token+"/getUpdates?"+qs,{signal:AbortSignal.timeout(15000)});
   const j=await r.json(),updates=Array.isArray(j?.result)?j.result:[];
+  if(!telegramKnownChatId){for(let i=updates.length-1;i>=0;i--){const id=updates[i]?.message?.chat?.id||updates[i]?.callback_query?.message?.chat?.id;if(id){telegramKnownChatId=String(id);console.log("TELEGRAM chat learned");break;}}}
+  const allowed=String(process.env.FNS_TELEGRAM_CHAT_ID||telegramKnownChatId||"");
   if(telegramOffset===null){
    telegramOffset=updates.length?Math.max(...updates.map(x=>Number(x.update_id)||0))+1:0;
    return;
