@@ -44,7 +44,7 @@ export function worker(wp){
     const output=await call('/'+job.render_job_id+'/output',{lease:job.lease,kind,sha256:result.sha256,metadata,mp4_base64:(await readFile(path)).toString('base64')});
     console.log('RENDER output',job.render_job_id,kind,output.status,result.sha256);await rm(folder,{recursive:true,force:true});
    }
-   console.log('RENDER complete',job.render_job_id);
+   console.log('RENDER complete',job.render_job_id);await telegramReady(job);
   }catch(e){
    console.error('RENDER failed',job?.render_job_id||'claim',e.message.replace(/https?:\/\/\S+/g,'[url]'));
    if(job)try{await call('/'+job.render_job_id+'/fail',{lease:job.lease,error:e.message.replace(/https?:\/\/\S+/g,'[url]')});}catch{/* Durable lease expiry handles recovery; no upload retry. */}
