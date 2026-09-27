@@ -114,6 +114,9 @@ async function prepareAndConfirmScheduled(spec,driveFileId,suffix){
  const conf=await wp("POST","/jobs/"+encodeURIComponent(prep.data.job_id)+"/confirm",{confirmed:true,digest:job.data.digest});
  console.log("SCHEDULE confirm",id,conf.status,JSON.stringify(conf.data));
  if(conf.status<200||conf.status>=300)throw new Error("confirm failed "+id);
+ const tick=await wp("POST","/publish-worker/tick",{});
+ console.log("SCHEDULE publish tick",id,tick.status,JSON.stringify(tick.data));
+ if(tick.status<200||tick.status>=300)throw new Error("publish tick failed "+id+" HTTP "+tick.status);
  const storageId=conf.data?.payload?.storage_id||job.data?.payload?.storage_id||st.data.storage_id;
  if(storageId)void cleanupPublishedJob(prep.data.job_id,storageId,{title:spec.title,kind:suffix,notify:true});
  return prep.data.job_id;
