@@ -102,7 +102,7 @@ async function prepareAndConfirmScheduled(spec,driveFileId,suffix){
  console.log("SCHEDULE storage",id,st.status,JSON.stringify(st.data));
  if(st.status<200||st.status>=300||!st.data?.storage_id)throw new Error("storage import failed "+id);
  const prep=await wp("POST","/prepare",{
-  request_id:"prepare-"+id,storage_id:st.data.storage_id,title:spec.title,
+  request_id:"prepare-"+id,storage_id:st.data.storage_id,title:String(spec.title||"Fuoconero").slice(0,100),
   caption:spec.caption||"",facebook_caption:spec.facebook_caption||spec.caption||"",
   targets:spec.targets,youtube_privacy:spec.youtube_privacy||"public",
   made_for_kids:yesNo(spec.made_for_kids),synthetic_media:yesNo(spec.synthetic_media)
@@ -491,7 +491,7 @@ async function runCommand(){
  const prepPayload={
   request_id:"prepare-"+c.id,
   storage_id:st.data.storage_id,
-  title:c.title,
+  title:String(c.title||"Fuoconero").slice(0,100),
   caption:c.caption||"",
   facebook_caption:c.facebook_caption||c.caption||"",
   targets:c.targets,
