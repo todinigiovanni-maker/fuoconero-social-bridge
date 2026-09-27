@@ -293,6 +293,65 @@ async function autoReelTick(){
 }
 setInterval(()=>void autoReelTick(),300000).unref();
 
+let telegramOffset=null,telegramApprovalBusy=false;
+const telegramHandled=new Set();
+async function telegramAnswerCallback(token,id,textValue){
+ try{await fetch("https://api.telegram.org/bot"+token+"/answerCallbackQuery",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({callback_query_id:id,text:textValue,show_alert:false}),signal:AbortSignal.timeout(15000)});}catch(e){console.warn("TELEGRAM callback answer failed",e.message);}
+}
+async function telegramApprovalTick(){
+ if(telegramApprovalBusy)return;telegramApprovalBusy=true;
+ try{
+  const token=process.env.FNS_TELEGRAM_BOT_TOKEN;if(!token)return;
+  const allowed=String(process.env.FNS_TELEGRAM_CHAT_ID||await telegramChatId()||"");if(!allowed)return;
+  const qs=new URLSearchParams({timeout:"0",limit:"20",allowed_updates:JSON.stringify(["callback_query"])});
+  if(telegramOffset!==null)qs.set("offset",String(telegramOffset));
+  const r=await fetch("https://api.telegram.org/bot"+token+"/getUpdates?"+qs,{signal:AbortSignal.timeout(15000)});
+  const j=await r.json(),updates=Array.isArray(j?.result)?j.result:[];
+  if(telegramOffset===null){
+   telegramOffset=updates.length?Math.max(...updates.map(x=>Number(x.update_id)||0))+1:0;
+   return;
+  }
+  for(const update of updates){
+   telegramOffset=Math.max(telegramOffset,(Number(update.update_id)||0)+1);
+   const q=update?.callback_query,data=String(q?.data||""),chat=String(q?.message?.chat?.id||"");
+   if(!q||chat!==allowed||telegramHandled.has(data))continue;
+   const m=data.match(/^(approve|reject):([a-f0-9-]{36}):(\d+)$/);if(!m)continue;
+   const [,action,renderJobId,postIdRaw]=m,postId=Number(postIdRaw);
+   telegramHandled.add(data);
+   if(action==="reject"){
+    await telegramAnswerCallback(token,q.id,"Rifiutato: nessuna pubblicazione.");
+    await telegramNotify("❌ Fuoconero Social\\nRender rifiutato. Nessuna pubblicazione eseguita; i file restano su Drive.");
+    continue;
+   }
+   await telegramAnswerCallback(token,q.id,"Approvato. Avvio pubblicazione.");
+   try{
+    const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(renderJobId)+"/output");
+    if(out.status!==200)throw new Error("render output unavailable");
+    const posts=await recentPublishedPosts(),post=posts.find(x=>Number(x.id)===postId);
+    if(!post)throw new Error("articolo non disponibile tra i post recenti");
+    const cats=(post.categories||[]).map(String),category=cats.map(x=>AUTO_REEL_CATEGORY_IDS[x]).find(Boolean);
+    if(!category)throw new Error("categoria Fuoconero non riconosciuta");
+    const publication=autoPublicationMeta(post,category);
+    await telegramNotify("🚀 Fuoconero Social\\nApprovazione ricevuta da Telegram. Pubblico Reel + Story: "+publication.title);
+    await executeScheduledPublication({
+     id:"telegram-"+renderJobId,render_job_id:renderJobId,publish_at:new Date().toISOString(),
+     title:publication.title,caption:publication.caption,facebook_caption:publication.facebook_caption,
+     youtube_privacy:"public",made_for_kids:"no",synthetic_media:"no",
+     reel:{targets:["ig_reel","fb_reel","youtube_short"]},
+     story:{targets:["ig_story","fb_story"]}
+    });
+   }catch(e){
+    telegramHandled.delete(data);
+    console.error("TELEGRAM approval failed",renderJobId,e.message);
+    await telegramNotify("⚠️ Fuoconero Social\\nApprovazione ricevuta, ma la pubblicazione non è partita: "+e.message);
+   }
+  }
+ }catch(e){console.warn("TELEGRAM approval poll failed",e.message);}
+ finally{telegramApprovalBusy=false;}
+}
+setInterval(()=>void telegramApprovalTick(),5000).unref();
+setTimeout(()=>void telegramApprovalTick(),3000);
+
 async function runCommand(){
  let c; try{c=JSON.parse(await readFile(new URL("./command.json",import.meta.url),"utf8"));}catch(e){console.error("COMMAND read error",e.message);return;}
  if(!c||c.action==="noop"){console.log("COMMAND idle",c?.id||"none");return;}
