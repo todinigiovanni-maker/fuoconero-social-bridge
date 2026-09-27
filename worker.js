@@ -20,7 +20,7 @@ async function telegramReady(job,output){
    storyId?"📱 Story: https://drive.google.com/file/d/"+storyId+"/view":null
   ].filter(Boolean).join("\\n");
   const suffix=links?"\\n\\n"+links:"";
-  const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:"✅ Fuoconero Social\\nReel + Story pronti su Drive.\\n\\n"+title+suffix+"\\n\\nIn attesa della tua approvazione.",disable_web_page_preview:true}),signal:AbortSignal.timeout(15000)});
+  const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:"✅ Fuoconero Social\\nReel + Story pronti su Drive.\\n\\n"+title+suffix+"\\n\\nPuoi approvare o rifiutare direttamente qui.",disable_web_page_preview:true,reply_markup:{inline_keyboard:[[ {text:"✅ APPROVA E PUBBLICA",callback_data:"approve:"+job.render_job_id+":"+job.post_id},{text:"❌ RIFIUTA",callback_data:"reject:"+job.render_job_id+":"+job.post_id} ]]}}),signal:AbortSignal.timeout(15000)});
   console.log(r.ok?"TELEGRAM ready notification sent":"TELEGRAM ready send failed "+r.status);
  }catch(e){console.warn("TELEGRAM ready send failed",e.message);}
 }
