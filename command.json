@@ -1,27 +1,19 @@
 {
   "version": 1,
-  "id": "latte-mammiferi-render-20260927-001",
+  "id": "antico-batterio-render-20260927-002",
   "action": "render",
   "payload": {
-    "request_id": "latte-mammiferi-render-20260927-001",
-    "post_id": 5270,
+    "request_id": "antico-batterio-render-20260927-002",
+    "post_id": 5635,
     "category": "animale",
     "outputs": {
       "reel": {
         "preset": "articolo",
         "scene_texts": [
-          "Il latte non è tutto uguale.",
-          "Una foca può produrre latte con oltre il 50% di grassi. Quello delle balene è così denso da non disperdersi in acqua.",
-          "E una mamma canguro può produrre due latti diversi nello stesso momento.",
-          "Non esiste il latte migliore. Esiste quello giusto per ogni cucciolo."
-        ]
-      },
-      "story": {
-        "preset": "story",
-        "scene_texts": [
-          "Il latte non è tutto uguale.",
-          "Foche, balene e canguri producono latte adattato ai loro piccoli.",
-          "La natura cambia perfino la ricetta del latte."
+          "Dentro quasi ogni tua cellula vive il discendente di un antico batterio.",
+          "Due miliardi di anni fa una cellula lo inglobò… ma non lo digerì.",
+          "Quell’antica alleanza diventò il mitocondrio: la centrale energetica delle nostre cellule.",
+          "Una collaborazione iniziata miliardi di anni fa continua a tenerci in vita."
         ]
       }
     },
