@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "id": "hourly-approved-queue-20260927-1425",
+  "id": "hourly-approved-queue-20260927-1442",
   "action": "scheduled_publish_batch",
   "items": [
     {
@@ -178,6 +178,78 @@
       "title": "La specie invasiva più pericolosa",
       "caption": "La specie invasiva più pericolosa\n\n#Fuoconero #AniMALE",
       "facebook_caption": "La specie invasiva più pericolosa\n\nhttps://fuoconero.com/?p=5167\n\n#Fuoconero #AniMALE",
+      "youtube_privacy": "public",
+      "made_for_kids": "no",
+      "synthetic_media": "no",
+      "reel": {
+        "targets": [
+          "ig_reel",
+          "fb_reel",
+          "youtube_short"
+        ]
+      },
+      "story": {
+        "targets": [
+          "ig_story",
+          "fb_story"
+        ]
+      }
+    },
+    {
+      "id": "queue-5153",
+      "render_job_id": "1661601a-877c-4fb8-89f4-67bce91424a1",
+      "publish_at": "2026-09-27Tundefined:00:00Z",
+      "title": "L’animale che non si ferma mai",
+      "caption": "L’animale che non si ferma mai\n\n#Fuoconero #AniMALE",
+      "facebook_caption": "L’animale che non si ferma mai\n\nhttps://fuoconero.com/?p=5153\n\n#Fuoconero #AniMALE",
+      "youtube_privacy": "public",
+      "made_for_kids": "no",
+      "synthetic_media": "no",
+      "reel": {
+        "targets": [
+          "ig_reel",
+          "fb_reel",
+          "youtube_short"
+        ]
+      },
+      "story": {
+        "targets": [
+          "ig_story",
+          "fb_story"
+        ]
+      }
+    },
+    {
+      "id": "queue-5148",
+      "render_job_id": "d5f03108-edf5-488a-9890-396616520ff2",
+      "publish_at": "2026-09-27Tundefined:00:00Z",
+      "title": "I ragni che non volevi conoscere",
+      "caption": "I ragni che non volevi conoscere\n\n#Fuoconero #AniMALE",
+      "facebook_caption": "I ragni che non volevi conoscere\n\nhttps://fuoconero.com/?p=5148\n\n#Fuoconero #AniMALE",
+      "youtube_privacy": "public",
+      "made_for_kids": "no",
+      "synthetic_media": "no",
+      "reel": {
+        "targets": [
+          "ig_reel",
+          "fb_reel",
+          "youtube_short"
+        ]
+      },
+      "story": {
+        "targets": [
+          "ig_story",
+          "fb_story"
+        ]
+      }
+    },
+    {
+      "id": "queue-5143",
+      "render_job_id": "07243ebf-a3b0-4e66-9be8-3851be84da21",
+      "publish_at": "2026-09-27Tundefined:00:00Z",
+      "title": "Gli animali che hanno litigato col calendario",
+      "caption": "Gli animali che hanno litigato col calendario\n\n#Fuoconero #AniMALE",
+      "facebook_caption": "Gli animali che hanno litigato col calendario\n\nhttps://fuoconero.com/?p=5143\n\n#Fuoconero #AniMALE",
       "youtube_privacy": "public",
       "made_for_kids": "no",
       "synthetic_media": "no",
