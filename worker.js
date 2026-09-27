@@ -22,12 +22,14 @@ async function telegramReady(job,output){
   const reelId=driveFileId(output,"reel"),storyId=driveFileId(output,"story");
   const reelPreview=reelId?"https://drive.google.com/file/d/"+encodeURIComponent(reelId)+"/preview":previewUrl(output,"reel");
   const storyPreview=storyId?"https://drive.google.com/file/d/"+encodeURIComponent(storyId)+"/preview":previewUrl(output,"story");
-  const links=[
-   reelPreview?"🎬 Reel: "+reelPreview:null,
-   storyPreview?"📱 Story: "+storyPreview:null
-  ].filter(Boolean).join("\\n");
-  const suffix=links?"\\n\\n"+links:"";
-  const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:"✅ Fuoconero Social\\nReel + Story pronti su Drive.\\n\\n"+title+suffix+"\\n\\nPuoi approvare o rifiutare direttamente qui.",disable_web_page_preview:true,reply_markup:{inline_keyboard:[[ {text:"✅ APPROVA E PUBBLICA",callback_data:"approve:"+job.render_job_id+":"+job.post_id},{text:"❌ RIFIUTA",callback_data:"reject:"+job.render_job_id+":"+job.post_id} ]]}}),signal:AbortSignal.timeout(15000)});
+  const previewButtons=[
+   reelPreview?{text:"🎬 APRI REEL",url:reelPreview}:null,
+   storyPreview?{text:"📱 APRI STORY",url:storyPreview}:null
+  ].filter(Boolean);
+  const keyboard=[];
+  if(previewButtons.length)keyboard.push(previewButtons);
+  keyboard.push([{text:"✅ APPROVA E PUBBLICA",callback_data:"approve:"+job.render_job_id+":"+job.post_id},{text:"❌ RIFIUTA",callback_data:"reject:"+job.render_job_id+":"+job.post_id}]);
+  const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:"✅ Fuoconero Social\\nReel + Story pronti su Drive.\\n\\n"+title+"\\n\\nApri le anteprime dai pulsanti qui sotto, poi approva o rifiuta.",disable_web_page_preview:true,reply_markup:{inline_keyboard:keyboard}}),signal:AbortSignal.timeout(15000)});
   console.log(r.ok?"TELEGRAM ready notification sent":"TELEGRAM ready send failed "+r.status);
  }catch(e){console.warn("TELEGRAM ready send failed",e.message);}
 }
