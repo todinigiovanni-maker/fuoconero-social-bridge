@@ -223,6 +223,10 @@ async function saveAutoState(s){try{await writeFile(AUTO_STATE_URL,JSON.stringif
 function isArticleNotReady(created){
  return created?.status===400 && /articolo pubblicato e non protetto/i.test(String(created?.data?.message||""));
 }
+function isExistingRender(created){
+ const msg=String(created?.data?.message||created?.data?.error||"");
+ return created?.status===409 || /(?:already|gi[aà]\s+(?:esiste|render)|duplicate|duplicat|request[_ -]?id.*(?:used|esiste))/i.test(msg);
+}
 function scheduleAutoRetry(post){
  const key=String(post.id);
  if(autoRetryTimers.has(key))return;
@@ -246,7 +250,6 @@ async function autoReelTick(){
    const cats=(post.categories||[]).map(String),category=cats.map(x=>AUTO_REEL_CATEGORY_IDS[x]).find(Boolean);
    if(!category){console.log("AUTO_REEL skip category",post.id,cats,post.title);seen.add(String(post.id));continue;}
    console.log("AUTO_REEL eligible",post.id,category,Math.round(age/60000),post.title);
-   await telegramNotify("🔥 Fuoconero Social\nNuovo articolo rilevato:\n"+post.title+"\n\n🎬 Creo Reel + Story.");
    const scenes=autoScenes(post);
    const payload={
     request_id:"fuoconero-auto-v3-post-"+post.id+"-reel-story",post_id:Number(post.id),category,
@@ -258,8 +261,13 @@ async function autoReelTick(){
    console.log("AUTO_REEL enqueue",post.id,created.status,JSON.stringify(created.data));
    if(created.status>=200&&created.status<300){
     seen.add(String(post.id));
-    await telegramNotify("⚙️ Fuoconero Social\nReel + Story accodati per:\n"+post.title+"\n\nNessuna pubblicazione social senza approvazione.");
+    await telegramNotify("🔥 Fuoconero Social\nNuovo articolo rilevato:\n"+post.title+"\n\n⚙️ Reel + Story accodati. Nessuna pubblicazione social senza approvazione.");
     void pump();
+   }else if(isExistingRender(created)){
+    // A deterministic request_id means this article has already entered the
+    // render pipeline. Treat it as processed and never notify it again.
+    console.log("AUTO_REEL skip existing render",post.id,post.title);
+    seen.add(String(post.id));
    }else if(isArticleNotReady(created)){
     console.log("AUTO_REEL article not ready yet",post.id,"— retry without marking seen");
     scheduleAutoRetry(post);
@@ -368,7 +376,7 @@ const pump=worker(wp);
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.19",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.20",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
