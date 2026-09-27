@@ -128,8 +128,8 @@ async function executeScheduledPublication(item){
  if(out.status!==200)throw new Error("render output unavailable "+item.id);
  const reelId=findDriveFileId(out.data,"reel"),storyId=findDriveFileId(out.data,"story");
  if(!reelId||!storyId)throw new Error("approved Reel/Story Drive IDs unavailable "+item.id);
- await prepareAndConfirmScheduled({...item,...item.reel,targets:item.reel?.targets||["instagram_reel","facebook_reel","youtube_short"]},reelId,"reel");
- await prepareAndConfirmScheduled({...item,...item.story,targets:item.story?.targets||["ig_story","fb_story"]},storyId,"story");
+ await prepareAndConfirmScheduled({...item,...item.reel,id:attemptId,targets:item.reel?.targets||["instagram_reel","facebook_reel","youtube_short"]},reelId,"reel");
+ await prepareAndConfirmScheduled({...item,...item.story,id:attemptId,targets:item.story?.targets||["ig_story","fb_story"]},storyId,"story");
  console.log("SCHEDULE complete",item.id);
 }
 function schedulePublicationItem(item){
