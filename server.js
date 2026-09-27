@@ -253,6 +253,11 @@ async function autoReelTick(){
   const posts=(await recentPublishedPosts()).sort((a,b)=>postTime(a)-postTime(b));
   console.log("AUTO_REEL scan",posts.length,posts.map(p=>({id:p.id,date:p.date,date_gmt:p.date_gmt,categories:p.categories,title:p.title})));
   const state=await autoState(),seen=new Set(state.seen||[]);
+  // A failed render must not permanently poison anti-duplicate state.
+  // 7945 is the recovery case that exposed this: re-admit it once after deploy,
+  // while the deterministic request id still protects against duplicate jobs.
+  const recoverPostId=Number(process.env.FNS_RECOVER_POST_ID||7945);
+  if(recoverPostId&&seen.delete(String(recoverPostId)))console.log("AUTO_REEL recover failed post",recoverPostId);
   const now=Date.now(),firstRun=!state.initialized;
   for(const post of posts){
    if(seen.has(String(post.id))){console.log("AUTO_REEL skip seen",post.id,post.title);continue;}
@@ -273,6 +278,13 @@ async function autoReelTick(){
    const created=await wp("POST","/reel-maker/render-jobs",payload);
    console.log("AUTO_REEL enqueue",post.id,created.status,JSON.stringify(created.data));
    if(created.status>=200&&created.status<300){
+    const createdStatus=String(created?.data?.status||"").toLowerCase();
+    if(createdStatus==="failed"){
+     console.log("AUTO_REEL existing job failed — retry eligible",post.id,created?.data?.render_job_id||"");
+     scheduleAutoRetry(post);
+     void pump();
+     continue;
+    }
     seen.add(String(post.id));
     await telegramNotify("🔥 Fuoconero Social\nNuovo articolo rilevato:\n"+post.title+"\n\n⚙️ Reel + Story accodati. Nessuna pubblicazione social senza approvazione.");
     void pump();
