@@ -478,7 +478,7 @@ async function runCommand(){
  if(prep.data?.job_id){const job=await wp("GET","/jobs/"+encodeURIComponent(prep.data.job_id));console.log("COMMAND status",c.id,job.status,JSON.stringify(job.data));}
  console.log("COMMAND end",c.id,"— no publication");
 }
-const pump=worker(wp);
+const pump=worker(wp,{getTelegramChatId:()=>process.env.FNS_TELEGRAM_CHAT_ID||telegramKnownChatId||null});
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
