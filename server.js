@@ -123,6 +123,7 @@ async function prepareAndConfirmScheduled(spec,driveFileId,suffix){
 }
 async function executeScheduledPublication(item){
  console.log("SCHEDULE execute",item.id,item.render_job_id);
+ const attemptId=item.attempt_id||item.id;
  const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(item.render_job_id)+"/output");
  if(out.status!==200)throw new Error("render output unavailable "+item.id);
  const reelId=findDriveFileId(out.data,"reel"),storyId=findDriveFileId(out.data,"story");
@@ -353,7 +354,7 @@ async function telegramApprovalTick(){
     const publication=autoPublicationMeta(post,category);
     await telegramNotify("🚀 Fuoconero Social\\nApprovazione ricevuta da Telegram. Pubblico Reel + Story: "+publication.title);
     await executeScheduledPublication({
-     id:"telegram-"+renderJobId,render_job_id:renderJobId,publish_at:new Date().toISOString(),
+     id:"telegram-"+renderJobId,attempt_id:"telegram-"+renderJobId+"-"+Date.now(),render_job_id:renderJobId,publish_at:new Date().toISOString(),
      title:publication.title,caption:publication.caption,facebook_caption:publication.facebook_caption,
      youtube_privacy:"public",made_for_kids:"no",synthetic_media:"no",
      reel:{targets:["ig_reel","fb_reel","youtube_short"]},
