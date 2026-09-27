@@ -324,7 +324,7 @@ async function telegramApprovalTick(){
   if(telegramOffset!==null)qs.set("offset",String(telegramOffset));
   const r=await fetch("https://api.telegram.org/bot"+token+"/getUpdates?"+qs,{signal:AbortSignal.timeout(15000)});
   const j=await r.json(),updates=Array.isArray(j?.result)?j.result:[];
-  if(!telegramKnownChatId){for(let i=updates.length-1;i>=0;i--){const id=updates[i]?.message?.chat?.id||updates[i]?.callback_query?.message?.chat?.id;if(id){telegramKnownChatId=String(id);console.log("TELEGRAM chat learned");try{const st=await autoState();st.telegram_chat_id=telegramKnownChatId;await saveAutoState(st);console.log("TELEGRAM chat persisted");}catch(e){console.warn("TELEGRAM chat persist failed",e.message);}break;}}}
+  if(!telegramKnownChatId){for(let i=updates.length-1;i>=0;i--){const id=updates[i]?.message?.chat?.id||updates[i]?.callback_query?.message?.chat?.id;if(id){telegramKnownChatId=String(id);console.log("TELEGRAM CHAT ID FOR RENDER:",telegramKnownChatId);console.log("TELEGRAM chat learned");try{const st=await autoState();st.telegram_chat_id=telegramKnownChatId;await saveAutoState(st);console.log("TELEGRAM chat persisted");}catch(e){console.warn("TELEGRAM chat persist failed",e.message);}break;}}}
   const allowed=String(process.env.FNS_TELEGRAM_CHAT_ID||telegramKnownChatId||"");
   if(telegramOffset===null){
    telegramOffset=updates.length?Math.max(...updates.map(x=>Number(x.update_id)||0))+1:0;
