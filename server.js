@@ -219,7 +219,7 @@ function sceneSentence(text,maxWords=13){
  return words.slice(0,maxWords).join(" ").replace(/[,;:]$/,"")+".";
 }
 function cleanAutoTitle(title){
- return decodeHtml(title||"").replace(/^\s*(?:ANI[.…]*MALE|NATURAL[.…]*MENTE|FISICA[.…]*MENTE|IL MONDO VISTO DAL NERO|DOSSIER FUOCONERO)\s*[-—–:]+\s*/i,"").trim();
+ return decodeHtml(title||"").replace(/^\s*(?:ANI[.…]*MALE|NATURAL[.…]*MENTE|FISICA[.…]*MENTE|IL MONDO VISTO DAL NERO|DOSSIER FUOCONERO|CANZONI)\\s*[-—–:]+\\s*/i,"").trim();
 }
 function autoScenes(post){
  const rawTitle=cleanAutoTitle(post.title), excerpt=decodeHtml(post.excerpt||"");
@@ -270,9 +270,10 @@ async function autoReelTick(){
    if(!category){console.log("AUTO_REEL skip category",post.id,cats,post.title);seen.add(String(post.id));continue;}
    console.log("AUTO_REEL eligible",post.id,category,Math.round(age/60000),post.title);
    const scenes=autoScenes(post),publication=autoPublicationMeta(post,category);
+   const songTitle=category==="canzoni"?cleanAutoTitle(post.title):null;
    const payload={
-    request_id:(recoveryPending&&Number(post.id)===recoverPostId?"fuoconero-auto-v5-recovery-post-"+post.id+"-reel-story":"fuoconero-auto-v4-post-"+post.id+"-reel-story"),post_id:Number(post.id),category,
-    music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
+    request_id:(recoveryPending&&Number(post.id)===recoverPostId?"fuoconero-auto-v5-recovery-post-"+post.id+"-reel-story":"fuoconero-auto-v5-post-"+post.id+"-reel-story"),post_id:Number(post.id),category,
+    ...(category==="canzoni"?{music_title:songTitle}:{music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}),
     outputs:{reel:{preset:"articolo",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}},
     publication,
     publication_authorized:false
@@ -303,7 +304,11 @@ async function autoReelTick(){
     console.log("AUTO_REEL article not ready yet",post.id,"— retry without marking seen");
     scheduleAutoRetry(post);
    }else{
-    await telegramNotify("⚠️ Fuoconero Social\nNon sono riuscito ad accodare Reel + Story per:\n"+post.title);
+    if(category==="canzoni"){
+     await telegramNotify("🎵 Fuoconero Social\nNuovo singolo rilevato, ma non trovo il suo audio nella cartella Canzoni:\n"+post.title+"\n\nCarica il file con un nome corrispondente al titolo del singolo. Non userò Fuoconero (rock) come ripiego.");
+    }else{
+     await telegramNotify("⚠️ Fuoconero Social\nNon sono riuscito ad accodare Reel + Story per:\n"+post.title);
+    }
    }
   }
   state.initialized=true;state.seen=[...seen].slice(-1000);await saveAutoState(state);
