@@ -17,7 +17,11 @@ async function telegramReady(job){
 export function worker(wp){
  let busy=false,last=0;
  async function call(path,data){const r=await wp('POST','/reel-maker/render-worker'+path,data);if(r.status<200||r.status>=300)throw new Error(r.data?.message||'Worker HTTP '+r.status);return r.data;}
- async function publishTick(){try{await wp('POST','/publish-worker/tick',{});}catch(e){console.warn('PUBLISH tick failed',e.message);}}
+ async function publishTick(){try{
+  const r=await wp('POST','/publish-worker/tick',{});
+  if(r.status<200||r.status>=300){console.warn('PUBLISH tick failed HTTP',r.status,JSON.stringify(r.data));return false;}
+  console.log('PUBLISH tick',r.status,JSON.stringify(r.data));return true;
+ }catch(e){console.warn('PUBLISH tick failed',e.message);return false;}}
  async function pump(){
   if(busy||Date.now()-last<20000)return;busy=true;last=Date.now();let job,dir;
   try{
