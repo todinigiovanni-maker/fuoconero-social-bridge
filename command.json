@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "id": "hourly-approved-queue-20260927-latest-002",
+  "id": "hourly-approved-queue-20260927-cleanup-test-003",
   "action": "scheduled_publish_batch",
   "items": [
     {
@@ -54,7 +54,7 @@
     {
       "id": "queue-7602",
       "render_job_id": "91e602ed-4e45-4f3d-9e02-91101829d66a",
-      "publish_at": "2026-09-27T15:00:00Z",
+      "publish_at": "2026-09-27T14:13:00Z",
       "title": "Due particelle muoiono quasi subito. Ma prima fanno una cosa “impossibile” insieme",
       "caption": "Due particelle muoiono quasi subito. Ma prima fanno una cosa “impossibile” insieme\n\n#Fuoconero #FisicaMENTE",
       "facebook_caption": "Due particelle muoiono quasi subito. Ma prima fanno una cosa “impossibile” insieme\n\nhttps://fuoconero.com/?p=7602\n\n#Fuoconero #FisicaMENTE",
