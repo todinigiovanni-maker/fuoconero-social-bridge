@@ -1,7 +1,7 @@
 import http from "node:http";
 import {worker} from "./worker.js";
 import crypto from "node:crypto";
-import {readFile} from "node:fs/promises";
+import {readFile,writeFile} from "node:fs/promises";
 
 const PORT=process.env.PORT||10000;
 const BASE=(process.env.FNS_BASE_URL||"https://fuoconero.com").replace(/\/$/,"");
@@ -133,6 +133,57 @@ function keepScheduledServiceAwake(){
 }
 setInterval(keepScheduledServiceAwake,240000).unref();
 
+
+const AUTO_REEL_CATEGORY_IDS={
+ "789517870":"animale","577762893":"fisicamente","790278878":"naturalmente",
+ "790278776":"mondo","14831":"poesie","11817":"canzoni"
+};
+const AUTO_STATE_URL=new URL("./auto-reel-state.json",import.meta.url);
+let autoReelBusy=false;
+function decodeHtml(s=""){return String(s).replace(/<[^>]*>/g," ").replace(/&#8230;|&hellip;/g,"…").replace(/&#8211;|&ndash;/g,"–").replace(/&#8212;|&mdash;/g,"—").replace(/&#8217;|&rsquo;/g,"’").replace(/&amp;/g,"&").replace(/&quot;/g,'"').replace(/&#\d+;/g," ").replace(/\s+/g," ").trim();}
+function shortText(s,max=118){s=decodeHtml(s);if(s.length<=max)return s;const x=s.slice(0,max-1);return x.slice(0,Math.max(40,x.lastIndexOf(" ")))+"…";}
+function autoScenes(post){
+ const title=shortText(post.title,105), excerpt=decodeHtml(post.excerpt||"");
+ const bits=excerpt.split(/(?<=[.!?])\s+/).filter(Boolean);
+ const middle=shortText(bits[0]||excerpt||title,125), second=shortText(bits[1]||excerpt||"Scopri cosa racconta l’articolo.",125);
+ return {
+  reel:[title,middle,second,"Leggi la storia completa su fuoconero.com"],
+  story:[title,middle,"La storia completa è su fuoconero.com"]
+ };
+}
+async function autoState(){try{return JSON.parse(await readFile(AUTO_STATE_URL,"utf8"));}catch{return {seen:[]};}}
+async function saveAutoState(s){try{await writeFile(AUTO_STATE_URL,JSON.stringify(s));}catch(e){console.warn("AUTO_REEL state write failed",e.message);}}
+async function autoReelTick(){
+ if(autoReelBusy)return;autoReelBusy=true;
+ try{
+  const list=await wp("GET","/reel-maker/articles/recent");
+  if(list.status!==200||!Array.isArray(list.data?.posts)){console.warn("AUTO_REEL recent feed unavailable",list.status);return;}
+  const state=await autoState(),seen=new Set(state.seen||[]);
+  const posts=list.data.posts.slice().sort((a,b)=>Number(a.id)-Number(b.id));
+  for(const post of posts){
+   if(seen.has(String(post.id)))continue;
+   const cats=(post.categories||[]).map(String),category=cats.map(x=>AUTO_REEL_CATEGORY_IDS[x]).find(Boolean);
+   if(!category){seen.add(String(post.id));continue;}
+   const scenes=autoScenes(post);
+   const payload={
+    request_id:"auto-post-"+post.id,post_id:Number(post.id),category,
+    music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
+    outputs:{
+     reel:{preset:"articolo",scenes:scenes.reel},
+     story:{preset:"story",scenes:scenes.story}
+    },
+    publication_authorized:false
+   };
+   const created=await wp("POST","/reel-maker/render-jobs",payload);
+   console.log("AUTO_REEL enqueue",post.id,created.status,JSON.stringify(created.data));
+   if(created.status>=200&&created.status<300){seen.add(String(post.id));void pump();}
+  }
+  state.seen=[...seen].slice(-1000);await saveAutoState(state);
+ }catch(e){console.warn("AUTO_REEL tick failed",e.message);}
+ finally{autoReelBusy=false;}
+}
+setInterval(()=>void autoReelTick(),300000).unref();
+
 async function runCommand(){
  let c; try{c=JSON.parse(await readFile(new URL("./command.json",import.meta.url),"utf8"));}catch(e){console.error("COMMAND read error",e.message);return;}
  if(!c||c.action==="noop"){console.log("COMMAND idle",c?.id||"none");return;}
@@ -228,7 +279,7 @@ const pump=worker(wp);
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.6",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.7",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
@@ -248,6 +299,7 @@ for(const signal of ['SIGTERM','SIGINT']){
 server.listen(PORT,()=>{
  console.log("Fuoconero Social Bridge listening on",PORT);
  void pump();
+ setTimeout(()=>void autoReelTick(),15000);
  runCommand().catch(e=>console.error("COMMAND error",e.message));
 });
 
