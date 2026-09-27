@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "id": "hourly-approved-queue-20260927-1442",
+  "id": "hourly-approved-queue-20260927-latest-002",
   "action": "scheduled_publish_batch",
   "items": [
     {
@@ -250,6 +250,54 @@
       "title": "Gli animali che hanno litigato col calendario",
       "caption": "Gli animali che hanno litigato col calendario\n\n#Fuoconero #AniMALE",
       "facebook_caption": "Gli animali che hanno litigato col calendario\n\nhttps://fuoconero.com/?p=5143\n\n#Fuoconero #AniMALE",
+      "youtube_privacy": "public",
+      "made_for_kids": "no",
+      "synthetic_media": "no",
+      "reel": {
+        "targets": [
+          "ig_reel",
+          "fb_reel",
+          "youtube_short"
+        ]
+      },
+      "story": {
+        "targets": [
+          "ig_story",
+          "fb_story"
+        ]
+      }
+    },
+    {
+      "id": "queue-5139",
+      "render_job_id": "4a9c8ff7-50bb-4576-97cb-c50c94f5b2e4",
+      "publish_at": "2026-09-28T00:00:00Z",
+      "title": "Le formiche avevano già una civiltà",
+      "caption": "Le formiche avevano già una civiltà\n\n#Fuoconero #AniMALE",
+      "facebook_caption": "Le formiche avevano già una civiltà\n\nhttps://fuoconero.com/?p=5139\n\n#Fuoconero #AniMALE",
+      "youtube_privacy": "public",
+      "made_for_kids": "no",
+      "synthetic_media": "no",
+      "reel": {
+        "targets": [
+          "ig_reel",
+          "fb_reel",
+          "youtube_short"
+        ]
+      },
+      "story": {
+        "targets": [
+          "ig_story",
+          "fb_story"
+        ]
+      }
+    },
+    {
+      "id": "queue-5133",
+      "render_job_id": "7cab3089-4a27-4bb5-991a-bc11be33f510",
+      "publish_at": "2026-09-28T01:00:00Z",
+      "title": "Perché ce la facciamo sotto dalla paura?",
+      "caption": "Perché ce la facciamo sotto dalla paura?\n\n#Fuoconero #AniMALE",
+      "facebook_caption": "Perché ce la facciamo sotto dalla paura?\n\nhttps://fuoconero.com/?p=5133\n\n#Fuoconero #AniMALE",
       "youtube_privacy": "public",
       "made_for_kids": "no",
       "synthetic_media": "no",
