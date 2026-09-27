@@ -2,14 +2,25 @@ import {mkdtemp,mkdir,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {render,download} from './renderer.js';
-async function telegramReady(job){
+function driveFileId(output,kind){
+ const roots=[output?.[kind],output?.outputs?.[kind],output?.data?.[kind],output?.data?.outputs?.[kind]];
+ for(const x of roots){const id=x?.drive_file_id||x?.drive?.file_id||x?.file_id;if(typeof id==="string"&&id)return id;}
+ return null;
+}
+async function telegramReady(job,output){
  const token=process.env.FNS_TELEGRAM_BOT_TOKEN;if(!token)return;
  try{
   let chatId=process.env.FNS_TELEGRAM_CHAT_ID;
   if(!chatId){const r=await fetch("https://api.telegram.org/bot"+token+"/getUpdates",{signal:AbortSignal.timeout(15000)});const j=await r.json();const a=Array.isArray(j?.result)?j.result:[];for(let i=a.length-1;i>=0;i--){if(a[i]?.message?.chat?.id){chatId=a[i].message.chat.id;break;}}}
   if(!chatId){console.warn("TELEGRAM ready no chat id");return;}
   const title=job?.plans&&Object.values(job.plans)[0]?.title||("Articolo "+(job?.post_id||""));
-  const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:"✅ Fuoconero Social\\nReel + Story pronti su Drive.\\n\\n"+title+"\\n\\nIn attesa della tua approvazione.",disable_web_page_preview:true}),signal:AbortSignal.timeout(15000)});
+  const reelId=driveFileId(output,"reel"),storyId=driveFileId(output,"story");
+  const links=[
+   reelId?"🎬 Reel: https://drive.google.com/file/d/"+reelId+"/view":null,
+   storyId?"📱 Story: https://drive.google.com/file/d/"+storyId+"/view":null
+  ].filter(Boolean).join("\\n");
+  const suffix=links?"\\n\\n"+links:"";
+  const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:"✅ Fuoconero Social\\nReel + Story pronti su Drive.\\n\\n"+title+suffix+"\\n\\nIn attesa della tua approvazione.",disable_web_page_preview:true}),signal:AbortSignal.timeout(15000)});
   console.log(r.ok?"TELEGRAM ready notification sent":"TELEGRAM ready send failed "+r.status);
  }catch(e){console.warn("TELEGRAM ready send failed",e.message);}
 }
@@ -48,7 +59,14 @@ export function worker(wp){
     const output=await call('/'+job.render_job_id+'/output',{lease:job.lease,kind,sha256:result.sha256,metadata,mp4_base64:(await readFile(path)).toString('base64')});
     console.log('RENDER output',job.render_job_id,kind,output.status,result.sha256);await rm(folder,{recursive:true,force:true});
    }
-   console.log('RENDER complete',job.render_job_id);await telegramReady(job);
+   console.log('RENDER complete',job.render_job_id);
+   let readyOutput=null;
+   try{
+    const ready=await wp('GET','/reel-maker/render-jobs/'+encodeURIComponent(job.render_job_id)+'/output');
+    if(ready.status>=200&&ready.status<300)readyOutput=ready.data;
+    else console.warn('RENDER ready output unavailable',job.render_job_id,ready.status);
+   }catch(e){console.warn('RENDER ready output lookup failed',job.render_job_id,e.message);}
+   await telegramReady(job,readyOutput);
   }catch(e){
    console.error('RENDER failed',job?.render_job_id||'claim',e.message.replace(/https?:\/\/\S+/g,'[url]'));
    if(job)try{await call('/'+job.render_job_id+'/fail',{lease:job.lease,error:e.message.replace(/https?:\/\/\S+/g,'[url]')});}catch{/* Durable lease expiry handles recovery; no upload retry. */}
