@@ -134,6 +134,42 @@ function keepScheduledServiceAwake(){
 setInterval(keepScheduledServiceAwake,240000).unref();
 
 
+async function telegramChatId(){
+ const token=process.env.FNS_TELEGRAM_BOT_TOKEN;if(!token)return null;
+ try{
+  const r=await fetch("https://api.telegram.org/bot"+token+"/getUpdates",{signal:AbortSignal.timeout(15000)});
+  const j=await r.json();const updates=Array.isArray(j?.result)?j.result:[];
+  for(let i=updates.length-1;i>=0;i--){const id=updates[i]?.message?.chat?.id;if(id)return id;}
+ }catch(e){console.warn("TELEGRAM chat lookup failed",e.message);}
+ return null;
+}
+async function telegramNotify(message){
+ const token=process.env.FNS_TELEGRAM_BOT_TOKEN;if(!token)return false;
+ const chatId=process.env.FNS_TELEGRAM_CHAT_ID||await telegramChatId();
+ if(!chatId){console.warn("TELEGRAM no chat id — send /start to the bot");return false;}
+ try{
+  const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{
+   method:"POST",headers:{"content-type":"application/json"},
+   body:JSON.stringify({chat_id:chatId,text:message,disable_web_page_preview:true}),
+   signal:AbortSignal.timeout(15000)
+  });
+  if(!r.ok){console.warn("TELEGRAM send failed",r.status);return false;}
+  console.log("TELEGRAM notification sent");return true;
+ }catch(e){console.warn("TELEGRAM send failed",e.message);return false;}
+}
+async function recentPublishedPosts(){
+ const u=new URL(BASE+"/wp-json/wp/v2/posts");
+ u.searchParams.set("status","publish");u.searchParams.set("per_page","10");u.searchParams.set("orderby","date");u.searchParams.set("order","desc");
+ u.searchParams.set("_fields","id,date,link,title,excerpt,categories");
+ const r=await fetch(u,{headers:{"user-agent":"FuoconeroSocialBridge/0.4.8"},signal:AbortSignal.timeout(30000)});
+ if(!r.ok)throw new Error("WordPress posts feed HTTP "+r.status);
+ const a=await r.json();
+ return (Array.isArray(a)?a:[]).map(p=>({
+  ...p,title:decodeHtml(p?.title?.rendered||p?.title||""),
+  excerpt:decodeHtml(p?.excerpt?.rendered||p?.excerpt||"")
+ }));
+}
+
 const AUTO_REEL_CATEGORY_IDS={
  "789517870":"animale","577762893":"fisicamente","790278878":"naturalmente",
  "790278776":"mondo","14831":"poesie","11817":"canzoni"
@@ -156,30 +192,36 @@ async function saveAutoState(s){try{await writeFile(AUTO_STATE_URL,JSON.stringif
 async function autoReelTick(){
  if(autoReelBusy)return;autoReelBusy=true;
  try{
-  const list=await wp("GET","/reel-maker/articles/recent");
-  if(list.status!==200||!Array.isArray(list.data?.posts)){console.warn("AUTO_REEL recent feed unavailable",list.status);return;}
+  const posts=(await recentPublishedPosts()).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const state=await autoState(),seen=new Set(state.seen||[]);
-  const posts=list.data.posts.slice().sort((a,b)=>Number(a.id)-Number(b.id));
+  const now=Date.now(),firstRun=!state.initialized;
   for(const post of posts){
    if(seen.has(String(post.id)))continue;
+   const age=now-new Date(post.date).getTime();
+   // On first startup only consider genuinely fresh posts, preventing archive backfill.
+   if(firstRun&&(age<0||age>45*60*1000)){seen.add(String(post.id));continue;}
    const cats=(post.categories||[]).map(String),category=cats.map(x=>AUTO_REEL_CATEGORY_IDS[x]).find(Boolean);
    if(!category){seen.add(String(post.id));continue;}
+   await telegramNotify("🔥 Fuoconero Social\nNuovo articolo rilevato:\n"+post.title+"\n\n🎬 Creo Reel + Story.");
    const scenes=autoScenes(post);
    const payload={
     request_id:"auto-post-"+post.id,post_id:Number(post.id),category,
     music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-    outputs:{
-     reel:{preset:"articolo",scenes:scenes.reel},
-     story:{preset:"story",scenes:scenes.story}
-    },
+    outputs:{reel:{preset:"articolo",scenes:scenes.reel},story:{preset:"story",scenes:scenes.story}},
     publication_authorized:false
    };
    const created=await wp("POST","/reel-maker/render-jobs",payload);
    console.log("AUTO_REEL enqueue",post.id,created.status,JSON.stringify(created.data));
-   if(created.status>=200&&created.status<300){seen.add(String(post.id));void pump();}
+   if(created.status>=200&&created.status<300){
+    seen.add(String(post.id));
+    await telegramNotify("⚙️ Fuoconero Social\nReel + Story accodati per:\n"+post.title+"\n\nNessuna pubblicazione social senza approvazione.");
+    void pump();
+   }else{
+    await telegramNotify("⚠️ Fuoconero Social\nNon sono riuscito ad accodare Reel + Story per:\n"+post.title);
+   }
   }
-  state.seen=[...seen].slice(-1000);await saveAutoState(state);
- }catch(e){console.warn("AUTO_REEL tick failed",e.message);}
+  state.initialized=true;state.seen=[...seen].slice(-1000);await saveAutoState(state);
+ }catch(e){console.warn("AUTO_REEL tick failed",e.message);await telegramNotify("⚠️ Fuoconero Social\nControllo nuovi articoli fallito: "+e.message);}
  finally{autoReelBusy=false;}
 }
 setInterval(()=>void autoReelTick(),300000).unref();
@@ -279,7 +321,7 @@ const pump=worker(wp);
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.7",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.8",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
