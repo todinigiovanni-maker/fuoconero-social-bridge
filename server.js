@@ -190,6 +190,14 @@ const AUTO_REEL_CATEGORY_IDS={
 };
 const AUTO_STATE_URL=new URL("./auto-reel-state.json",import.meta.url);
 const AUTO_RETRY_DELAY_MS=2*60*1000;
+const CATEGORY_HASHTAGS={animale:"#AniMALE",fisicamente:"#FisicaMENTE",naturalmente:"#NaturalMENTE",mondo:"#IlMondoVistoDalNero",poesie:"#Poesie",canzoni:"#Canzoni",dossier:"#DossierFuoconero"};
+function autoPublicationMeta(post,category){
+ const title=cleanAutoTitle(post.title);
+ const tag=CATEGORY_HASHTAGS[category]||"#Fuoconero";
+ const caption=(title+"\n\n#Fuoconero "+tag).trim();
+ const link=post.link||BASE+"/?p="+post.id;
+ return {title,article_url:link,caption,facebook_caption:(title+"\n\n"+link+"\n\n#Fuoconero "+tag).trim(),hashtags:["#Fuoconero",tag]};
+}
 const autoRetryTimers=new Map();
 let autoReelBusy=false;
 function decodeHtml(s=""){return String(s).replace(/<[^>]*>/g," ").replace(/&#8230;|&hellip;/g,"…").replace(/&#8211;|&ndash;/g,"–").replace(/&#8212;|&mdash;/g,"—").replace(/&#8217;|&rsquo;/g,"’").replace(/&amp;/g,"&").replace(/&quot;/g,'"').replace(/&#\d+;/g," ").replace(/\s+/g," ").trim();}
@@ -253,11 +261,12 @@ async function autoReelTick(){
    const cats=(post.categories||[]).map(String),category=cats.map(x=>AUTO_REEL_CATEGORY_IDS[x]).find(Boolean);
    if(!category){console.log("AUTO_REEL skip category",post.id,cats,post.title);seen.add(String(post.id));continue;}
    console.log("AUTO_REEL eligible",post.id,category,Math.round(age/60000),post.title);
-   const scenes=autoScenes(post);
+   const scenes=autoScenes(post),publication=autoPublicationMeta(post,category);
    const payload={
-    request_id:"fuoconero-auto-v3-post-"+post.id+"-reel-story",post_id:Number(post.id),category,
+    request_id:"fuoconero-auto-v4-post-"+post.id+"-reel-story",post_id:Number(post.id),category,
     music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
     outputs:{reel:{preset:"articolo",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}},
+    publication,
     publication_authorized:false
    };
    const created=await wp("POST","/reel-maker/render-jobs",payload);
@@ -396,7 +405,7 @@ const pump=worker(wp);
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.20",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.21",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
