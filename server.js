@@ -91,6 +91,22 @@ async function runCommand(){
   for(const id of ids){const j=await wp("GET","/jobs/"+encodeURIComponent(id));console.log("COMMAND inspect",c.id,id,j.status,JSON.stringify(j.data));}
   return;
  }
+ if(c.action==="render_batch"){
+  const items=Array.isArray(c.items)?c.items:[];
+  if(!items.length||items.length>25){console.error("COMMAND invalid render_batch");return;}
+  console.log("COMMAND render_batch requested",c.id,"items",items.length);
+  for(const item of items){
+   const p={...(item?.payload||item)};
+   if(p.category&&CATEGORY_LIBRARY[p.category]) p.category=CATEGORY_LIBRARY[p.category];
+   if(!p||typeof p!=="object"||!p.request_id||!Number.isInteger(p.post_id)||!p.category||(!p.music_title&&!p.music_id)||!p.outputs||typeof p.outputs!=="object"){
+    console.error("COMMAND render_batch invalid item",p?.request_id||"unknown");continue;
+   }
+   const created=await wp("POST","/reel-maker/render-jobs",p);
+   console.log("COMMAND render_batch result",c.id,p.request_id,created.status,JSON.stringify(created.data));
+  }
+  void pump();
+  return;
+ }
  if(c.action==="render"){
   const p={...c.payload};
   if(p.category&&CATEGORY_LIBRARY[p.category]) p.category=CATEGORY_LIBRARY[p.category];
@@ -146,7 +162,7 @@ const pump=worker(wp);
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.4",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.5",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
