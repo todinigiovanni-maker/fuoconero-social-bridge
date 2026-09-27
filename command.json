@@ -1,27 +1,27 @@
 {
   "version": 1,
-  "id": "luca-render-20260927-001",
+  "id": "latte-mammiferi-render-20260927-001",
   "action": "render",
   "payload": {
-    "request_id": "luca-render-20260927-001",
-    "post_id": 5682,
+    "request_id": "latte-mammiferi-render-20260927-001",
+    "post_id": 5270,
     "category": "animale",
     "outputs": {
       "reel": {
         "preset": "articolo",
         "scene_texts": [
-          "Tu, un gatto, una quercia e un batterio siete parenti.",
-          "Andando abbastanza indietro, quasi tutta la vita converge verso un antenato comune.",
-          "Gli scienziati lo chiamano L.U.C.A.: Last Universal Common Ancestor.",
-          "La vita sulla Terra non è una collezione di specie. È un’unica, gigantesca famiglia."
+          "Il latte non è tutto uguale.",
+          "Una foca può produrre latte con oltre il 50% di grassi. Quello delle balene è così denso da non disperdersi in acqua.",
+          "E una mamma canguro può produrre due latti diversi nello stesso momento.",
+          "Non esiste il latte migliore. Esiste quello giusto per ogni cucciolo."
         ]
       },
       "story": {
         "preset": "story",
         "scene_texts": [
-          "Tu, un gatto e una quercia siete parenti.",
-          "Quasi tutta la vita condivide un antichissimo antenato comune.",
-          "Si chiama L.U.C.A. E la sua storia è anche la nostra."
+          "Il latte non è tutto uguale.",
+          "Foche, balene e canguri producono latte adattato ai loro piccoli.",
+          "La natura cambia perfino la ricetta del latte."
         ]
       }
     },
