@@ -10,7 +10,7 @@ function driveFileId(output,kind){
 async function telegramReady(job,output){
  const token=process.env.FNS_TELEGRAM_BOT_TOKEN;if(!token)return;
  try{
-  let chatId=process.env.FNS_TELEGRAM_CHAT_ID||options.getTelegramChatId?.();
+  let chatId=process.env.FNS_TELEGRAM_CHAT_ID||(await options.getTelegramChatId?.());
   if(!chatId){console.warn("TELEGRAM ready waiting for shared chat id");return;}
   if(!chatId){console.warn("TELEGRAM ready no chat id");return;}
   const title=job?.plans&&Object.values(job.plans)[0]?.title||("Articolo "+(job?.post_id||""));
