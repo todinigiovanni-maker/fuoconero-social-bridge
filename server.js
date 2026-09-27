@@ -387,11 +387,15 @@ async function runCommand(){
   if(out.status!==200){console.error("COMMAND resend_render_ready output unavailable",c.render_job_id,out.status);return;}
   const reelId=findDriveFileId(out.data,"reel"),storyId=findDriveFileId(out.data,"story");
   if(!reelId||!storyId){console.error("COMMAND resend_render_ready missing Drive IDs",c.render_job_id);return;}
+  const reelPreview=out.data?.outputs?.reel?.preview_url||out.data?.reel?.preview_url;
+  const storyPreview=out.data?.outputs?.story?.preview_url||out.data?.story?.preview_url;
   const token=process.env.FNS_TELEGRAM_BOT_TOKEN,chatId=process.env.FNS_TELEGRAM_CHAT_ID||await telegramChatId();
   if(!token||!chatId){console.error("COMMAND resend_render_ready Telegram unavailable");return;}
   const posts=await recentPublishedPosts(),post=posts.find(x=>Number(x.id)===c.post_id);
   const title=post?.title||c.title||("Articolo "+c.post_id);
-  const message="✅ Fuoconero Social\\nReel + Story pronti su Drive.\\n\\n"+title+"\\n\\n🎬 Reel: https://drive.google.com/file/d/"+reelId+"/view\\n📱 Story: https://drive.google.com/file/d/"+storyId+"/view\\n\\nPuoi approvare o rifiutare direttamente qui.";
+  const reelLink=(typeof reelPreview==="string"&&reelPreview)?reelPreview:"https://drive.google.com/file/d/"+reelId+"/view";
+  const storyLink=(typeof storyPreview==="string"&&storyPreview)?storyPreview:"https://drive.google.com/file/d/"+storyId+"/view";
+  const message="✅ Fuoconero Social\\nReel + Story pronti su Drive.\\n\\n"+title+"\\n\\n🎬 Reel: "+reelLink+"\\n📱 Story: "+storyLink+"\\n\\nPuoi approvare o rifiutare direttamente qui.";
   const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:message,disable_web_page_preview:true,reply_markup:{inline_keyboard:[[ {text:"✅ APPROVA E PUBBLICA",callback_data:"approve:"+c.render_job_id+":"+c.post_id},{text:"❌ RIFIUTA",callback_data:"reject:"+c.render_job_id+":"+c.post_id} ]]}}),signal:AbortSignal.timeout(15000)});
   console.log(r.ok?"COMMAND resend_render_ready sent":"COMMAND resend_render_ready failed "+r.status,c.render_job_id);
   return;
