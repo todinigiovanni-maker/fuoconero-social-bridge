@@ -175,6 +175,8 @@ const AUTO_REEL_CATEGORY_IDS={
  "790278776":"mondo","14831":"poesie","11817":"canzoni"
 };
 const AUTO_STATE_URL=new URL("./auto-reel-state.json",import.meta.url);
+const AUTO_RETRY_DELAY_MS=2*60*1000;
+const autoRetryTimers=new Map();
 let autoReelBusy=false;
 function decodeHtml(s=""){return String(s).replace(/<[^>]*>/g," ").replace(/&#8230;|&hellip;/g,"…").replace(/&#8211;|&ndash;/g,"–").replace(/&#8212;|&mdash;/g,"—").replace(/&#8217;|&rsquo;/g,"’").replace(/&amp;/g,"&").replace(/&quot;/g,'"').replace(/&#\d+;/g," ").replace(/\s+/g," ").trim();}
 function shortText(s,max=118){s=decodeHtml(s);if(s.length<=max)return s;const x=s.slice(0,max-1);return x.slice(0,Math.max(40,x.lastIndexOf(" ")))+"…";}
@@ -189,6 +191,16 @@ function autoScenes(post){
 }
 async function autoState(){try{return JSON.parse(await readFile(AUTO_STATE_URL,"utf8"));}catch{return {seen:[]};}}
 async function saveAutoState(s){try{await writeFile(AUTO_STATE_URL,JSON.stringify(s));}catch(e){console.warn("AUTO_REEL state write failed",e.message);}}
+function isArticleNotReady(created){
+ return created?.status===400 && /articolo pubblicato e non protetto/i.test(String(created?.data?.message||""));
+}
+function scheduleAutoRetry(post){
+ const key=String(post.id);
+ if(autoRetryTimers.has(key))return;
+ const t=setTimeout(()=>{autoRetryTimers.delete(key);void autoReelTick();},AUTO_RETRY_DELAY_MS);
+ autoRetryTimers.set(key,t);
+ console.log("AUTO_REEL retry scheduled",post.id,"in_ms",AUTO_RETRY_DELAY_MS);
+}
 async function autoReelTick(){
  if(autoReelBusy)return;autoReelBusy=true;
  try{
@@ -219,6 +231,9 @@ async function autoReelTick(){
     seen.add(String(post.id));
     await telegramNotify("⚙️ Fuoconero Social\nReel + Story accodati per:\n"+post.title+"\n\nNessuna pubblicazione social senza approvazione.");
     void pump();
+   }else if(isArticleNotReady(created)){
+    console.log("AUTO_REEL article not ready yet",post.id,"— retry without marking seen");
+    scheduleAutoRetry(post);
    }else{
     await telegramNotify("⚠️ Fuoconero Social\nNon sono riuscito ad accodare Reel + Story per:\n"+post.title);
    }
@@ -324,7 +339,7 @@ const pump=worker(wp);
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.18",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.19",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
