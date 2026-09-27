@@ -2,6 +2,18 @@ import {mkdtemp,mkdir,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {render,download} from './renderer.js';
+async function telegramReady(job){
+ const token=process.env.FNS_TELEGRAM_BOT_TOKEN;if(!token)return;
+ try{
+  let chatId=process.env.FNS_TELEGRAM_CHAT_ID;
+  if(!chatId){const r=await fetch("https://api.telegram.org/bot"+token+"/getUpdates",{signal:AbortSignal.timeout(15000)});const j=await r.json();const a=Array.isArray(j?.result)?j.result:[];for(let i=a.length-1;i>=0;i--){if(a[i]?.message?.chat?.id){chatId=a[i].message.chat.id;break;}}}
+  if(!chatId){console.warn("TELEGRAM ready no chat id");return;}
+  const title=job?.plans&&Object.values(job.plans)[0]?.title||("Articolo "+(job?.post_id||""));
+  const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:"✅ Fuoconero Social\\nReel + Story pronti su Drive.\\n\\n"+title+"\\n\\nIn attesa della tua approvazione.",disable_web_page_preview:true}),signal:AbortSignal.timeout(15000)});
+  console.log(r.ok?"TELEGRAM ready notification sent":"TELEGRAM ready send failed "+r.status);
+ }catch(e){console.warn("TELEGRAM ready send failed",e.message);}
+}
+
 export function worker(wp){
  let busy=false,last=0;
  async function call(path,data){const r=await wp('POST','/reel-maker/render-worker'+path,data);if(r.status<200||r.status>=300)throw new Error(r.data?.message||'Worker HTTP '+r.status);return r.data;}
