@@ -177,7 +177,8 @@ function schedulePublicationItem(item){
  return true;
 }
 function keepScheduledServiceAwake(){
- if(!scheduledTimers.size)return;
+ // AutoReel also depends on this process staying alive: keep the free Render
+ // instance warm even when there are no scheduled social publications.
  const url=process.env.RENDER_EXTERNAL_URL||process.env.FNS_SELF_URL;
  if(url)fetch(url.replace(/\/$/,"")+"/health",{signal:AbortSignal.timeout(15000)}).catch(()=>{});
 }
