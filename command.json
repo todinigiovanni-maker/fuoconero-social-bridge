@@ -1,35 +1,33 @@
 {
   "version": 1,
-  "id": "render-polpo-camaleonte-retry-stable-20260928",
+  "id": "render-robot-demo-20260928",
   "action": "render_batch_by_slug",
-  "items": [
-    {
-      "request_id": "fuoconero-polpo-camaleonte-stable-20260928-v2",
-      "slug": "il-polpo-e-piu-camaleonte-del-camaleonte",
-      "category": "ani-male",
-      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-      "outputs": {
-        "reel": {
-          "preset": "articolo",
-          "scene_texts": [
-            "Il vero camaleonte del mare? È il polpo.",
-            "Non cambia solo colore: cambia texture, forma e postura.",
-            "Può diventare sabbia, pietra, corallo, alga o ombra.",
-            "Il polpo non si mimetizza. Sembra smettere di esistere."
-          ],
-          "allow_extended_duration": false
-        },
-        "story": {
-          "preset": "story",
-          "scene_texts": [
-            "Il camaleonte cambia colore.",
-            "Il polpo cambia quasi identità.",
-            "ANI…MALE — fuoconero.com"
-          ],
-          "allow_extended_duration": false
-        }
+  "items": [{
+    "request_id": "robot-demo-20260928-v1",
+    "slug": "fisica-mente-04",
+    "category": "fisica-mente",
+    "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
+    "outputs": {
+      "reel": {
+        "preset": "articolo",
+        "scene_texts": [
+          "Un robottone alto 30 metri potrebbe esistere davvero?",
+          "Più cresce, più il peso aumenta molto più velocemente della sua resistenza.",
+          "Gambe, articolazioni e persino il terreno diventerebbero un problema.",
+          "La fantasia non ha limiti. La fisica, invece, sì."
+        ],
+        "allow_extended_duration": false
       },
-      "publication_authorized": false
-    }
-  ]
+      "story": {
+        "preset": "story",
+        "scene_texts": [
+          "Un robottone alto 30 metri?",
+          "La fantasia dice sì. La fisica ha parecchie obiezioni.",
+          "FISICA…MENTE — fuoconero.com"
+        ],
+        "allow_extended_duration": false
+      }
+    },
+    "publication_authorized": false
+  }]
 }
