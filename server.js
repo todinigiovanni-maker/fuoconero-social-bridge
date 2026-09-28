@@ -223,7 +223,7 @@ async function publishedPostById(postId){
 }
 async function recentPublishedPosts(){
  const u=new URL(BASE+"/wp-json/wp/v2/posts");
- u.searchParams.set("status","publish");u.searchParams.set("per_page","10");u.searchParams.set("orderby","date");u.searchParams.set("order","desc");
+ u.searchParams.set("status","publish");u.searchParams.set("per_page","50");u.searchParams.set("orderby","date");u.searchParams.set("order","desc");
  u.searchParams.set("_fields","id,date,date_gmt,link,title,excerpt,categories");
  const r=await fetch(u,{headers:{"user-agent":"FuoconeroSocialBridge/0.4.8"},signal:AbortSignal.timeout(30000)});
  if(!r.ok)throw new Error("WordPress posts feed HTTP "+r.status);
