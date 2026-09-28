@@ -87,8 +87,14 @@ async function cleanupPublishedJob(jobId,storageId,meta={}){
   if(!allDestinationsSucceeded(job.data))continue;
   if(meta.notify!==false)await telegramNotify("✅ Fuoconero Social\\n"+(meta.kind==="story"?"Story":"Reel")+" pubblicat"+(meta.kind==="story"?"a":"o")+" correttamente: "+(meta.title||"Fuoconero")+".");
   if(meta.kind==="reel"){
-   console.log("CLEANUP retained for TikTok archive",jobId,storageId);
-   if(meta.notify!==false)await telegramNotify("📦 Fuoconero Social\\nReel conservato su Drive per la futura pubblicazione su TikTok — "+(meta.title||jobId)+".");
+   const arc=await wp("POST","/storage/archive-tiktok",{request_id:"archive-tiktok-"+jobId,storage_id:storageId});
+   console.log("CLEANUP TikTok archive",jobId,arc.status,JSON.stringify(arc.data));
+   if(arc.status<200||arc.status>=300||arc.data?.archived!==true){
+    console.warn("CLEANUP TikTok archive failed; retained in temporary Drive folder",jobId,storageId);
+    if(meta.notify!==false)await telegramNotify("⚠️ Fuoconero Social\\nReel pubblicato, ma non sono riuscito a spostarlo nella cartella TikTok. Il file resta nei temporanei — "+(meta.title||jobId)+".");
+    return false;
+   }
+   if(meta.notify!==false)await telegramNotify("📦 Fuoconero Social\\nReel spostato in “TikTok - Da pubblicare” — "+(meta.title||jobId)+".");
    return true;
   }
   const del=await wp("POST","/storage/delete",{request_id:"cleanup-"+jobId,storage_id:storageId});
