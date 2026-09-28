@@ -541,6 +541,30 @@ async function runCommand(){
   }
   return;
  }
+ if(c.action==="render_batch_by_slug"){
+  const items=Array.isArray(c.items)?c.items:[];
+  if(!items.length||items.length>25){console.error("COMMAND invalid render_batch_by_slug");return;}
+  console.log("COMMAND render_batch_by_slug requested",c.id,"items",items.length);
+  for(const item of items){
+   const p={...(item?.payload||item)};
+   const slug=typeof p.slug==="string"?p.slug.trim():"";
+   if(!slug){console.error("COMMAND render_batch_by_slug missing slug",p?.request_id||"unknown");continue;}
+   const lookup=await fetch(BASE+"/wp-json/wp/v2/posts?slug="+encodeURIComponent(slug)+"&_fields=id,slug,status",{signal:AbortSignal.timeout(90000)});
+   let matches=[]; try{matches=await lookup.json();}catch{}
+   const post=Array.isArray(matches)?matches.find(x=>x?.slug===slug&&x?.status==="publish"):null;
+   if(!post?.id){console.error("COMMAND render_batch_by_slug unresolved",slug,lookup.status);continue;}
+   p.post_id=Number(post.id); delete p.slug;
+   if(p.category&&CATEGORY_LIBRARY[p.category]) p.category=CATEGORY_LIBRARY[p.category];
+   if(!p.request_id||!Number.isInteger(p.post_id)||!p.category||(!p.music_title&&!p.music_id)||!p.outputs||typeof p.outputs!=="object"){
+    console.error("COMMAND render_batch_by_slug invalid item",p?.request_id||"unknown");continue;
+   }
+   console.log("COMMAND render_batch_by_slug resolved",slug,"post",p.post_id);
+   const created=await wp("POST","/reel-maker/render-jobs",p);
+   console.log("COMMAND render_batch_by_slug result",c.id,p.request_id,created.status,JSON.stringify(created.data));
+  }
+  void pump();
+  return;
+ }
  if(c.action==="render_batch"){
   const items=Array.isArray(c.items)?c.items:[];
   if(!items.length||items.length>25){console.error("COMMAND invalid render_batch");return;}
