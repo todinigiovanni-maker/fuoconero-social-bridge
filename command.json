@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "id": "approved-seven-reels-telegram-20260928-1309",
+  "id": "approved-seven-reels-stories-telegram-20260928-1314",
   "action": "render_batch",
   "items": [
     {
@@ -16,6 +16,14 @@
             "Roma trasformò l’arena in un campo di battaglia navale.",
             "Ma il Dossier racconta di un’acqua diventata nera.",
             "Una battaglia che Roma avrebbe voluto cancellare."
+          ]
+        },
+        "story": {
+          "preset": "story",
+          "scene_texts": [
+            "Il Colosseo è stato davvero allagato.",
+            "Ma il Dossier racconta di un’acqua diventata nera.",
+            "La naumachia nera — fuoconero.com"
           ]
         }
       },
@@ -35,6 +43,14 @@
             "Un lago che non riflette ciò che ha davanti.",
             "E nel nero, qualcosa sembra aspettare."
           ]
+        },
+        "story": {
+          "preset": "story",
+          "scene_texts": [
+            "Sotto Roma esiste davvero un lago nero.",
+            "Nel Dossier, però, non riflette ciò che ha davanti.",
+            "Il lago che non riflette — fuoconero.com"
+          ]
         }
       },
       "publication_authorized": false
@@ -52,6 +68,14 @@
             "La materia ordinaria vale appena circa il 5%.",
             "Il resto lo chiamiamo materia oscura ed energia oscura.",
             "Noi viviamo nel cinque per cento."
+          ]
+        },
+        "story": {
+          "preset": "story",
+          "scene_texts": [
+            "Tutto ciò che vediamo è circa il 5% dell’universo.",
+            "Il resto è ancora in gran parte invisibile.",
+            "FISICA…MENTE — fuoconero.com"
           ]
         }
       },
@@ -71,6 +95,14 @@
             "La terapia potrebbe essere testata prima sul modello.",
             "Prima di curare te, potremmo curare il tuo doppio digitale."
           ]
+        },
+        "story": {
+          "preset": "story",
+          "scene_texts": [
+            "E se provassimo una cura prima su una copia digitale di te?",
+            "È l’idea del gemello digitale.",
+            "NATURAL…MENTE — fuoconero.com"
+          ]
         }
       },
       "publication_authorized": false
@@ -88,6 +120,14 @@
             "È un vero osso: il baculum.",
             "Anche i nostri antenati potrebbero averlo avuto.",
             "Gli esseri umani, invece, lo hanno perso."
+          ]
+        },
+        "story": {
+          "preset": "story",
+          "scene_texts": [
+            "Molti mammiferi hanno un osso che noi non abbiamo.",
+            "Si chiama baculum.",
+            "ANI…MALE — fuoconero.com"
           ]
         }
       },
@@ -107,6 +147,14 @@
             "La libellula intercetta le prede con precisione impressionante.",
             "I predatori perfetti non hanno sempre zanne enormi."
           ]
+        },
+        "story": {
+          "preset": "story",
+          "scene_texts": [
+            "Un predatore micidiale può pesare meno di un grammo.",
+            "La libellula è una cacciatrice formidabile.",
+            "ANI…MALE — fuoconero.com"
+          ]
         }
       },
       "publication_authorized": false
@@ -124,6 +172,14 @@
             "Ma la mosca elabora i cambiamenti visivi molto rapidamente.",
             "E prepara la fuga prima ancora di decollare.",
             "Non vede il futuro. Vede arrivare il presente prima di te."
+          ]
+        },
+        "story": {
+          "preset": "story",
+          "scene_texts": [
+            "Pensi di sorprendere la mosca.",
+            "Lei ti ha già visto arrivare.",
+            "ANI…MALE — fuoconero.com"
           ]
         }
       },
