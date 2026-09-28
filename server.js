@@ -151,9 +151,14 @@ async function executeScheduledPublication(item){
  const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(item.render_job_id)+"/output");
  if(out.status!==200)throw new Error("render output unavailable "+item.id);
  const reelId=findDriveFileId(out.data,"reel"),storyId=findDriveFileId(out.data,"story");
- if(!reelId||!storyId)throw new Error("approved Reel/Story Drive IDs unavailable "+item.id);
- await prepareAndConfirmScheduled({...item,...item.reel,id:attemptId,targets:item.reel?.targets||["instagram_reel","facebook_reel","youtube_short"]},reelId,"reel");
- await prepareAndConfirmScheduled({...item,...item.story,id:attemptId,targets:item.story?.targets||["ig_story","fb_story"]},storyId,"story");
+ const explicitKinds=Object.prototype.hasOwnProperty.call(item,"reel")||Object.prototype.hasOwnProperty.call(item,"story");
+ const wantsReel=explicitKinds?!!item.reel:!!reelId;
+ const wantsStory=explicitKinds?!!item.story:!!storyId;
+ if(wantsReel&&!reelId)throw new Error("approved Reel Drive ID unavailable "+item.id);
+ if(wantsStory&&!storyId)throw new Error("approved Story Drive ID unavailable "+item.id);
+ if(!wantsReel&&!wantsStory)throw new Error("approved Drive media unavailable "+item.id);
+ if(wantsReel)await prepareAndConfirmScheduled({...item,...item.reel,id:attemptId,targets:item.reel?.targets||["ig_reel","fb_reel","youtube_short"]},reelId,"reel");
+ if(wantsStory)await prepareAndConfirmScheduled({...item,...item.story,id:attemptId,targets:item.story?.targets||["ig_story","fb_story"]},storyId,"story");
  console.log("SCHEDULE complete",item.id);
 }
 function schedulePublicationItem(item){
@@ -295,8 +300,13 @@ async function approvalQueueTick(){
    const cats=(post.categories||[]).map(String),category=cats.map(x=>AUTO_REEL_CATEGORY_IDS[x]).find(Boolean);
    if(!category)throw new Error("categoria Fuoconero non riconosciuta");
    const publication=autoPublicationMeta(post,category);
-   await telegramNotify("🚀 Fuoconero Social\nÈ arrivato il suo turno in coda. Pubblico Reel + Story: "+publication.title);
-   await executeScheduledPublication({id:"queue-"+item.render_job_id,attempt_id:"queue-"+item.render_job_id+"-"+Date.now(),render_job_id:item.render_job_id,publish_at:new Date().toISOString(),title:publication.title,caption:publication.caption,facebook_caption:publication.facebook_caption,youtube_privacy:"public",made_for_kids:"no",synthetic_media:"no",reel:{targets:["ig_reel","fb_reel","youtube_short"]},story:{targets:["ig_story","fb_story"]}});
+   const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(item.render_job_id)+"/output");
+   if(out.status!==200)throw new Error("render output unavailable");
+   const hasReel=!!findDriveFileId(out.data,"reel"),hasStory=!!findDriveFileId(out.data,"story");
+   if(!hasReel&&!hasStory)throw new Error("approved Drive media unavailable");
+   const mediaLabel=hasReel&&hasStory?"Reel + Story":hasReel?"Reel":"Story";
+   await telegramNotify("🚀 Fuoconero Social\nÈ arrivato il suo turno in coda. Pubblico "+mediaLabel+": "+publication.title);
+   await executeScheduledPublication({id:"queue-"+item.render_job_id,attempt_id:"queue-"+item.render_job_id+"-"+Date.now(),render_job_id:item.render_job_id,publish_at:new Date().toISOString(),title:publication.title,caption:publication.caption,facebook_caption:publication.facebook_caption,youtube_privacy:"public",made_for_kids:"no",synthetic_media:"no"});
    state.approval_queue=(state.approval_queue||[]).filter(x=>x.render_job_id!==item.render_job_id);await saveAutoState(state);
   }catch(e){
    item.status="queued";item.due_at=Date.now()+10*60*1000;item.last_error=e.message;await saveAutoState(state);
@@ -438,13 +448,14 @@ async function telegramApprovalTick(){
     const cats=(post.categories||[]).map(String),category=cats.map(x=>AUTO_REEL_CATEGORY_IDS[x]).find(Boolean);
     if(!category)throw new Error("categoria Fuoconero non riconosciuta");
     const publication=autoPublicationMeta(post,category);
-    await telegramNotify("🚀 Fuoconero Social\\nApprovazione ricevuta da Telegram. Pubblico Reel + Story: "+publication.title);
+    const hasReel=!!findDriveFileId(out.data,"reel"),hasStory=!!findDriveFileId(out.data,"story");
+    if(!hasReel&&!hasStory)throw new Error("approved Drive media unavailable");
+    const mediaLabel=hasReel&&hasStory?"Reel + Story":hasReel?"Reel":"Story";
+    await telegramNotify("🚀 Fuoconero Social\\nApprovazione ricevuta da Telegram. Pubblico "+mediaLabel+": "+publication.title);
     await executeScheduledPublication({
      id:"telegram-"+renderJobId,attempt_id:"telegram-"+renderJobId+"-"+Date.now(),render_job_id:renderJobId,publish_at:new Date().toISOString(),
      title:publication.title,caption:publication.caption,facebook_caption:publication.facebook_caption,
-     youtube_privacy:"public",made_for_kids:"no",synthetic_media:"no",
-     reel:{targets:["ig_reel","fb_reel","youtube_short"]},
-     story:{targets:["ig_story","fb_story"]}
+     youtube_privacy:"public",made_for_kids:"no",synthetic_media:"no"
     });
    }catch(e){
     telegramHandled.delete(data);
