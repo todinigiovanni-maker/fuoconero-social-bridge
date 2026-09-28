@@ -1,159 +1,29 @@
 {
   "version": 1,
-  "id": "approved-batch-reel-story-20260928-0911",
+  "id": "render-approved-cruna-7370-20260928-1020",
   "action": "render_batch",
   "items": [
     {
-      "request_id": "fuoconero-approved-post-5376-reel-story-v1",
-      "post_id": 5376,
-      "category": "dossier",
+      "request_id": "fuoconero-approved-post-7370-reel-story-v1",
+      "post_id": 7370,
+      "category": "animale",
       "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
       "outputs": {
         "reel": {
           "preset": "articolo",
           "scene_texts": [
-            "Roma cancellò questa battaglia dalla storia.",
-            "DE BELLO NIGRO. La guerra nera.",
-            "Lucius ruppe l’ampolla. Il nero salì.",
-            "Roma crede di usare il nero. Il nero sta imparando Roma."
+            "Oggi siamo più di otto miliardi.",
+            "Ma quasi un milione di anni fa la nostra linea ancestrale potrebbe essersi ridotta drasticamente.",
+            "Una stima controversa parla di circa 1.280 individui riproduttivi.",
+            "L’umanità potrebbe essere passata attraverso la cruna dell’ago."
           ]
         },
         "story": {
           "preset": "story",
           "scene_texts": [
-            "Roma cancellò questa battaglia dalla storia.",
-            "DE BELLO NIGRO. La guerra nera.",
-            "Scopri il Dossier su fuoconero.com"
-          ]
-        }
-      },
-      "publication_authorized": false
-    },
-    {
-      "request_id": "fuoconero-approved-post-7213-reel-story-v1",
-      "post_id": 7213,
-      "category": "mondo",
-      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-      "outputs": {
-        "reel": {
-          "preset": "articolo",
-          "scene_texts": [
-            "Saturno aveva già un esagono.",
-            "Ora al polo sud compare una forma a dieci lati.",
-            "Un decagono disegnato dall’atmosfera.",
-            "Anche il caos può creare geometrie quasi perfette."
-          ]
-        },
-        "story": {
-          "preset": "story",
-          "scene_texts": [
-            "Saturno aveva già un esagono.",
-            "Ora compare anche un decagono.",
-            "Scopri di più su fuoconero.com"
-          ]
-        }
-      },
-      "publication_authorized": false
-    },
-    {
-      "request_id": "fuoconero-approved-post-7414-reel-story-v1",
-      "post_id": 7414,
-      "category": "mondo",
-      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-      "outputs": {
-        "reel": {
-          "preset": "articolo",
-          "scene_texts": [
-            "Un ghiacciaio che si scioglie può dare più acqua.",
-            "Per un po’.",
-            "Poi il serbatoio comincia a svuotarsi.",
-            "L’abbondanza può essere il segnale della riserva che scompare."
-          ]
-        },
-        "story": {
-          "preset": "story",
-          "scene_texts": [
-            "Più ghiaccio si scioglie. Più acqua arriva.",
-            "Finché il serbatoio si svuota.",
-            "Leggi la storia su fuoconero.com"
-          ]
-        }
-      },
-      "publication_authorized": false
-    },
-    {
-      "request_id": "fuoconero-approved-post-7308-reel-story-v1",
-      "post_id": 7308,
-      "category": "mondo",
-      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-      "outputs": {
-        "reel": {
-          "preset": "articolo",
-          "scene_texts": [
-            "Se insegni a un’IA a dire «non sono cosciente»…",
-            "Hai cambiato solo la risposta?",
-            "Modificare un concetto può spostarne molti altri.",
-            "Non prova che l’IA sia cosciente. Ed è proprio questo il punto."
-          ]
-        },
-        "story": {
-          "preset": "story",
-          "scene_texts": [
-            "«Non sono cosciente.»",
-            "Ma se le insegni a dirlo, cos’altro cambia?",
-            "Scoprilo su fuoconero.com"
-          ]
-        }
-      },
-      "publication_authorized": false
-    },
-    {
-      "request_id": "fuoconero-approved-post-6914-reel-story-v1",
-      "post_id": 6914,
-      "category": "fisicamente",
-      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-      "outputs": {
-        "reel": {
-          "preset": "articolo",
-          "scene_texts": [
-            "In tutta la tua vita non hai mai toccato davvero niente.",
-            "Quando avvicini la mano, gli atomi interagiscono.",
-            "La materia impedisce agli elettroni di sovrapporsi.",
-            "Quello che chiami «contatto» è una forza."
-          ]
-        },
-        "story": {
-          "preset": "story",
-          "scene_texts": [
-            "Non stai davvero toccando lo schermo.",
-            "A livello atomico succede qualcosa di più strano.",
-            "Scoprilo su fuoconero.com"
-          ]
-        }
-      },
-      "publication_authorized": false
-    },
-    {
-      "request_id": "fuoconero-approved-post-7306-reel-story-v1",
-      "post_id": 7306,
-      "category": "fisicamente",
-      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-      "outputs": {
-        "reel": {
-          "preset": "articolo",
-          "scene_texts": [
-            "Dieci tonnellate di xeno. Quasi un miglio sottoterra.",
-            "Poi è successo una volta.",
-            "Un evento che non sappiamo ancora spiegare.",
-            "Non è una scoperta. Ma nel buio qualcosa ha fatto rumore."
-          ]
-        },
-        "story": {
-          "preset": "story",
-          "scene_texts": [
-            "Cerchiamo la materia oscura da decenni.",
-            "Poi è successo una volta.",
-            "Leggi cosa sappiamo su fuoconero.com"
+            "Oggi siamo più di otto miliardi.",
+            "Una stima controversa parla di circa 1.280 individui riproduttivi.",
+            "La cruna dell’ago dell’umanità — fuoconero.com"
           ]
         }
       },
