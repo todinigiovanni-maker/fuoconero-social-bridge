@@ -1,123 +1,60 @@
 {
   "version": 1,
-  "id": "stories-only-seven-fix-20260928-1321",
-  "action": "render_batch",
+  "id": "render-polpo-camaleonte-scollato-20260928",
+  "action": "render_batch_by_slug",
   "items": [
     {
-      "request_id": "fuoconero-approved-post-7043-story-v2",
-      "post_id": 7043,
-      "category": "dossier",
+      "request_id": "fuoconero-polpo-camaleonte-reel-story-20260928",
+      "slug": "il-polpo-e-piu-camaleonte-del-camaleonte",
+      "category": "ani-male",
       "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
       "outputs": {
+        "reel": {
+          "preset": "reel",
+          "scene_texts": [
+            "Il vero camaleonte del mare? È il polpo.",
+            "Non cambia solo colore: cambia texture, forma e postura.",
+            "Può diventare sabbia, pietra, corallo, alga o ombra.",
+            "Il polpo non si mimetizza. Sembra smettere di esistere."
+          ],
+          "allow_extended_duration": false
+        },
         "story": {
           "preset": "story",
           "scene_texts": [
-            "Il Colosseo è stato davvero allagato.",
-            "Ma il Dossier racconta di un’acqua diventata nera.",
-            "La naumachia nera — fuoconero.com"
-          ]
-        }
-      },
-      "publication_authorized": false
-    },
-    {
-      "request_id": "fuoconero-approved-post-7062-story-v2",
-      "post_id": 7062,
-      "category": "dossier",
-      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-      "outputs": {
-        "story": {
-          "preset": "story",
-          "scene_texts": [
-            "Sotto Roma esiste davvero un lago nero.",
-            "Nel Dossier, però, non riflette ciò che ha davanti.",
-            "Il lago che non riflette — fuoconero.com"
-          ]
-        }
-      },
-      "publication_authorized": false
-    },
-    {
-      "request_id": "fuoconero-approved-post-5324-story-v2",
-      "post_id": 5324,
-      "category": "fisicamente",
-      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-      "outputs": {
-        "story": {
-          "preset": "story",
-          "scene_texts": [
-            "Tutto ciò che vediamo è circa il 5% dell’universo.",
-            "Il resto è ancora in gran parte invisibile.",
-            "FISICA…MENTE — fuoconero.com"
-          ]
-        }
-      },
-      "publication_authorized": false
-    },
-    {
-      "request_id": "fuoconero-approved-post-7455-story-v2",
-      "post_id": 7455,
-      "category": "naturalmente",
-      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-      "outputs": {
-        "story": {
-          "preset": "story",
-          "scene_texts": [
-            "E se provassimo una cura prima su una copia digitale di te?",
-            "È l’idea del gemello digitale.",
-            "NATURAL…MENTE — fuoconero.com"
-          ]
-        }
-      },
-      "publication_authorized": false
-    },
-    {
-      "request_id": "fuoconero-approved-post-5105-story-v2",
-      "post_id": 5105,
-      "category": "animale",
-      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-      "outputs": {
-        "story": {
-          "preset": "story",
-          "scene_texts": [
-            "Molti mammiferi hanno un osso che noi non abbiamo.",
-            "Si chiama baculum.",
+            "Il camaleonte cambia colore.",
+            "Il polpo cambia quasi identità.",
             "ANI…MALE — fuoconero.com"
-          ]
+          ],
+          "allow_extended_duration": false
         }
       },
       "publication_authorized": false
     },
     {
-      "request_id": "fuoconero-approved-post-4934-story-v2",
-      "post_id": 4934,
-      "category": "animale",
+      "request_id": "fuoconero-scollato-reel-story-20260928",
+      "slug": "scollato",
+      "category": "poesie",
       "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
       "outputs": {
+        "reel": {
+          "preset": "poesia",
+          "scene_texts": [
+            "Sì, figa la realtà.",
+            "Molti cercano un DLC nelle religioni, nella fantasia, nelle droghe.",
+            "Io, a volte, mi sento scollato. Lontano.",
+            "Magari mi scrivo da solo qualche DLC, per hackerare questa vita."
+          ],
+          "allow_extended_duration": false
+        },
         "story": {
           "preset": "story",
           "scene_texts": [
-            "Un predatore micidiale può pesare meno di un grammo.",
-            "La libellula è una cacciatrice formidabile.",
-            "ANI…MALE — fuoconero.com"
-          ]
-        }
-      },
-      "publication_authorized": false
-    },
-    {
-      "request_id": "fuoconero-approved-post-6864-story-v2",
-      "post_id": 6864,
-      "category": "animale",
-      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-      "outputs": {
-        "story": {
-          "preset": "story",
-          "scene_texts": [
-            "Pensi di sorprendere la mosca.",
-            "Lei ti ha già visto arrivare.",
-            "ANI…MALE — fuoconero.com"
-          ]
+            "A volte mi sento scollato.",
+            "Lontano. A volte troppo dentro.",
+            "SCOLLATO… — fuoconero.com"
+          ],
+          "allow_extended_duration": false
         }
       },
       "publication_authorized": false
