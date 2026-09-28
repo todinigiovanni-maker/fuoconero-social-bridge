@@ -86,13 +86,18 @@ async function cleanupPublishedJob(jobId,storageId,meta={}){
   }
   if(!allDestinationsSucceeded(job.data))continue;
   if(meta.notify!==false)await telegramNotify("✅ Fuoconero Social\\n"+(meta.kind==="story"?"Story":"Reel")+" pubblicat"+(meta.kind==="story"?"a":"o")+" correttamente: "+(meta.title||"Fuoconero")+".");
+  if(meta.kind==="reel"){
+   console.log("CLEANUP retained for TikTok archive",jobId,storageId);
+   if(meta.notify!==false)await telegramNotify("📦 Fuoconero Social\\nReel conservato su Drive per la futura pubblicazione su TikTok — "+(meta.title||jobId)+".");
+   return true;
+  }
   const del=await wp("POST","/storage/delete",{request_id:"cleanup-"+jobId,storage_id:storageId});
   console.log("CLEANUP result",jobId,del.status,JSON.stringify(del.data));
   if(del.status<200||del.status>=300){
    await telegramNotify("⚠️ Fuoconero Social\\nPubblicazione riuscita, ma non sono riuscito a eliminare il file temporaneo da Drive: "+(meta.title||jobId)+".");
    return false;
   }
-  if(meta.notify!==false)await telegramNotify("🧹 Fuoconero Social\\nCleanup completato: "+(meta.kind==="story"?"Story":"Reel")+" eliminat"+(meta.kind==="story"?"a":"o")+" da Drive — "+(meta.title||jobId)+".");
+  if(meta.notify!==false)await telegramNotify("🧹 Fuoconero Social\\nCleanup completato: Story eliminata da Drive — "+(meta.title||jobId)+".");
   return true;
  }
  console.warn("CLEANUP retained after timeout",jobId);
@@ -590,7 +595,7 @@ const pump=worker(wp,{getTelegramChatId:async()=>process.env.FNS_TELEGRAM_CHAT_I
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.24",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.25",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
