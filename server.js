@@ -196,6 +196,15 @@ async function telegramNotify(message){
   console.log("TELEGRAM notification sent");return true;
  }catch(e){console.warn("TELEGRAM send failed",e.message);return false;}
 }
+async function publishedPostById(postId){
+ const id=Number(postId);if(!Number.isInteger(id)||id<1)return null;
+ const u=new URL(BASE+"/wp-json/wp/v2/posts/"+id);
+ u.searchParams.set("context","view");u.searchParams.set("_fields","id,date,date_gmt,link,title,excerpt,categories,status");
+ const r=await fetch(u,{headers:{"user-agent":"FuoconeroSocialBridge/0.4.23"},signal:AbortSignal.timeout(30000)});
+ if(r.status===404)return null;if(!r.ok)throw new Error("WordPress post lookup HTTP "+r.status);
+ const p=await r.json();if(String(p?.status||"publish")!=="publish")return null;
+ return {...p,title:decodeHtml(p?.title?.rendered||p?.title||""),excerpt:decodeHtml(p?.excerpt?.rendered||p?.excerpt||"")};
+}
 async function recentPublishedPosts(){
  const u=new URL(BASE+"/wp-json/wp/v2/posts");
  u.searchParams.set("status","publish");u.searchParams.set("per_page","10");u.searchParams.set("orderby","date");u.searchParams.set("order","desc");
@@ -374,8 +383,8 @@ async function telegramApprovalTick(){
    try{
     const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(renderJobId)+"/output");
     if(out.status!==200)throw new Error("render output unavailable");
-    const posts=await recentPublishedPosts(),post=posts.find(x=>Number(x.id)===postId);
-    if(!post)throw new Error("articolo non disponibile tra i post recenti");
+    const post=await publishedPostById(postId);
+    if(!post)throw new Error("articolo pubblicato non disponibile su WordPress");
     const cats=(post.categories||[]).map(String),category=cats.map(x=>AUTO_REEL_CATEGORY_IDS[x]).find(Boolean);
     if(!category)throw new Error("categoria Fuoconero non riconosciuta");
     const publication=autoPublicationMeta(post,category);
@@ -536,7 +545,7 @@ const pump=worker(wp,{getTelegramChatId:async()=>process.env.FNS_TELEGRAM_CHAT_I
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.22",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.23",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
