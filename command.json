@@ -1,23 +1,14 @@
 {
   "version": 1,
-  "id": "approved-seven-reels-stories-telegram-20260928-1314",
+  "id": "stories-only-seven-fix-20260928-1321",
   "action": "render_batch",
   "items": [
     {
-      "request_id": "fuoconero-approved-post-7043-reel-v1",
+      "request_id": "fuoconero-approved-post-7043-story-v2",
       "post_id": 7043,
       "category": "dossier",
       "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
       "outputs": {
-        "reel": {
-          "preset": "articolo",
-          "scene_texts": [
-            "Il Colosseo è stato davvero allagato.",
-            "Roma trasformò l’arena in un campo di battaglia navale.",
-            "Ma il Dossier racconta di un’acqua diventata nera.",
-            "Una battaglia che Roma avrebbe voluto cancellare."
-          ]
-        },
         "story": {
           "preset": "story",
           "scene_texts": [
@@ -30,20 +21,11 @@
       "publication_authorized": false
     },
     {
-      "request_id": "fuoconero-approved-post-7062-reel-v1",
+      "request_id": "fuoconero-approved-post-7062-story-v2",
       "post_id": 7062,
       "category": "dossier",
       "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
       "outputs": {
-        "reel": {
-          "preset": "articolo",
-          "scene_texts": [
-            "Sotto Roma esiste davvero un lago nero.",
-            "Ma questo Dossier racconta qualcosa di ancora più strano.",
-            "Un lago che non riflette ciò che ha davanti.",
-            "E nel nero, qualcosa sembra aspettare."
-          ]
-        },
         "story": {
           "preset": "story",
           "scene_texts": [
@@ -56,20 +38,11 @@
       "publication_authorized": false
     },
     {
-      "request_id": "fuoconero-approved-post-5324-reel-v1",
+      "request_id": "fuoconero-approved-post-5324-story-v2",
       "post_id": 5324,
       "category": "fisicamente",
       "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
       "outputs": {
-        "reel": {
-          "preset": "articolo",
-          "scene_texts": [
-            "Tutto ciò che hai mai visto è una piccola parte dell’universo.",
-            "La materia ordinaria vale appena circa il 5%.",
-            "Il resto lo chiamiamo materia oscura ed energia oscura.",
-            "Noi viviamo nel cinque per cento."
-          ]
-        },
         "story": {
           "preset": "story",
           "scene_texts": [
@@ -82,20 +55,11 @@
       "publication_authorized": false
     },
     {
-      "request_id": "fuoconero-approved-post-7455-reel-v1",
+      "request_id": "fuoconero-approved-post-7455-story-v2",
       "post_id": 7455,
       "category": "naturalmente",
       "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
       "outputs": {
-        "reel": {
-          "preset": "articolo",
-          "scene_texts": [
-            "E se il medico potesse provare la cura prima su una copia di te?",
-            "Un gemello digitale può simulare parti del nostro organismo.",
-            "La terapia potrebbe essere testata prima sul modello.",
-            "Prima di curare te, potremmo curare il tuo doppio digitale."
-          ]
-        },
         "story": {
           "preset": "story",
           "scene_texts": [
@@ -108,20 +72,11 @@
       "publication_authorized": false
     },
     {
-      "request_id": "fuoconero-approved-post-5105-reel-v1",
+      "request_id": "fuoconero-approved-post-5105-story-v2",
       "post_id": 5105,
       "category": "animale",
       "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
       "outputs": {
-        "reel": {
-          "preset": "articolo",
-          "scene_texts": [
-            "Orsi, cani, foche e molti primati ce l’hanno.",
-            "È un vero osso: il baculum.",
-            "Anche i nostri antenati potrebbero averlo avuto.",
-            "Gli esseri umani, invece, lo hanno perso."
-          ]
-        },
         "story": {
           "preset": "story",
           "scene_texts": [
@@ -134,20 +89,11 @@
       "publication_authorized": false
     },
     {
-      "request_id": "fuoconero-approved-post-4934-reel-v1",
+      "request_id": "fuoconero-approved-post-4934-story-v2",
       "post_id": 4934,
       "category": "animale",
       "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
       "outputs": {
-        "reel": {
-          "preset": "articolo",
-          "scene_texts": [
-            "Qual è il predatore più efficace: un grande felino o una libellula?",
-            "La risposta può essere molto più piccola di quanto immagini.",
-            "La libellula intercetta le prede con precisione impressionante.",
-            "I predatori perfetti non hanno sempre zanne enormi."
-          ]
-        },
         "story": {
           "preset": "story",
           "scene_texts": [
@@ -160,20 +106,11 @@
       "publication_authorized": false
     },
     {
-      "request_id": "fuoconero-approved-post-6864-reel-v1",
+      "request_id": "fuoconero-approved-post-6864-story-v2",
       "post_id": 6864,
       "category": "animale",
       "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
       "outputs": {
-        "reel": {
-          "preset": "articolo",
-          "scene_texts": [
-            "Ogni volta pensi: stavolta la prendo.",
-            "Ma la mosca elabora i cambiamenti visivi molto rapidamente.",
-            "E prepara la fuga prima ancora di decollare.",
-            "Non vede il futuro. Vede arrivare il presente prima di te."
-          ]
-        },
         "story": {
           "preset": "story",
           "scene_texts": [
