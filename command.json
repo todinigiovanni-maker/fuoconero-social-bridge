@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "id": "render-polpo-camaleonte-fix-20260928",
+  "id": "render-polpo-camaleonte-retry-stable-20260928",
   "action": "render_batch_by_slug",
   "items": [
     {
-      "request_id": "fuoconero-polpo-camaleonte-reel-story-fix-20260928",
+      "request_id": "fuoconero-polpo-camaleonte-stable-20260928-v2",
       "slug": "il-polpo-e-piu-camaleonte-del-camaleonte",
       "category": "ani-male",
       "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
