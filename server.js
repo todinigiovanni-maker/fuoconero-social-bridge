@@ -265,6 +265,42 @@ function autoScenes(post){
 }
 async function autoState(){try{return JSON.parse(await readFile(AUTO_STATE_URL,"utf8"));}catch{return {seen:[]};}}
 async function saveAutoState(s){try{await writeFile(AUTO_STATE_URL,JSON.stringify(s));}catch(e){console.warn("AUTO_REEL state write failed",e.message);}}
+async function enqueueApprovedPublication(renderJobId,postId){
+ const state=await autoState(),queue=Array.isArray(state.approval_queue)?state.approval_queue:[];
+ const existing=queue.find(x=>x.render_job_id===renderJobId&&x.status!=="done");
+ if(existing)return {position:queue.filter(x=>x.status==="queued"&&Number(x.due_at)<=Number(existing.due_at)).length,due_at:existing.due_at,existing:true};
+ const now=Date.now(),last=queue.filter(x=>x.status==="queued").reduce((m,x)=>Math.max(m,Number(x.due_at)||0),0);
+ const nextHour=Math.ceil(now/3600000)*3600000;
+ const dueAt=Math.max(nextHour,last?last+3600000:0);
+ queue.push({render_job_id:renderJobId,post_id:Number(postId),due_at:dueAt,status:"queued",created_at:now});
+ state.approval_queue=queue.slice(-100);await saveAutoState(state);
+ const ordered=queue.filter(x=>x.status==="queued").sort((a,b)=>a.due_at-b.due_at);
+ return {position:ordered.findIndex(x=>x.render_job_id===renderJobId)+1,due_at:dueAt,existing:false};
+}
+let approvalQueueBusy=false;
+async function approvalQueueTick(){
+ if(approvalQueueBusy)return;approvalQueueBusy=true;
+ try{
+  const state=await autoState(),queue=Array.isArray(state.approval_queue)?state.approval_queue:[];
+  const item=queue.filter(x=>x.status==="queued"&&Number(x.due_at)<=Date.now()).sort((a,b)=>a.due_at-b.due_at)[0];
+  if(!item)return;
+  item.status="publishing";await saveAutoState(state);
+  try{
+   const post=await publishedPostById(item.post_id);if(!post)throw new Error("articolo pubblicato non disponibile su WordPress");
+   const cats=(post.categories||[]).map(String),category=cats.map(x=>AUTO_REEL_CATEGORY_IDS[x]).find(Boolean);
+   if(!category)throw new Error("categoria Fuoconero non riconosciuta");
+   const publication=autoPublicationMeta(post,category);
+   await telegramNotify("🚀 Fuoconero Social\nÈ arrivato il suo turno in coda. Pubblico Reel + Story: "+publication.title);
+   await executeScheduledPublication({id:"queue-"+item.render_job_id,attempt_id:"queue-"+item.render_job_id+"-"+Date.now(),render_job_id:item.render_job_id,publish_at:new Date().toISOString(),title:publication.title,caption:publication.caption,facebook_caption:publication.facebook_caption,youtube_privacy:"public",made_for_kids:"no",synthetic_media:"no",reel:{targets:["ig_reel","fb_reel","youtube_short"]},story:{targets:["ig_story","fb_story"]}});
+   state.approval_queue=(state.approval_queue||[]).filter(x=>x.render_job_id!==item.render_job_id);await saveAutoState(state);
+  }catch(e){
+   item.status="queued";item.due_at=Date.now()+10*60*1000;item.last_error=e.message;await saveAutoState(state);
+   await telegramNotify("⚠️ Fuoconero Social\nPubblicazione dalla coda non riuscita: "+e.message+"\nRiprovo automaticamente tra 10 minuti.");
+  }
+ }catch(e){console.warn("APPROVAL_QUEUE tick failed",e.message);}
+ finally{approvalQueueBusy=false;}
+}
+setInterval(()=>void approvalQueueTick(),30000).unref();
 function isArticleNotReady(created){
  return created?.status===400 && /articolo pubblicato e non protetto/i.test(String(created?.data?.message||""));
 }
@@ -371,7 +407,7 @@ async function telegramApprovalTick(){
    telegramOffset=Math.max(telegramOffset,(Number(update.update_id)||0)+1);
    const q=update?.callback_query,data=String(q?.data||""),chat=String(q?.message?.chat?.id||"");
    if(!q||chat!==allowed||telegramHandled.has(data))continue;
-   const m=data.match(/^(approve|reject):([a-f0-9-]{36}):(\d+)$/);if(!m)continue;
+   const m=data.match(/^(approve|queue|reject):([a-f0-9-]{36}):(\d+)$/);if(!m)continue;
    const [,action,renderJobId,postIdRaw]=m,postId=Number(postIdRaw);
    telegramHandled.add(data);
    if(action==="reject"){
@@ -379,7 +415,16 @@ async function telegramApprovalTick(){
     await telegramNotify("❌ Fuoconero Social\\nRender rifiutato. Nessuna pubblicazione eseguita; i file restano su Drive.");
     continue;
    }
-   await telegramAnswerCallback(token,q.id,"Approvato. Avvio pubblicazione.");
+   if(action==="queue"){
+    try{
+     const queued=await enqueueApprovedPublication(renderJobId,postId);
+     const when=new Date(queued.due_at).toLocaleString("it-IT",{timeZone:"Europe/Rome",hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"});
+     await telegramAnswerCallback(token,q.id,queued.existing?"Era già in coda.":"Approvato e accodato.");
+     await telegramNotify("🕒 Fuoconero Social\\n"+(queued.existing?"Era già":"Approvato e inserito")+" in coda.\\nPosizione: "+queued.position+"\\nPubblicazione prevista: "+when+".");
+    }catch(e){telegramHandled.delete(data);await telegramNotify("⚠️ Fuoconero Social\\nNon sono riuscito ad accodarlo: "+e.message);}
+    continue;
+   }
+   await telegramAnswerCallback(token,q.id,"Approvato. Pubblico ora.");
    try{
     const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(renderJobId)+"/output");
     if(out.status!==200)throw new Error("render output unavailable");
@@ -433,7 +478,7 @@ async function runCommand(){
   const reelLink="https://drive.google.com/file/d/"+encodeURIComponent(reelId)+"/preview";
   const storyLink="https://drive.google.com/file/d/"+encodeURIComponent(storyId)+"/preview";
   const message="✅ Fuoconero Social\\nReel + Story pronti su Drive.\\n\\n"+title+"\\n\\nApri le anteprime dai pulsanti qui sotto, poi approva o rifiuta.";
-  const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:message,disable_web_page_preview:true,reply_markup:{inline_keyboard:[[{text:"🎬 APRI REEL",url:reelLink},{text:"📱 APRI STORY",url:storyLink}],[{text:"✅ APPROVA E PUBBLICA",callback_data:"approve:"+c.render_job_id+":"+c.post_id},{text:"❌ RIFIUTA",callback_data:"reject:"+c.render_job_id+":"+c.post_id}]]}}),signal:AbortSignal.timeout(15000)});
+  const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:message,disable_web_page_preview:true,reply_markup:{inline_keyboard:[[{text:"🎬 APRI REEL",url:reelLink},{text:"📱 APRI STORY",url:storyLink}],[{text:"🕒 APPROVA E ACCODA",callback_data:"queue:"+c.render_job_id+":"+c.post_id}],[{text:"🚀 PUBBLICA ORA",callback_data:"approve:"+c.render_job_id+":"+c.post_id},{text:"❌ RIFIUTA",callback_data:"reject:"+c.render_job_id+":"+c.post_id}]]}}),signal:AbortSignal.timeout(15000)});
   console.log(r.ok?"COMMAND resend_render_ready sent":"COMMAND resend_render_ready failed "+r.status,c.render_job_id);
   return;
  }
@@ -545,7 +590,7 @@ const pump=worker(wp,{getTelegramChatId:async()=>process.env.FNS_TELEGRAM_CHAT_I
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.23",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.24",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
