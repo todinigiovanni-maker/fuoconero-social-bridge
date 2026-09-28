@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "id": "render-approved-cruna-7370-20260928-1020",
+  "id": "render-approved-cruna-dossier04-20260928-1023",
   "action": "render_batch",
   "items": [
     {
@@ -24,6 +24,32 @@
             "Oggi siamo più di otto miliardi.",
             "Una stima controversa parla di circa 1.280 individui riproduttivi.",
             "La cruna dell’ago dell’umanità — fuoconero.com"
+          ]
+        }
+      },
+      "publication_authorized": false
+    },
+    {
+      "request_id": "fuoconero-approved-post-5625-reel-story-v1",
+      "post_id": 5625,
+      "category": "dossier",
+      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
+      "outputs": {
+        "reel": {
+          "preset": "articolo",
+          "scene_texts": [
+            "Un bambino disegnava sempre la stessa cosa.",
+            "Una stella nera sopra un cielo che non avrebbe dovuto conoscere.",
+            "Poi quel simbolo comparve anche altrove.",
+            "E se non fosse stata soltanto fantasia?"
+          ]
+        },
+        "story": {
+          "preset": "story",
+          "scene_texts": [
+            "Un bambino disegnava sempre una stella nera.",
+            "Poi lo stesso simbolo comparve altrove.",
+            "Dossier Fuoconero — fuoconero.com"
           ]
         }
       },
