@@ -237,17 +237,26 @@ async function recentPublishedPosts(){
 
 const AUTO_REEL_CATEGORY_IDS={
  "789517870":"animale","577762893":"fisicamente","790278878":"naturalmente",
- "790278776":"mondo","14831":"poesie","11817":"canzoni"
+ "790278776":"mondo","14831":"poesie","11817":"canzoni","790178670":"dossier"
 };
+function publicationCategory(post){
+ const cats=(post?.categories||[]).map(String);
+ const known=cats.map(x=>AUTO_REEL_CATEGORY_IDS[x]).find(Boolean);
+ if(known)return known;
+ const title=String(post?.title||"").toLowerCase();
+ if(title.includes("dossier"))return "dossier";
+ return "fuoconero";
+}
 const AUTO_STATE_URL=new URL("./auto-reel-state.json",import.meta.url);
 const AUTO_RETRY_DELAY_MS=2*60*1000;
-const CATEGORY_HASHTAGS={animale:"#AniMALE",fisicamente:"#FisicaMENTE",naturalmente:"#NaturalMENTE",mondo:"#IlMondoVistoDalNero",poesie:"#Poesie",canzoni:"#Canzoni",dossier:"#DossierFuoconero"};
+const CATEGORY_HASHTAGS={animale:"#AniMALE",fisicamente:"#FisicaMENTE",naturalmente:"#NaturalMENTE",mondo:"#IlMondoVistoDalNero",poesie:"#Poesie",canzoni:"#Canzoni",dossier:"#DossierFuoconero",fuoconero:"#Fuoconero"};
 function autoPublicationMeta(post,category){
  const title=cleanAutoTitle(post.title);
  const tag=CATEGORY_HASHTAGS[category]||"#Fuoconero";
- const caption=(title+"\n\n#Fuoconero "+tag).trim();
+ const hashtags=tag==="#Fuoconero"?["#Fuoconero"]:["#Fuoconero",tag];
+ const caption=(title+"\n\n"+hashtags.join(" ")).trim();
  const link=post.link||BASE+"/?p="+post.id;
- return {title,article_url:link,caption,facebook_caption:(title+"\n\n"+link+"\n\n#Fuoconero "+tag).trim(),hashtags:["#Fuoconero",tag]};
+ return {title,article_url:link,caption,facebook_caption:(title+"\n\n"+link+"\n\n"+hashtags.join(" ")).trim(),hashtags};
 }
 const autoRetryTimers=new Map();
 let autoReelBusy=false;
@@ -304,8 +313,7 @@ async function approvalQueueTick(){
   item.status="publishing";await saveAutoState(state);
   try{
    const post=await publishedPostById(item.post_id);if(!post)throw new Error("articolo pubblicato non disponibile su WordPress");
-   const cats=(post.categories||[]).map(String),category=cats.map(x=>AUTO_REEL_CATEGORY_IDS[x]).find(Boolean);
-   if(!category)throw new Error("categoria Fuoconero non riconosciuta");
+   const category=publicationCategory(post);
    const publication=autoPublicationMeta(post,category);
    const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(item.render_job_id)+"/output");
    if(out.status!==200)throw new Error("render output unavailable");
@@ -452,8 +460,7 @@ async function telegramApprovalTick(){
     if(out.status!==200)throw new Error("render output unavailable");
     const post=await publishedPostById(postId);
     if(!post)throw new Error("articolo pubblicato non disponibile su WordPress");
-    const cats=(post.categories||[]).map(String),category=cats.map(x=>AUTO_REEL_CATEGORY_IDS[x]).find(Boolean);
-    if(!category)throw new Error("categoria Fuoconero non riconosciuta");
+    const category=publicationCategory(post);
     const publication=autoPublicationMeta(post,category);
     const hasReel=!!findDriveFileId(out.data,"reel"),hasStory=!!findDriveFileId(out.data,"story");
     if(!hasReel&&!hasStory)throw new Error("approved Drive media unavailable");
