@@ -493,6 +493,29 @@ async function runCommand(){
   console.log("COMMAND inspect_render_output",c.id,c.render_job_id,out.status,JSON.stringify(out.data));
   return;
  }
+ if(c.action==="resend_render_ready_batch"){
+  const items=Array.isArray(c.items)?c.items:[];
+  if(!items.length||items.length>25){console.error("COMMAND invalid resend_render_ready_batch");return;}
+  for(const item of items){
+   if(!item?.render_job_id||!Number.isInteger(item.post_id)){console.error("COMMAND resend_render_ready_batch invalid item");continue;}
+   const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(item.render_job_id)+"/output");
+   if(out.status!==200){console.error("COMMAND resend_render_ready_batch output unavailable",item.render_job_id,out.status);continue;}
+   const reelId=findDriveFileId(out.data,"reel"),storyId=findDriveFileId(out.data,"story");
+   if(!reelId&&!storyId){console.error("COMMAND resend_render_ready_batch missing Drive IDs",item.render_job_id);continue;}
+   const token=process.env.FNS_TELEGRAM_BOT_TOKEN,chatId=process.env.FNS_TELEGRAM_CHAT_ID||await telegramChatId();
+   if(!token||!chatId){console.error("COMMAND resend_render_ready_batch Telegram unavailable");continue;}
+   const posts=await recentPublishedPosts(),post=posts.find(x=>Number(x.id)===item.post_id);
+   const title=post?.title||item.title||("Articolo "+item.post_id);
+   const buttons=[];
+   if(reelId)buttons.push({text:"APRI REEL",url:"https://drive.google.com/file/d/"+encodeURIComponent(reelId)+"/preview"});
+   if(storyId)buttons.push({text:"APRI STORY",url:"https://drive.google.com/file/d/"+encodeURIComponent(storyId)+"/preview"});
+   const label=reelId&&storyId?"Reel + Story pronti":reelId?"Reel pronto":"Story pronta";
+   const keyboard=[buttons,[{text:"APPROVA E ACCODA",callback_data:"queue:"+item.render_job_id+":"+item.post_id}],[{text:"PUBBLICA ORA",callback_data:"approve:"+item.render_job_id+":"+item.post_id},{text:"RIFIUTA",callback_data:"reject:"+item.render_job_id+":"+item.post_id}]];
+   const tr=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:"Fuoconero Social\n"+label+" su Drive.\n\n"+title+"\n\nApri l'anteprima, poi scegli se accodare, pubblicare subito o rifiutare.",disable_web_page_preview:true,reply_markup:{inline_keyboard:keyboard}}),signal:AbortSignal.timeout(15000)});
+   console.log(tr.ok?"COMMAND resend_render_ready_batch sent":"COMMAND resend_render_ready_batch failed "+tr.status,item.render_job_id);
+  }
+  return;
+ }
  if(c.action==="resend_render_ready"){
   if(!c.render_job_id||!Number.isInteger(c.post_id)){console.error("COMMAND invalid resend_render_ready");return;}
   const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(c.render_job_id)+"/output");
