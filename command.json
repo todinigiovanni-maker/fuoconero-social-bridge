@@ -1,9 +1,16 @@
 {
  "version":1,
- "id":"poesie-voglio-ancora-20260929-v1",
+ "id":"quokka-scenes-20260929-v2",
  "action":"render_batch_by_slug",
- "items":[
-  {"request_id":"tabula-rasa-voglio-ancora-20260929-v1","slug":"tabula-rasa","category":"poesie","music_title":"voglio ancora (1).wav","outputs":{"reel":{"preset":"poesia","allow_extended_duration":false}},"publication_authorized":false},
-  {"request_id":"il-colore-di-dio-voglio-ancora-20260929-v1","slug":"il-colore-di-dio","category":"poesie","music_title":"voglio ancora (1).wav","outputs":{"reel":{"preset":"poesia","allow_extended_duration":false}},"publication_authorized":false}
- ]
+ "items":[{
+  "request_id":"archive-ani-quokka-20260929-v2",
+  "slug":"ani-male-il-quokka-lanimale-piu-felice-del-mondo-forse-troppo",
+  "category":"animale",
+  "music_id":"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
+  "outputs":{
+   "reel":{"preset":"articolo","scene_texts":["Internet lo chiama l’animale più felice del mondo","Quel sorriso però non significa necessariamente felicità","Il quokka ha semplicemente un muso fatto così","Scopri di più su fuoconero.com"],"allow_extended_duration":false},
+   "story":{"preset":"story","scene_texts":["Il quokka sorride davvero?","Il suo muso ci inganna","La storia completa su fuoconero.com"],"allow_extended_duration":false}
+  },
+  "publication_authorized":false
+ }]
 }
