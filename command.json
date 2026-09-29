@@ -1,1 +1,9 @@
-{"version":1,"id":"archive-render-20260929","action":"render_batch_by_slug","items":[{"request_id":"archive-ani-20260929-v1","slug":"ani-male-il-quokka-lanimale-piu-felice-del-mondo-forse-troppo","category":"animale","music_id":"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B","outputs":{"reel":{"preset":"articolo","allow_extended_duration":false},"story":{"preset":"story","allow_extended_duration":false}},"publication_authorized":false}]}
+{
+ "version":1,
+ "id":"poesie-voglio-ancora-20260929-v1",
+ "action":"render_batch_by_slug",
+ "items":[
+  {"request_id":"tabula-rasa-voglio-ancora-20260929-v1","slug":"tabula-rasa","category":"poesie","music_title":"voglio ancora (1).wav","outputs":{"reel":{"preset":"poesia","allow_extended_duration":false}},"publication_authorized":false},
+  {"request_id":"il-colore-di-dio-voglio-ancora-20260929-v1","slug":"il-colore-di-dio","category":"poesie","music_title":"voglio ancora (1).wav","outputs":{"reel":{"preset":"poesia","allow_extended_duration":false}},"publication_authorized":false}
+ ]
+}
