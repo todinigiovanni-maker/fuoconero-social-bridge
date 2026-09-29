@@ -134,12 +134,9 @@ async function prepareAndConfirmScheduled(spec,driveFileId,suffix){
  console.log("SCHEDULE prepare",id,prep.status,JSON.stringify(prep.data));
  if(prep.status<200||prep.status>=300||!prep.data?.job_id)throw new Error("prepare failed "+id);
  if(prep.data?.status!=="prepared"||!prep.data?.digest)throw new Error("prepared job unavailable "+id);
- const verified=verifiedAccountsForTargets(prep.data,spec.targets);
- if(!verified.ok){
-  console.warn("SCHEDULE blocked: account verification snapshot missing/stale",id,verified.missing.join(","));
-  await telegramNotify("⚠️ Fuoconero Social\nPubblicazione sospesa prima dell’invio: la verifica dei collegamenti WordPress non è disponibile per "+(verified.missing.join(", ")||"i social")+".\nI file restano su Drive e nessun social viene chiamato.");
-  throw new Error("social verification snapshot unavailable "+id);
- }
+ // WordPress /prepare + /confirm remain the authoritative publication gate.
+ // Do not require the optional accounts snapshot here: current plugin versions may
+ // return accounts:[]/checked_at:0 even when the configured publishers are usable.
  if(process.env.FNS_ALLOW_CONFIRM!=="1")throw new Error("FNS_ALLOW_CONFIRM is disabled");
  const conf=await wp("POST","/jobs/"+encodeURIComponent(prep.data.job_id)+"/confirm",{confirmed:true,digest:prep.data.digest});
  console.log("SCHEDULE confirm",id,conf.status,JSON.stringify(conf.data));
