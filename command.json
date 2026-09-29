@@ -1,9 +1,36 @@
 {
- "version":1,
- "id":"resend-poetry-ready-20260929",
- "action":"resend_render_ready_batch",
- "items":[
-  {"render_job_id":"b04ac040-428e-4d05-be87-b82f9720591e","post_id":4651,"title":"Tabula rasa"},
-  {"render_job_id":"73c8fbef-0b52-4c44-aaf4-58768229ae19","post_id":6816,"title":"Il colore di Dio"}
- ]
+  "version": 1,
+  "id": "render-dossier03-lucius-20260929-1350",
+  "action": "render_batch_by_slug",
+  "items": [
+    {
+      "request_id": "fuoconero-archive-dossier03-lucius-reel-story-v1",
+      "slug": "dossier-03-lucius-e-la-battaglia-del-fuoco-nero",
+      "category": "dossier-fuoconero",
+      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
+      "outputs": {
+        "reel": {
+          "preset": "articolo",
+          "scene_texts": [
+            "Una guerra che Roma cancellò",
+            "Lucius ruppe l’ampolla",
+            "Il nero salì dalla terra",
+            "Roma crede di usare il nero",
+            "Il nero sta imparando a usare Roma"
+          ]
+        },
+        "story": {
+          "preset": "story",
+          "scene_texts": [
+            "DE BELLO NIGRO",
+            "Una battaglia dimenticata",
+            "Un’ampolla che non conteneva fuoco",
+            "Quando si ruppe, la valle perse la luce",
+            "Scopri il Dossier 03 su fuoconero.com"
+          ]
+        }
+      },
+      "publication_authorized": false
+    }
+  ]
 }
