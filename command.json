@@ -1,23 +1,9 @@
 {
  "version":1,
- "id":"poesie-voglio-ancora-id-20260929-v2",
- "action":"render_batch_by_slug",
+ "id":"resend-poetry-ready-20260929",
+ "action":"resend_render_ready_batch",
  "items":[
-  {
-   "request_id":"tabula-rasa-voglio-ancora-id-20260929-v2",
-   "slug":"tabula-rasa",
-   "category":"poesie",
-   "music_id":"1ylzlY8UB0wk04cGRBluNj2ENJDGIkjid",
-   "outputs":{"reel":{"preset":"poesia","scene_texts":["TABULA RASA","Ci sono giorni in cui vorresti cancellare tutto","Lasciare soltanto ciò che merita di restare","Leggi la poesia su fuoconero.com"],"allow_extended_duration":false}},
-   "publication_authorized":false
-  },
-  {
-   "request_id":"il-colore-di-dio-voglio-ancora-id-20260929-v2",
-   "slug":"il-colore-di-dio",
-   "category":"poesie",
-   "music_id":"1ylzlY8UB0wk04cGRBluNj2ENJDGIkjid",
-   "outputs":{"reel":{"preset":"poesia","scene_texts":["IL COLORE DI DIO","Se Dio avesse un colore, quale sarebbe?","Forse quello che nasce quando smettiamo di cercarlo","Leggi la poesia su fuoconero.com"],"allow_extended_duration":false}},
-   "publication_authorized":false
-  }
+  {"render_job_id":"b04ac040-428e-4d05-be87-b82f9720591e","post_id":4651,"title":"Tabula rasa"},
+  {"render_job_id":"73c8fbef-0b52-4c44-aaf4-58768229ae19","post_id":6816,"title":"Il colore di Dio"}
  ]
 }
