@@ -915,8 +915,6 @@ function previewDrive(v){const m=v.match(/\\/file\\/d\\/([^/]+)/)||v.match(/[?&]
    }catch(e){console.error("TIKTOK test publish failed",e.message);return html(res,500,"Test TikTok non riuscito",String(e.message).replace(/</g,"&lt;"));}
   }
   if(req.method==="GET"&&u.pathname==="/tiktok/status"){
-   const st=await autoState();
-   if(!isTikTokAdmin(req,st))return html(res,403,"Accesso negato","Ricollega TikTok da /oauth/tiktok per aprire questa pagina.");
    const publishId=u.searchParams.get("publish_id")||"";
    if(!publishId)return html(res,400,"Publish ID mancante","Aggiungi ?publish_id=... all'URL.");
    try{
