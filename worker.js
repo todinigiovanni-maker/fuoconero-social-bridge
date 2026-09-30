@@ -85,6 +85,7 @@ export function worker(wp,options={}){
     else console.warn('RENDER ready output unavailable',job.render_job_id,ready.status);
    }catch(e){console.warn('RENDER ready output lookup failed',job.render_job_id,e.message);}
    await telegramReady(job,readyOutput);
+   if(options.afterRender)await options.afterRender(job,readyOutput);
   }catch(e){
    console.error('RENDER failed',job?.render_job_id||'claim',e.message.replace(/https?:\/\/\S+/g,'[url]'));
    if(job)try{await call('/'+job.render_job_id+'/fail',{lease:job.lease,error:e.message.replace(/https?:\/\/\S+/g,'[url]')});}catch{/* Durable lease expiry handles recovery; no upload retry. */}
