@@ -914,6 +914,20 @@ function previewDrive(v){const m=v.match(/\\/file\\/d\\/([^/]+)/)||v.match(/[?&]
     return html(res,200,"Test TikTok inviato ✅","Publish ID: <code>"+result.publish_id+"</code><br>Privacy: <b>"+result.privacy_level+"</b><br>Stato iniziale: <pre>"+JSON.stringify(result.status,null,2).replace(/</g,"&lt;")+"</pre>");
    }catch(e){console.error("TIKTOK test publish failed",e.message);return html(res,500,"Test TikTok non riuscito",String(e.message).replace(/</g,"&lt;"));}
   }
+  if(req.method==="GET"&&u.pathname==="/tiktok/status"){
+   const st=await autoState();
+   if(!isTikTokAdmin(req,st))return html(res,403,"Accesso negato","Ricollega TikTok da /oauth/tiktok per aprire questa pagina.");
+   const publishId=u.searchParams.get("publish_id")||"";
+   if(!publishId)return html(res,400,"Publish ID mancante","Aggiungi ?publish_id=... all'URL.");
+   try{
+    const status=await tiktokPublishStatus(publishId);
+    const safe=JSON.stringify(status,null,2).replace(/</g,"&lt;");
+    return html(res,200,"Stato pubblicazione TikTok","<p>Publish ID: <code>"+publishId.replace(/</g,"&lt;")+"</code></p><pre>"+safe+"</pre>");
+   }catch(e){
+    console.error("TIKTOK status page failed",publishId,e.message);
+    return html(res,500,"Controllo stato TikTok non riuscito",String(e.message).replace(/</g,"&lt;"));
+   }
+  }
   if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.25",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
