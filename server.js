@@ -660,10 +660,97 @@ async function runCommand(){
  if(prep.data?.job_id){const job=await wp("GET","/jobs/"+encodeURIComponent(prep.data.job_id));console.log("COMMAND status",c.id,job.status,JSON.stringify(job.data));}
  console.log("COMMAND end",c.id,"— no publication");
 }
+
+const TIKTOK_REDIRECT_URI=process.env.TIKTOK_REDIRECT_URI||"https://social.fuoconero.com/oauth/callback";
+function cookieValue(req,name){
+ const raw=String(req.headers.cookie||"");
+ for(const part of raw.split(";")){
+  const [k,...rest]=part.trim().split("=");
+  if(k===name)return decodeURIComponent(rest.join("="));
+ }
+ return "";
+}
+function html(res,status,title,message){
+ res.writeHead(status,{"content-type":"text/html; charset=utf-8","cache-control":"no-store"});
+ res.end("<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>"+title+"</title></head><body style=\"font-family:system-ui;max-width:720px;margin:60px auto;padding:0 20px\"><h1>"+title+"</h1><p>"+message+"</p></body></html>");
+}
+async function saveTikTokOauth(tokens){
+ const st=await autoState();
+ st.tiktok_oauth={
+  access_token:tokens.access_token,
+  refresh_token:tokens.refresh_token,
+  open_id:tokens.open_id||"",
+  scope:tokens.scope||"",
+  token_type:tokens.token_type||"Bearer",
+  access_expires_at:Date.now()+Math.max(60,Number(tokens.expires_in)||86400)*1000,
+  refresh_expires_at:Date.now()+Math.max(60,Number(tokens.refresh_expires_in)||31536000)*1000,
+  updated_at:Date.now()
+ };
+ await saveAutoState(st);
+ return st.tiktok_oauth;
+}
+async function tiktokOauthToken(){
+ const key=process.env.TIKTOK_CLIENT_KEY,secret=process.env.TIKTOK_CLIENT_SECRET;
+ if(!key||!secret)throw new Error("TikTok client credentials not configured");
+ const st=await autoState();let tok=st?.tiktok_oauth;
+ if(!tok?.refresh_token)throw new Error("TikTok account not connected");
+ if(tok.access_token&&Number(tok.access_expires_at)>Date.now()+5*60*1000)return tok.access_token;
+ const form=new URLSearchParams({client_key:key,client_secret:secret,grant_type:"refresh_token",refresh_token:tok.refresh_token});
+ const r=await fetch("https://open.tiktokapis.com/v2/oauth/token/",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded","cache-control":"no-cache"},body:form,signal:AbortSignal.timeout(30000)});
+ const data=await r.json();
+ if(!r.ok||!data?.access_token)throw new Error("TikTok token refresh failed: "+(data?.error_description||data?.error||r.status));
+ tok=await saveTikTokOauth(data);return tok.access_token;
+}
+async function tiktokCreatorInfo(){
+ const token=await tiktokOauthToken();
+ const r=await fetch("https://open.tiktokapis.com/v2/post/publish/creator_info/query/",{method:"POST",headers:{authorization:"Bearer "+token,"content-type":"application/json; charset=UTF-8"},body:"{}",signal:AbortSignal.timeout(30000)});
+ const data=await r.json();
+ if(!r.ok||data?.error?.code)throw new Error("TikTok creator info failed: "+(data?.error?.message||data?.error?.code||r.status));
+ return data?.data||data;
+}
+
 const pump=worker(wp,{getTelegramChatId:async()=>process.env.FNS_TELEGRAM_CHAT_ID||telegramKnownChatId||await telegramChatId()||null});
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
+  if(req.method==="GET"&&u.pathname==="/oauth/tiktok"){
+   const key=process.env.TIKTOK_CLIENT_KEY,secret=process.env.TIKTOK_CLIENT_SECRET;
+   if(!key||!secret)return html(res,503,"TikTok non configurato","Mancano le credenziali TikTok sul server.");
+   const state=crypto.randomBytes(24).toString("hex");
+   const authUrl=new URL("https://www.tiktok.com/v2/auth/authorize/");
+   authUrl.searchParams.set("client_key",key);
+   authUrl.searchParams.set("response_type","code");
+   authUrl.searchParams.set("scope","user.info.basic,video.publish,video.upload");
+   authUrl.searchParams.set("redirect_uri",TIKTOK_REDIRECT_URI);
+   authUrl.searchParams.set("state",state);
+   res.writeHead(302,{location:authUrl.toString(),"set-cookie":"tiktok_oauth_state="+encodeURIComponent(state)+"; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600","cache-control":"no-store"});
+   return res.end();
+  }
+  if(req.method==="GET"&&u.pathname==="/oauth/callback"){
+   try{
+    const state=u.searchParams.get("state")||"",expected=cookieValue(req,"tiktok_oauth_state");
+    if(!state||!expected||state!==expected)return html(res,400,"Collegamento TikTok non riuscito","Controllo di sicurezza OAuth non valido. Riapri il collegamento TikTok e riprova.");
+    if(u.searchParams.get("error"))return html(res,400,"Autorizzazione TikTok annullata",String(u.searchParams.get("error_description")||u.searchParams.get("error")));
+    const code=u.searchParams.get("code");if(!code)return html(res,400,"Collegamento TikTok non riuscito","TikTok non ha restituito il codice di autorizzazione.");
+    const form=new URLSearchParams({client_key:process.env.TIKTOK_CLIENT_KEY||"",client_secret:process.env.TIKTOK_CLIENT_SECRET||"",code,grant_type:"authorization_code",redirect_uri:TIKTOK_REDIRECT_URI});
+    const tr=await fetch("https://open.tiktokapis.com/v2/oauth/token/",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded","cache-control":"no-cache"},body:form,signal:AbortSignal.timeout(30000)});
+    const td=await tr.json();
+    if(!tr.ok||!td?.access_token)throw new Error(td?.error_description||td?.error||("HTTP "+tr.status));
+    await saveTikTokOauth(td);
+    const creator=await tiktokCreatorInfo();
+    console.log("TIKTOK OAuth connected",creator?.creator_username||creator?.creator_nickname||"creator",td.scope||"");
+    res.setHeader("set-cookie","tiktok_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
+    return html(res,200,"TikTok collegato ✅","Fuoconero Social è ora autorizzato sul tuo account TikTok. Puoi chiudere questa pagina.");
+   }catch(e){console.error("TIKTOK OAuth callback failed",e.message);return html(res,500,"Collegamento TikTok non riuscito","Errore durante l'autorizzazione. Controlla i log del bridge e riprova.");}
+  }
+  if(req.method==="GET"&&u.pathname==="/oauth/tiktok/status"){
+   try{
+    const st=await autoState(),tok=st?.tiktok_oauth||null;
+    if(!tok?.refresh_token)return json(res,200,{configured:!!(process.env.TIKTOK_CLIENT_KEY&&process.env.TIKTOK_CLIENT_SECRET),connected:false});
+    const creator=await tiktokCreatorInfo();
+    return json(res,200,{configured:true,connected:true,scope:tok.scope||"",creator:{username:creator?.creator_username||null,nickname:creator?.creator_nickname||null,privacy_level_options:creator?.privacy_level_options||[]}});
+   }catch(e){return json(res,200,{configured:!!(process.env.TIKTOK_CLIENT_KEY&&process.env.TIKTOK_CLIENT_SECRET),connected:false,error:e.message});}
+  }
   if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.25",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
