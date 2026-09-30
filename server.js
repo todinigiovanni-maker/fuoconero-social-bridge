@@ -9,6 +9,7 @@ import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {spawn} from "node:child_process";
 import ffmpegPath from "ffmpeg-static";
+import Redis from "ioredis";
 
 const PORT=process.env.PORT||10000;
 const BASE=(process.env.FNS_BASE_URL||"https://fuoconero.com").replace(/\/$/,"");
@@ -293,8 +294,34 @@ function autoScenes(post){
   story:[title,middle,"Continua su fuoconero.com"]
  };
 }
-async function autoState(){try{return JSON.parse(await readFile(AUTO_STATE_URL,"utf8"));}catch{return {seen:[]};}}
-async function saveAutoState(s){try{await writeFile(AUTO_STATE_URL,JSON.stringify(s));}catch(e){console.warn("AUTO_REEL state write failed",e.message);}}
+const STATE_REDIS_KEY="fuoconero:social:state:v1";
+let stateRedis=null;
+function redisState(){
+ if(!process.env.REDIS_URL)return null;
+ if(!stateRedis){
+  stateRedis=new Redis(process.env.REDIS_URL,{lazyConnect:true,maxRetriesPerRequest:2,enableReadyCheck:true});
+  stateRedis.on("error",e=>console.warn("STATE Redis error",e.message));
+ }
+ return stateRedis;
+}
+async function autoState(){
+ const r=redisState();
+ if(r)try{
+  if(r.status==="wait")await r.connect();
+  const raw=await r.get(STATE_REDIS_KEY);
+  if(raw)return JSON.parse(raw);
+ }catch(e){console.warn("STATE Redis read failed; using local fallback",e.message);}
+ try{return JSON.parse(await readFile(AUTO_STATE_URL,"utf8"));}catch{return {seen:[]};}
+}
+async function saveAutoState(state){
+ const raw=JSON.stringify(state);
+ const r=redisState();
+ if(r)try{
+  if(r.status==="wait")await r.connect();
+  await r.set(STATE_REDIS_KEY,raw);
+ }catch(e){console.warn("STATE Redis write failed; using local fallback",e.message);}
+ try{await writeFile(AUTO_STATE_URL,raw);}catch(e){console.warn("AUTO_REEL state write failed",e.message);}
+}
 async function enqueueApprovedPublication(renderJobId,postId){
  const state=await autoState(),queue=Array.isArray(state.approval_queue)?state.approval_queue:[];
  const existing=queue.find(x=>x.render_job_id===renderJobId&&x.status!=="done");
@@ -360,7 +387,8 @@ async function autoReelTick(){
   // request id creates a fresh durable job; anti-duplicate protection then
   // resumes normally instead of re-enqueuing the zombie every scan.
   const recoverPostId=Number(process.env.FNS_RECOVER_POST_ID||0);
-  const recoveryPending=recoverPostId&&!state.recovered_7945;
+  const recoveryKey=recoverPostId?"recovered_"+recoverPostId:null;
+  const recoveryPending=recoverPostId&&!state[recoveryKey];
   const now=Date.now(),firstRun=!state.initialized;
   for(const post of posts){
    if(seen.has(String(post.id))&&!(recoveryPending&&Number(post.id)===recoverPostId)){console.log("AUTO_REEL skip seen",post.id,post.title);continue;}
@@ -375,14 +403,17 @@ async function autoReelTick(){
    const payload={
     request_id:(recoveryPending&&Number(post.id)===recoverPostId?"fuoconero-auto-v5-recovery-post-"+post.id+"-reel-story":"fuoconero-auto-v5-post-"+post.id+"-reel-story"),post_id:Number(post.id),category,
     ...(category==="canzoni"?{music_title:songTitle}:{music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}),
-    outputs:{reel:{preset:"articolo",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}},
+    outputs:(recoveryPending&&Number(post.id)===recoverPostId&&process.env.FNS_RECOVER_REEL_ONLY==="1"
+      ?{reel:{preset:"articolo",scene_texts:scenes.reel}}
+      :{reel:{preset:"articolo",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}}),
     publication,
-    publication_authorized:false
+    publication_authorized:!!(recoveryPending&&Number(post.id)===recoverPostId&&process.env.FNS_RECOVER_AUTO_PUBLISH==="1")
    };
    const created=await wp("POST","/reel-maker/render-jobs",payload);
    console.log("AUTO_REEL enqueue",post.id,created.status,JSON.stringify(created.data));
    if(recoveryPending&&Number(post.id)===recoverPostId&&created.status>=200&&created.status<300){
-    state.recovered_7945=true;
+    state[recoveryKey]=true;
+    state["recovery_job_"+post.id]=created?.data?.render_job_id||"";
     console.log("AUTO_REEL recovery job created",post.id,created?.data?.render_job_id||"");
    }
    if(created.status>=200&&created.status<300){
@@ -863,7 +894,31 @@ async function tiktokDirectPostFromUrl({videoUrl,title="",privacyLevel,allowComm
  return {publish_id:data.data.publish_id,privacy_level:privacyLevel,video_size:size,status,creator};
 }
 
-const pump=worker(wp,{getTelegramChatId:async()=>process.env.FNS_TELEGRAM_CHAT_ID||telegramKnownChatId||await telegramChatId()||null});
+const pump=worker(wp,{
+ getTelegramChatId:async()=>process.env.FNS_TELEGRAM_CHAT_ID||telegramKnownChatId||await telegramChatId()||null,
+ afterRender:async(job,readyOutput)=>{
+  const recoverId=Number(process.env.FNS_RECOVER_POST_ID||0);
+  if(process.env.FNS_RECOVER_AUTO_PUBLISH!=="1"||!recoverId||Number(job?.post_id)!==recoverId)return;
+  const st=await autoState(),doneKey="recovery_published_"+recoverId;
+  if(st[doneKey]){console.log("RECOVERY publish already completed",recoverId);return;}
+  const post=await publishedPostById(recoverId);if(!post)throw new Error("recovery article unavailable");
+  const category=publicationCategory(post),pub=autoPublicationMeta(post,category);
+  const reelId=findDriveFileId(readyOutput,"reel");if(!reelId)throw new Error("recovery reel output unavailable");
+  await telegramNotify("🚀 Fuoconero Social\nReel rigenerato. Pubblico ora: "+pub.title);
+  await executeScheduledPublication({
+   id:"recovery-"+job.render_job_id,
+   attempt_id:"recovery-"+job.render_job_id+"-"+Date.now(),
+   render_job_id:job.render_job_id,
+   publish_at:new Date().toISOString(),
+   title:pub.title,caption:pub.caption,facebook_caption:pub.facebook_caption,
+   reel:{targets:["ig_reel","fb_reel","youtube_short"]},
+   story:false,
+   youtube_privacy:"public",made_for_kids:"no",synthetic_media:"no"
+  });
+  st[doneKey]=true;st["recovery_published_job_"+recoverId]=job.render_job_id;await saveAutoState(st);
+  await telegramNotify("✅ Fuoconero Social\nReel pubblicato: "+pub.title);
+ }
+});
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
