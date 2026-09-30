@@ -394,7 +394,14 @@ async function autoReelTick(){
      continue;
     }
     seen.add(String(post.id));
-    await telegramNotify("🔥 Fuoconero Social\nNuovo articolo rilevato:\n"+post.title+"\n\n⚙️ Reel + Story accodati. Nessuna pubblicazione social senza approvazione.");
+    const jobCreatedAt=Number(created?.data?.created_at)||0;
+    const jobAgeMs=jobCreatedAt?Date.now()-jobCreatedAt*1000:0;
+    const isExistingSuccessfulJob=jobCreatedAt&&jobAgeMs>120000;
+    if(isExistingSuccessfulJob){
+     console.log("AUTO_REEL existing successful job — suppress duplicate notification",post.id,created?.data?.render_job_id||"",Math.round(jobAgeMs/1000));
+    }else{
+     await telegramNotify("🔥 Fuoconero Social\nNuovo articolo rilevato:\n"+post.title+"\n\n⚙️ Reel + Story accodati. Nessuna pubblicazione social senza approvazione.");
+    }
     void pump();
    }else if(isExistingRender(created)||/request_id gi[aà] usato per contenuto diverso/i.test(String(created?.data?.message||""))){
     // A deterministic request_id collision also proves this post has already
