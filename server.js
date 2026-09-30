@@ -538,6 +538,24 @@ async function runCommand(){
  let c; try{c=JSON.parse(await readFile(new URL("./command.json",import.meta.url),"utf8"));}catch(e){console.error("COMMAND read error",e.message);return;}
  if(!c||c.action==="noop"){console.log("COMMAND idle",c?.id||"none");return;}
  if(!c.id){console.error("COMMAND invalid: missing id");return;}
+
+ if(c.action==="metricool_watch_batch"){
+  const items=Array.isArray(c.items)?c.items:[];
+  if(!items.length||items.length>50){console.error("COMMAND invalid metricool_watch_batch");return;}
+  let ok=0;
+  for(const item of items){
+   try{await registerMetricoolWatch(item);ok++;}
+   catch(e){console.error("COMMAND metricool_watch_batch item failed",item?.id||"unknown",e.message);}
+  }
+  console.log("COMMAND metricool_watch_batch",c.id,"registered",ok,"of",items.length);
+  void metricoolWatchTick();
+  return;
+ }
+ if(c.action==="metricool_watch"){
+  try{await registerMetricoolWatch(c.watch||c);console.log("COMMAND metricool_watch registered",c.id);void metricoolWatchTick();}
+  catch(e){console.error("COMMAND metricool_watch failed",c.id,e.message);}
+  return;
+ }
  if(c.action==="inspect_render_output"){
   if(!c.render_job_id){console.error("COMMAND invalid inspect_render_output");return;}
   const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(c.render_job_id)+"/output");
@@ -762,6 +780,198 @@ async function tiktokCreatorInfo(){
  if(!r.ok||(data?.error?.code&&data.error.code!=="ok"))throw new Error("TikTok creator info failed: "+(data?.error?.message||data?.error?.code||r.status));
  return data?.data||data;
 }
+
+
+const METRICOOL_WATCH_WINDOW_BEFORE_MS=15*60*1000;
+const METRICOOL_WATCH_WINDOW_AFTER_MS=3*60*60*1000;
+const METRICOOL_WATCH_EXPIRE_MS=24*60*60*1000;
+let metricoolWatchBusy=false;
+
+function normalizeMetricoolText(value=""){
+ return decodeHtml(value).toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu,"").replace(/https?:\/\/\S+/g," ").replace(/[^a-z0-9#]+/g," ").replace(/\s+/g," ").trim();
+}
+function metricoolTextTokens(value=""){
+ const stop=new Set(["fuoconero","com","www","https","http","reel","tiktok","video"]);
+ return normalizeMetricoolText(value).split(" ").map(x=>x.replace(/^#/,"")).filter(x=>x.length>=3&&!stop.has(x));
+}
+function metricoolTextScore(expected,actual){
+ const e=[...new Set(metricoolTextTokens(expected))],a=new Set(metricoolTextTokens(actual));
+ if(!e.length)return 0;
+ let hit=0;for(const x of e)if(a.has(x))hit++;
+ return hit/e.length;
+}
+async function tiktokListRecentVideos(){
+ const token=await tiktokOauthToken();
+ const url=new URL("https://open.tiktokapis.com/v2/video/list/");
+ url.searchParams.set("fields","id,create_time,title,video_description,duration,share_url");
+ const r=await fetch(url,{
+  method:"POST",
+  headers:{authorization:"Bearer "+token,"content-type":"application/json; charset=UTF-8"},
+  body:JSON.stringify({max_count:20}),
+  signal:AbortSignal.timeout(30000)
+ });
+ const data=await r.json();
+ if(!r.ok||(data?.error?.code&&data.error.code!=="ok")){
+  throw new Error("TikTok video.list failed: "+(data?.error?.message||data?.error?.code||r.status));
+ }
+ return Array.isArray(data?.data?.videos)?data.data.videos:[];
+}
+async function registerMetricoolWatch(input){
+ if(!input||typeof input!=="object")throw new Error("watch payload missing");
+ const id=String(input.id||"").trim();
+ const scheduledAt=Date.parse(input.scheduled_at||input.publish_at||"");
+ if(!id||!Number.isFinite(scheduledAt))throw new Error("watch id/scheduled_at invalid");
+ const st=await autoState();
+ if(!Array.isArray(st.metricool_tiktok_watches))st.metricool_tiktok_watches=[];
+ const existing=st.metricool_tiktok_watches.find(x=>x?.id===id);
+ const next={
+  id,
+  title:String(input.title||"Fuoconero").slice(0,180),
+  caption:String(input.caption||input.title||"").slice(0,2200),
+  scheduled_at:new Date(scheduledAt).toISOString(),
+  drive_file_id:input.drive_file_id?String(input.drive_file_id):"",
+  storage_id:input.storage_id?String(input.storage_id):"",
+  metricool_post_id:input.metricool_post_id?String(input.metricool_post_id):"",
+  status:"pending",
+  created_at:existing?.created_at||new Date().toISOString(),
+  updated_at:new Date().toISOString(),
+  matched_video_id:existing?.matched_video_id||"",
+  matched_share_url:existing?.matched_share_url||"",
+  published_notified:existing?.published_notified===true,
+  deleted_notified:existing?.deleted_notified===true,
+  expiry_notified:existing?.expiry_notified===true,
+  cleanup_attempted_at:existing?.cleanup_attempted_at||"",
+  last_error:""
+ };
+ if(existing)Object.assign(existing,next);
+ else st.metricool_tiktok_watches.push(next);
+ // Keep completed history bounded but long enough to prevent duplicate matching.
+ st.metricool_tiktok_watches=st.metricool_tiktok_watches
+  .sort((a,b)=>Date.parse(b?.scheduled_at||0)-Date.parse(a?.scheduled_at||0))
+  .slice(0,120);
+ await saveAutoState(st);
+ console.log("METRICOOL watch registered",id,next.scheduled_at,next.title);
+ return next;
+}
+function metricoolVideoMatch(watch,videos,claimed){
+ const scheduled=Date.parse(watch.scheduled_at);
+ const expected=watch.caption||watch.title||"";
+ const titleNorm=normalizeMetricoolText(watch.title||"");
+ const ranked=[];
+ for(const v of videos){
+  if(!v?.id||claimed.has(String(v.id)))continue;
+  const created=Number(v.create_time||0)*1000;
+  const delta=created-scheduled;
+  if(!created||delta<-METRICOOL_WATCH_WINDOW_BEFORE_MS||delta>METRICOOL_WATCH_WINDOW_AFTER_MS)continue;
+  const actual=[v.title,v.video_description].filter(Boolean).join(" ");
+  const score=metricoolTextScore(expected,actual);
+  const actualNorm=normalizeMetricoolText(actual);
+  const titleHit=titleNorm.length>=12&&(actualNorm.includes(titleNorm)||titleNorm.includes(actualNorm.slice(0,Math.min(60,actualNorm.length))));
+  const prefix=normalizeMetricoolText(expected).slice(0,42);
+  const prefixHit=prefix.length>=18&&actualNorm.includes(prefix);
+  const strong=titleHit||prefixHit||score>=0.55;
+  ranked.push({v,delta,score,strong,rank:(strong?10:0)+score-Math.abs(delta)/(6*60*60*1000)});
+ }
+ const strong=ranked.filter(x=>x.strong).sort((a,b)=>b.rank-a.rank);
+ if(strong.length)return strong[0].v;
+ // Conservative fallback: only accept a single post very close to the expected time.
+ const near=ranked.filter(x=>Math.abs(x.delta)<=45*60*1000);
+ return near.length===1?near[0].v:null;
+}
+async function deleteMetricoolWatchFile(watch){
+ let storageId=watch.storage_id||"";
+ if(!storageId&&watch.drive_file_id){
+  const imp=await wp("POST","/storage/drive",{
+   request_id:"metricool-watch-import-"+watch.id,
+   drive_file_id:watch.drive_file_id
+  });
+  if(imp.status<200||imp.status>=300||!imp.data?.storage_id)throw new Error("Drive file resolve failed HTTP "+imp.status);
+  storageId=String(imp.data.storage_id);
+  watch.storage_id=storageId;
+ }
+ if(!storageId)throw new Error("No storage_id or drive_file_id for cleanup");
+ const del=await wp("POST","/storage/delete",{request_id:"metricool-watch-delete-"+watch.id,storage_id:storageId});
+ if(del.status<200||del.status>=300)throw new Error("Drive delete failed HTTP "+del.status);
+ return true;
+}
+async function metricoolWatchTick(){
+ if(metricoolWatchBusy)return;metricoolWatchBusy=true;
+ try{
+  const st=await autoState();
+  const watches=Array.isArray(st.metricool_tiktok_watches)?st.metricool_tiktok_watches:[];
+  if(!watches.length)return;
+  const now=Date.now();
+  let dirty=false;
+  // Retry cleanup independently of TikTok listing.
+  for(const w of watches){
+   if(!["published","cleanup_failed"].includes(w?.status))continue;
+   const last=Date.parse(w.cleanup_attempted_at||0)||0;
+   if(last&&now-last<15*60*1000)continue;
+   w.cleanup_attempted_at=new Date().toISOString();dirty=true;
+   try{
+    await deleteMetricoolWatchFile(w);
+    w.status="done";w.updated_at=new Date().toISOString();w.last_error="";
+    if(!w.deleted_notified){
+     await telegramNotify("🧹 Fuoconero Social\nFile TikTok eliminato da Drive dopo pubblicazione confermata — "+(w.title||w.id)+".");
+     w.deleted_notified=true;
+    }
+   }catch(e){
+    w.status="cleanup_failed";w.updated_at=new Date().toISOString();w.last_error=e.message;
+    console.warn("METRICOOL cleanup failed",w.id,e.message);
+   }
+  }
+  const due=watches.filter(w=>w?.status==="pending"&&Number.isFinite(Date.parse(w.scheduled_at))&&now>=Date.parse(w.scheduled_at)-2*60*1000);
+  if(due.length){
+   let videos=[];
+   try{videos=await tiktokListRecentVideos();}
+   catch(e){
+    console.warn("METRICOOL TikTok list failed",e.message);
+    for(const w of due){w.last_error=e.message;w.updated_at=new Date().toISOString();dirty=true;}
+    if(dirty)await saveAutoState(st);
+    return;
+   }
+   const claimed=new Set(watches.map(w=>w?.matched_video_id).filter(Boolean).map(String));
+   for(const w of due){
+    const scheduled=Date.parse(w.scheduled_at);
+    if(now>scheduled+METRICOOL_WATCH_EXPIRE_MS){
+     w.status="expired";w.updated_at=new Date().toISOString();w.last_error="TikTok post not safely matched within 24h";dirty=true;
+     if(!w.expiry_notified){
+      await telegramNotify("⚠️ Fuoconero Social\nNon ho trovato con certezza su TikTok il reel programmato: "+(w.title||w.id)+".\nIl file resta su Drive: nessuna cancellazione automatica.");
+      w.expiry_notified=true;
+     }
+     continue;
+    }
+    const match=metricoolVideoMatch(w,videos,claimed);
+    if(!match)continue;
+    claimed.add(String(match.id));
+    w.matched_video_id=String(match.id);
+    w.matched_share_url=String(match.share_url||"");
+    w.status="published";w.updated_at=new Date().toISOString();w.last_error="";dirty=true;
+    if(!w.published_notified){
+     const link=w.matched_share_url?("\n"+w.matched_share_url):"";
+     await telegramNotify("✅ Fuoconero Social\nTikTok conferma la pubblicazione: "+(w.title||w.id)+link);
+     w.published_notified=true;
+    }
+    w.cleanup_attempted_at=new Date().toISOString();
+    try{
+     await deleteMetricoolWatchFile(w);
+     w.status="done";w.last_error="";
+     if(!w.deleted_notified){
+      await telegramNotify("🧹 Fuoconero Social\nFile TikTok eliminato da Drive dopo pubblicazione confermata — "+(w.title||w.id)+".");
+      w.deleted_notified=true;
+     }
+    }catch(e){
+     w.status="cleanup_failed";w.last_error=e.message;
+     console.warn("METRICOOL cleanup failed",w.id,e.message);
+    }
+   }
+  }
+  if(dirty)await saveAutoState(st);
+ }catch(e){console.warn("METRICOOL watch tick failed",e.message);}
+ finally{metricoolWatchBusy=false;}
+}
+setInterval(()=>void metricoolWatchTick(),3*60*1000).unref();
+setTimeout(()=>void metricoolWatchTick(),20000);
 
 function tiktokAdminCookie(openId){
  const secret=process.env.TIKTOK_CLIENT_SECRET||"";
