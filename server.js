@@ -947,7 +947,7 @@ const server=http.createServer(async(req,res)=>{
    const authUrl=new URL("https://www.tiktok.com/v2/auth/authorize/");
    authUrl.searchParams.set("client_key",key);
    authUrl.searchParams.set("response_type","code");
-   authUrl.searchParams.set("scope","user.info.basic,video.publish,video.upload");
+   authUrl.searchParams.set("scope","user.info.basic,video.publish,video.upload,video.list");
    authUrl.searchParams.set("redirect_uri",TIKTOK_REDIRECT_URI);
    authUrl.searchParams.set("state",state);
    if(reset)authUrl.searchParams.set("disable_auto_auth","1");
