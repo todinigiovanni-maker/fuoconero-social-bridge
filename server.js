@@ -393,8 +393,12 @@ async function autoReelTick(){
   for(const post of posts){
    if(seen.has(String(post.id))&&!(recoveryPending&&Number(post.id)===recoverPostId)){console.log("AUTO_REEL skip seen",post.id,post.title);continue;}
    const age=now-postTime(post);
-   // On first startup only consider genuinely fresh posts, preventing archive backfill.
-   if(firstRun&&(age<0||age>120*60*1000)){console.log("AUTO_REEL skip first-run age",post.id,Math.round(age/60000),post.title);seen.add(String(post.id));continue;}
+   // On first startup ignore future/scheduled posts WITHOUT marking them seen,
+   // otherwise a post discovered a few minutes before its publish time would
+   // never be rendered when it actually becomes public.
+   if(firstRun&&age<0){console.log("AUTO_REEL skip future first-run",post.id,Math.round(age/60000),post.title);continue;}
+   // Old archive posts are marked seen to prevent backfill.
+   if(firstRun&&age>120*60*1000){console.log("AUTO_REEL skip first-run age",post.id,Math.round(age/60000),post.title);seen.add(String(post.id));continue;}
    const cats=(post.categories||[]).map(String),category=cats.map(x=>AUTO_REEL_CATEGORY_IDS[x]).find(Boolean);
    if(!category){console.log("AUTO_REEL skip category",post.id,cats,post.title);seen.add(String(post.id));continue;}
    console.log("AUTO_REEL eligible",post.id,category,Math.round(age/60000),post.title);
