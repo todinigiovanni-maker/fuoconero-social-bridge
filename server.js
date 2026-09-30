@@ -1,7 +1,11 @@
 import http from "node:http";
 import {worker} from "./worker.js";
 import crypto from "node:crypto";
-import {readFile,writeFile} from "node:fs/promises";
+import {readFile,writeFile,mkdtemp,rm} from "node:fs/promises";
+import {tmpdir} from "node:os";
+import {join} from "node:path";
+import {spawn} from "node:child_process";
+import ffmpegPath from "ffmpeg-static";
 
 const PORT=process.env.PORT||10000;
 const BASE=(process.env.FNS_BASE_URL||"https://fuoconero.com").replace(/\/$/,"");
@@ -741,6 +745,35 @@ async function downloadTikTokVideo(inputUrl){
  if(ct&&ct.includes("text/html"))throw new Error("Drive returned an HTML page instead of the MP4");
  return {buf,contentType:ct.includes("quicktime")?"video/quicktime":ct.includes("webm")?"video/webm":"video/mp4"};
 }
+
+async function runProcess(cmd,args,{timeoutMs=120000}={}){
+ return await new Promise((resolve,reject)=>{
+  const p=spawn(cmd,args,{stdio:["ignore","pipe","pipe"]});
+  let out="",err="";const timer=setTimeout(()=>{p.kill("SIGKILL");reject(new Error("Process timed out"));},timeoutMs);
+  p.stdout.on("data",d=>out+=d.toString());
+  p.stderr.on("data",d=>err+=d.toString());
+  p.on("error",e=>{clearTimeout(timer);reject(e);});
+  p.on("close",code=>{clearTimeout(timer);code===0?resolve({out,err}):reject(new Error("Process failed "+code+": "+err.slice(-1200)));});
+ });
+}
+async function normalizeTikTokVideo(buf){
+ const dir=await mkdtemp(join(tmpdir(),"fns-tiktok-"));
+ const input=join(dir,"input.mp4"),output=join(dir,"output.mp4");
+ try{
+  await writeFile(input,buf);
+  await runProcess(ffmpegPath,[
+   "-y","-i",input,
+   "-vf","fps=30,scale='min(1080,iw)':-2:force_original_aspect_ratio=decrease,pad=ceil(iw/2)*2:ceil(ih/2)*2",
+   "-c:v","libx264","-preset","veryfast","-crf","20","-pix_fmt","yuv420p","-r","30","-vsync","cfr",
+   "-c:a","aac","-b:a","160k","-ar","48000",
+   "-movflags","+faststart",output
+  ],{timeoutMs:180000});
+  const out=await readFile(output);
+  if(out.length<1000)throw new Error("Normalized TikTok video is unexpectedly small");
+  console.log("TIKTOK normalize",buf.length,"->",out.length,"bytes CFR 30fps H264/AAC");
+  return out;
+ }finally{await rm(dir,{recursive:true,force:true}).catch(()=>{});}
+}
 async function tiktokPublishStatus(publishId){
  const token=await tiktokOauthToken();
  const r=await fetch("https://open.tiktokapis.com/v2/post/publish/status/fetch/",{
@@ -760,7 +793,9 @@ async function tiktokDirectPostFromUrl({videoUrl,title="",privacyLevel,allowComm
  if(brandContent&&privacyLevel==="SELF_ONLY"){
   // Kept explicit for clarity: TikTok may further restrict branded content according to account settings.
  }
- const {buf,contentType}=await downloadTikTokVideo(videoUrl);
+ const downloaded=await downloadTikTokVideo(videoUrl);
+ const buf=await normalizeTikTokVideo(downloaded.buf);
+ const contentType="video/mp4";
  const token=await tiktokOauthToken();
  const size=buf.length;
  const postInfo={
