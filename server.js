@@ -387,6 +387,17 @@ function autoMusicTitleOverride(postId){
  }
  return null;
 }
+function autoMusicIdOverride(postId){
+ const raw=String(process.env.FNS_AUTO_MUSIC_ID_BY_POST||"");
+ for(const item of raw.split(";")){
+  const i=item.indexOf(":");if(i<1)continue;
+  if(Number(item.slice(0,i).trim())===Number(postId)){
+   const id=item.slice(i+1).trim();
+   return id||null;
+  }
+ }
+ return null;
+}
 async function autoReelTick(){
  if(autoReelBusy)return;autoReelBusy=true;
  try{
@@ -421,9 +432,10 @@ async function autoReelTick(){
    const scenes=autoScenes(post),publication=autoPublicationMeta(post,category);
    const songTitle=category==="canzoni"?cleanAutoTitle(post.title):null;
    const musicTitleOverride=autoMusicTitleOverride(post.id);
+   const musicIdOverride=autoMusicIdOverride(post.id);
    const payload={
     request_id:(recovery?"fuoconero-auto-v6-recovery-"+recoverNonce+"-post-"+post.id+"-reel-story":"fuoconero-auto-v5-post-"+post.id+"-reel-story"),post_id:Number(post.id),category,
-    ...(musicTitleOverride?{music_title:musicTitleOverride}:category==="canzoni"?{music_title:songTitle}:{music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}),
+    ...(musicIdOverride?{music_id:musicIdOverride}:musicTitleOverride?{music_title:musicTitleOverride}:category==="canzoni"?{music_title:songTitle}:{music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}),
     outputs:(recovery&&process.env.FNS_RECOVER_REEL_ONLY==="1"
       ?{reel:{preset:"articolo",scene_texts:scenes.reel}}
       :{reel:{preset:"articolo",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}}),
