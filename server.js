@@ -751,18 +751,32 @@ async function tiktokPublishStatus(publishId){
  if(!r.ok||(data?.error?.code&&data.error.code!=="ok"))throw new Error("TikTok status failed: "+(data?.error?.message||data?.error?.code||r.status));
  return data?.data||data;
 }
-async function tiktokDirectPostFromUrl({videoUrl,title=""}){
+async function tiktokDirectPostFromUrl({videoUrl,title="",privacyLevel,allowComment=false,allowDuet=false,allowStitch=false,brandOrganic=false,brandContent=false,musicConsent=false}){
  const creator=await tiktokCreatorInfo();
- const privacy=Array.isArray(creator?.privacy_level_options)&&creator.privacy_level_options.includes("SELF_ONLY")?"SELF_ONLY":creator?.privacy_level_options?.[0];
- if(!privacy)throw new Error("TikTok returned no usable privacy level");
+ const options=Array.isArray(creator?.privacy_level_options)?creator.privacy_level_options:[];
+ if(!privacyLevel||!options.includes(privacyLevel))throw new Error("Seleziona manualmente una privacy valida tra quelle offerte da TikTok.");
+ if(privacyLevel!=="SELF_ONLY")throw new Error("Finché il client non è auditato, il test deve essere pubblicato come SELF_ONLY.");
+ if(!musicConsent)throw new Error("Devi accettare la Music Usage Confirmation prima di pubblicare.");
+ if(brandContent&&privacyLevel==="SELF_ONLY"){
+  // Kept explicit for clarity: TikTok may further restrict branded content according to account settings.
+ }
  const {buf,contentType}=await downloadTikTokVideo(videoUrl);
  const token=await tiktokOauthToken();
  const size=buf.length;
+ const postInfo={
+  title:String(title||"").slice(0,2200),
+  privacy_level:privacyLevel,
+  disable_comment:creator?.comment_disabled?true:!allowComment,
+  disable_duet:creator?.duet_disabled?true:!allowDuet,
+  disable_stitch:creator?.stitch_disabled?true:!allowStitch,
+  brand_organic_toggle:!!brandOrganic,
+  brand_content_toggle:!!brandContent
+ };
  const init=await fetch("https://open.tiktokapis.com/v2/post/publish/video/init/",{
   method:"POST",
   headers:{authorization:"Bearer "+token,"content-type":"application/json; charset=UTF-8"},
   body:JSON.stringify({
-   post_info:{title:String(title||"").slice(0,2200),privacy_level:privacy},
+   post_info:postInfo,
    source_info:{source:"FILE_UPLOAD",video_size:size,chunk_size:size,total_chunk_count:1}
   }),
   signal:AbortSignal.timeout(30000)
@@ -780,7 +794,7 @@ async function tiktokDirectPostFromUrl({videoUrl,title=""}){
  if(![200,201,206].includes(up.status))throw new Error("TikTok upload failed HTTP "+up.status);
  await sleep(2500);
  let status=null;try{status=await tiktokPublishStatus(data.data.publish_id);}catch(e){status={status:"unknown",error:e.message};}
- return {publish_id:data.data.publish_id,privacy_level:privacy,video_size:size,status};
+ return {publish_id:data.data.publish_id,privacy_level:privacyLevel,video_size:size,status,creator};
 }
 
 const pump=worker(wp,{getTelegramChatId:async()=>process.env.FNS_TELEGRAM_CHAT_ID||telegramKnownChatId||await telegramChatId()||null});
@@ -828,19 +842,65 @@ const server=http.createServer(async(req,res)=>{
   if(req.method==="GET"&&u.pathname==="/tiktok/test"){
    const st=await autoState();
    if(!isTikTokAdmin(req,st))return html(res,403,"Accesso negato","Ricollega TikTok da /oauth/tiktok per aprire questa pagina.");
-   res.writeHead(200,{"content-type":"text/html; charset=utf-8","cache-control":"no-store"});
-   return res.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test TikTok</title></head><body style="font-family:system-ui;max-width:760px;margin:50px auto;padding:0 20px"><h1>Test pubblicazione TikTok</h1><p>Il client non auditato pubblicherà il test come <b>privato (SELF_ONLY)</b>.</p><form method="post" action="/tiktok/test"><label>Link Google Drive MP4<br><input name="video_url" style="width:100%" required></label><br><br><label>Caption<br><textarea name="title" style="width:100%;height:120px">#Fuoconero test API TikTok</textarea></label><br><br><button type="submit">Pubblica test privato</button></form></body></html>`);
+   try{
+    const creator=await tiktokCreatorInfo();
+    const nickname=String(creator?.creator_nickname||creator?.creator_username||"Account TikTok").replace(/[<>&"]/g,"");
+    const username=String(creator?.creator_username||"").replace(/[<>&"]/g,"");
+    const options=Array.isArray(creator?.privacy_level_options)?creator.privacy_level_options:[];
+    const optHtml=['<option value="">— Seleziona manualmente —</option>',...options.map(v=>'<option value="'+v+'">'+v+'</option>')].join("");
+    const accountLooksPrivate=!options.includes("PUBLIC_TO_EVERYONE");
+    const blocked=creator?.creator_username?false:true;
+    res.writeHead(200,{"content-type":"text/html; charset=utf-8","cache-control":"no-store"});
+    return res.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test TikTok</title>
+<style>body{font-family:system-ui;max-width:860px;margin:42px auto;padding:0 20px;line-height:1.45}label{display:block;margin:14px 0 6px}input[type=text],textarea,select{width:100%;box-sizing:border-box;padding:9px}textarea{height:110px}.box{border:1px solid #ddd;border-radius:10px;padding:16px;margin:16px 0}.muted{color:#666}.warn{background:#fff7dc;border:1px solid #e6c55a;padding:12px;border-radius:8px}.ok{background:#edf9ef;border:1px solid #8fd19e;padding:12px;border-radius:8px}iframe{width:100%;height:380px;border:1px solid #ddd;border-radius:8px}.row{display:flex;gap:18px;flex-wrap:wrap}.row label{display:inline-block;margin:6px 0}button{padding:10px 16px;font-weight:700}</style></head><body>
+<h1>Test pubblicazione TikTok</h1>
+<div class="box"><b>Account:</b> ${nickname}${username?" (@"+username+")":""}<br><b>Durata massima video:</b> ${creator?.max_video_post_duration_sec??"?"} s</div>
+${accountLooksPrivate?'<div class="ok">✅ L’account risulta privato secondo le opzioni restituite da TikTok.</div>':'<div class="warn">⚠️ Il tuo account risulta pubblico. Per un client non auditato TikTok richiede un account privato e il post deve essere SELF_ONLY.</div>'}
+<p class="muted">Questa pagina ricarica sempre le informazioni più recenti del creator prima del test.</p>
+<form method="post" action="/tiktok/test" onsubmit="return confirm('Confermi di voler inviare questo video a TikTok come post privato di test?')">
+<label>Link Google Drive MP4</label><input id="video_url" name="video_url" type="text" required oninput="previewDrive(this.value)">
+<div class="box"><b>Anteprima</b><br><iframe id="preview" title="Anteprima video"></iframe></div>
+<label>Caption / hashtag</label><textarea name="title" maxlength="2200">#Fuoconero test API TikTok</textarea>
+<label>Privacy</label><select name="privacy_level" required>${optHtml}</select>
+<div class="box"><b>Interazioni</b><p class="muted">Nessuna è attiva per impostazione predefinita.</p>
+<div class="row">
+<label><input type="checkbox" name="allow_comment" value="1" ${creator?.comment_disabled?"disabled":""}> Consenti commenti ${creator?.comment_disabled?"(disabilitati dal tuo account)":""}</label>
+<label><input type="checkbox" name="allow_duet" value="1" ${creator?.duet_disabled?"disabled":""}> Consenti Duet ${creator?.duet_disabled?"(non disponibile)":""}</label>
+<label><input type="checkbox" name="allow_stitch" value="1" ${creator?.stitch_disabled?"disabled":""}> Consenti Stitch ${creator?.stitch_disabled?"(non disponibile)":""}</label>
+</div></div>
+<div class="box"><b>Contenuto commerciale</b><p class="muted">Lascia tutto spento se il video non promuove un’attività, un prodotto o un marchio.</p>
+<label><input type="checkbox" id="commercial" onchange="document.getElementById('commercial_opts').style.display=this.checked?'block':'none'"> Questo contenuto promuove me, un brand, un prodotto o un servizio</label>
+<div id="commercial_opts" style="display:none">
+<label><input type="checkbox" name="brand_organic" value="1"> Il mio brand / la mia attività <span class="muted">(etichetta “Promotional content”)</span></label>
+<label><input type="checkbox" name="brand_content" value="1"> Brand o terza parte <span class="muted">(etichetta “Paid partnership”)</span></label>
+</div></div>
+<div class="box"><label><input type="checkbox" name="music_consent" value="1" required> By posting, you agree to TikTok's Music Usage Confirmation</label></div>
+<button type="submit" ${blocked?"disabled":""}>Pubblica test privato</button>
+</form>
+<script>
+function previewDrive(v){const m=v.match(/\\/file\\/d\\/([^/]+)/)||v.match(/[?&]id=([^&]+)/);document.getElementById('preview').src=m?'https://drive.google.com/file/d/'+m[1]+'/preview':'';}
+</script></body></html>`);
+   }catch(e){console.error("TIKTOK test page failed",e.message);return html(res,500,"Pagina test TikTok non disponibile",String(e.message).replace(/</g,"&lt;"));}
   }
   if(req.method==="POST"&&u.pathname==="/tiktok/test"){
    const st=await autoState();
    if(!isTikTokAdmin(req,st))return html(res,403,"Accesso negato","Ricollega TikTok e riprova.");
    try{
     const raw=await body(req),form=new URLSearchParams(raw);
-    const result=await tiktokDirectPostFromUrl({videoUrl:form.get("video_url")||"",title:form.get("title")||""});
+    const result=await tiktokDirectPostFromUrl({
+     videoUrl:form.get("video_url")||"",
+     title:form.get("title")||"",
+     privacyLevel:form.get("privacy_level")||"",
+     allowComment:form.get("allow_comment")==="1",
+     allowDuet:form.get("allow_duet")==="1",
+     allowStitch:form.get("allow_stitch")==="1",
+     brandOrganic:form.get("brand_organic")==="1",
+     brandContent:form.get("brand_content")==="1",
+     musicConsent:form.get("music_consent")==="1"
+    });
     return html(res,200,"Test TikTok inviato ✅","Publish ID: <code>"+result.publish_id+"</code><br>Privacy: <b>"+result.privacy_level+"</b><br>Stato iniziale: <pre>"+JSON.stringify(result.status,null,2).replace(/</g,"&lt;")+"</pre>");
    }catch(e){console.error("TIKTOK test publish failed",e.message);return html(res,500,"Test TikTok non riuscito",String(e.message).replace(/</g,"&lt;"));}
   }
-
   if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.25",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
