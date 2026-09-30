@@ -705,7 +705,7 @@ async function tiktokCreatorInfo(){
  const token=await tiktokOauthToken();
  const r=await fetch("https://open.tiktokapis.com/v2/post/publish/creator_info/query/",{method:"POST",headers:{authorization:"Bearer "+token,"content-type":"application/json; charset=UTF-8"},body:"{}",signal:AbortSignal.timeout(30000)});
  const data=await r.json();
- if(!r.ok||data?.error?.code)throw new Error("TikTok creator info failed: "+(data?.error?.message||data?.error?.code||r.status));
+ if(!r.ok||(data?.error?.code&&data.error.code!=="ok"))throw new Error("TikTok creator info failed: "+(data?.error?.message||data?.error?.code||r.status));
  return data?.data||data;
 }
 
