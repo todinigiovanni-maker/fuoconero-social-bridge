@@ -35,6 +35,20 @@ async function telegramReady(job,output){
  }catch(e){console.warn("TELEGRAM ready send failed",e.message);}
 }
 
+function renderMusicFileIdOverride(postId){
+ const raw=String(process.env.FNS_RENDER_MUSIC_FILE_ID_BY_POST||"");
+ for(const item of raw.split(";")){
+  const i=item.indexOf(":");if(i<1)continue;
+  if(Number(item.slice(0,i).trim())===Number(postId)){
+   const id=item.slice(i+1).trim();
+   return id||null;
+  }
+ }
+ return null;
+}
+function driveDirectAudioUrl(id){
+ return "https://drive.usercontent.google.com/download?id="+encodeURIComponent(id)+"&export=download&confirm=t";
+}
 export function worker(wp,options={}){
  let busy=false,last=0;
  async function call(path,data){const r=await wp('POST','/reel-maker/render-worker'+path,data);if(r.status<200||r.status>=300)throw new Error(r.data?.message||'Worker HTTP '+r.status);return r.data;}
@@ -49,7 +63,12 @@ export function worker(wp,options={}){
    ({job}=await call('/claim',{}));if(!job)return;
    dir=await mkdtemp(join(tmpdir(),'fns-render-'));console.log('RENDER start',job.render_job_id);
    const sharedDir=join(dir,'shared');await mkdir(sharedDir);const shared={images:{}};
-   const plans=Object.values(job.plans),first=plans[0];
+   const plans=Object.values(job.plans),musicOverrideId=renderMusicFileIdOverride(job?.post_id);
+   if(musicOverrideId){
+    for(const p of plans)if(p?.music)p.music={...p.music,url:driveDirectAudioUrl(musicOverrideId),drive_file_id:musicOverrideId,source:"render_override"};
+    console.log('RENDER music override',job.post_id,musicOverrideId);
+   }
+   const first=plans[0];
    if(first?.music?.url){shared.music=join(sharedDir,'music.audio');await download(first.music.url,shared.music);}
    const imageUrls=[...new Set(plans.flatMap(p=>p.images||[]).map(x=>x.url))];for(let i=0;i<imageUrls.length;i++){const file=join(sharedDir,'image-'+i);await download(imageUrls[i],file);shared.images[imageUrls[i]]=file;}
    console.log('RENDER shared assets ready',imageUrls.length,'images');
