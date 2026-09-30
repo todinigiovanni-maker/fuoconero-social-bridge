@@ -1,7 +1,10 @@
 import http from "node:http";
 import {worker} from "./worker.js";
 import crypto from "node:crypto";
-import {readFile,writeFile,mkdtemp,rm} from "node:fs/promises";
+import {readFile,writeFile,mkdtemp,rm,stat} from "node:fs/promises";
+import {createReadStream,createWriteStream} from "node:fs";
+import {pipeline} from "node:stream/promises";
+import {Readable} from "node:stream";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {spawn} from "node:child_process";
@@ -734,46 +737,49 @@ function driveDownloadUrl(input){
  if(!id)throw new Error("Google Drive file ID not found");
  return "https://drive.usercontent.google.com/download?id="+encodeURIComponent(id)+"&export=download&confirm=t";
 }
-async function downloadTikTokVideo(inputUrl){
- const url=driveDownloadUrl(inputUrl);
- const r=await fetch(url,{redirect:"follow",signal:AbortSignal.timeout(120000)});
- if(!r.ok)throw new Error("Drive download failed HTTP "+r.status);
- const ct=(r.headers.get("content-type")||"").toLowerCase();
- const buf=Buffer.from(await r.arrayBuffer());
- if(buf.length<1000)throw new Error("Downloaded file is unexpectedly small");
- if(buf.length>128*1024*1024)throw new Error("Video exceeds 128 MB test limit");
- if(ct&&ct.includes("text/html"))throw new Error("Drive returned an HTML page instead of the MP4");
- return {buf,contentType:ct.includes("quicktime")?"video/quicktime":ct.includes("webm")?"video/webm":"video/mp4"};
+async function prepareTikTokVideo(inputUrl){
+ const dir=await mkdtemp(join(tmpdir(),"fns-tiktok-"));
+ const input=join(dir,"input.mp4"),output=join(dir,"output.mp4");
+ try{
+  const url=driveDownloadUrl(inputUrl);
+  const r=await fetch(url,{redirect:"follow",signal:AbortSignal.timeout(120000)});
+  if(!r.ok)throw new Error("Drive download failed HTTP "+r.status);
+  const ct=(r.headers.get("content-type")||"").toLowerCase();
+  if(ct.includes("text/html"))throw new Error("Drive returned an HTML page instead of the MP4");
+  if(!r.body)throw new Error("Drive download returned no body");
+  await pipeline(Readable.fromWeb(r.body),createWriteStream(input));
+  const inputStat=await stat(input);
+  if(inputStat.size<1000)throw new Error("Downloaded file is unexpectedly small");
+  if(inputStat.size>128*1024*1024)throw new Error("Video exceeds 128 MB test limit");
+  await runProcess(ffmpegPath,[
+   "-y","-i",input,
+   "-vf","fps=30,scale='min(1080,iw)':-2:force_original_aspect_ratio=decrease,pad=ceil(iw/2)*2:ceil(ih/2)*2",
+   "-c:v","libx264","-preset","ultrafast","-crf","21","-pix_fmt","yuv420p","-r","30","-vsync","cfr",
+   "-threads","1",
+   "-c:a","aac","-b:a","128k","-ar","48000",
+   "-movflags","+faststart",output
+  ],{timeoutMs:240000});
+  const outStat=await stat(output);
+  if(outStat.size<1000)throw new Error("Normalized TikTok video is unexpectedly small");
+  console.log("TIKTOK normalize",inputStat.size,"->",outStat.size,"bytes CFR 30fps H264/AAC disk-streamed");
+  return {path:output,size:outStat.size,contentType:"video/mp4",cleanup:()=>rm(dir,{recursive:true,force:true}).catch(()=>{})};
+ }catch(e){
+  await rm(dir,{recursive:true,force:true}).catch(()=>{});
+  throw e;
+ }
 }
 
 async function runProcess(cmd,args,{timeoutMs=120000}={}){
  return await new Promise((resolve,reject)=>{
   const p=spawn(cmd,args,{stdio:["ignore","pipe","pipe"]});
   let out="",err="";const timer=setTimeout(()=>{p.kill("SIGKILL");reject(new Error("Process timed out"));},timeoutMs);
-  p.stdout.on("data",d=>out+=d.toString());
-  p.stderr.on("data",d=>err+=d.toString());
+  p.stdout.on("data",d=>{if(out.length<4000)out+=d.toString();});
+  p.stderr.on("data",d=>{err=(err+d.toString()).slice(-8000);});
   p.on("error",e=>{clearTimeout(timer);reject(e);});
   p.on("close",code=>{clearTimeout(timer);code===0?resolve({out,err}):reject(new Error("Process failed "+code+": "+err.slice(-1200)));});
  });
 }
-async function normalizeTikTokVideo(buf){
- const dir=await mkdtemp(join(tmpdir(),"fns-tiktok-"));
- const input=join(dir,"input.mp4"),output=join(dir,"output.mp4");
- try{
-  await writeFile(input,buf);
-  await runProcess(ffmpegPath,[
-   "-y","-i",input,
-   "-vf","fps=30,scale='min(1080,iw)':-2:force_original_aspect_ratio=decrease,pad=ceil(iw/2)*2:ceil(ih/2)*2",
-   "-c:v","libx264","-preset","veryfast","-crf","20","-pix_fmt","yuv420p","-r","30","-vsync","cfr",
-   "-c:a","aac","-b:a","160k","-ar","48000",
-   "-movflags","+faststart",output
-  ],{timeoutMs:180000});
-  const out=await readFile(output);
-  if(out.length<1000)throw new Error("Normalized TikTok video is unexpectedly small");
-  console.log("TIKTOK normalize",buf.length,"->",out.length,"bytes CFR 30fps H264/AAC");
-  return out;
- }finally{await rm(dir,{recursive:true,force:true}).catch(()=>{});}
-}
+
 async function tiktokPublishStatus(publishId){
  const token=await tiktokOauthToken();
  const r=await fetch("https://open.tiktokapis.com/v2/post/publish/status/fetch/",{
@@ -793,11 +799,10 @@ async function tiktokDirectPostFromUrl({videoUrl,title="",privacyLevel,allowComm
  if(brandContent&&privacyLevel==="SELF_ONLY"){
   // Kept explicit for clarity: TikTok may further restrict branded content according to account settings.
  }
- const downloaded=await downloadTikTokVideo(videoUrl);
- const buf=await normalizeTikTokVideo(downloaded.buf);
- const contentType="video/mp4";
+ const prepared=await prepareTikTokVideo(videoUrl);
+ const contentType=prepared.contentType;
  const token=await tiktokOauthToken();
- const size=buf.length;
+ const size=prepared.size;
  const postInfo={
   title:String(title||"").slice(0,2200),
   privacy_level:privacyLevel,
@@ -823,13 +828,19 @@ async function tiktokDirectPostFromUrl({videoUrl,title="",privacyLevel,allowComm
  const uploadUrl=data.data.upload_url;
  const uploadMeta=(()=>{try{const x=new URL(uploadUrl);return x.origin+x.pathname;}catch{return "invalid_upload_url";}})();
  console.log("TIKTOK init ok",data.data.publish_id,uploadMeta,data?.error?.log_id||data?.error?.logid||"");
- const up=await fetch(uploadUrl,{
-  method:"PUT",
-  redirect:"manual",
-  headers:{"Content-Type":contentType,"Content-Length":String(size),"Content-Range":"bytes 0-"+(size-1)+"/"+size},
-  body:buf,
-  signal:AbortSignal.timeout(120000)
- });
+ let up;
+ try{
+  up=await fetch(uploadUrl,{
+   method:"PUT",
+   redirect:"manual",
+   headers:{"Content-Type":contentType,"Content-Length":String(size),"Content-Range":"bytes 0-"+(size-1)+"/"+size},
+   body:createReadStream(prepared.path),
+   duplex:"half",
+   signal:AbortSignal.timeout(120000)
+  });
+ }finally{
+  await prepared.cleanup();
+ }
  const upText=await up.text().catch(()=> "");
  console.log("TIKTOK upload response",up.status,up.headers.get("location")||"",up.headers.get("content-range")||"",upText.slice(0,500));
  if([301,302,303,307,308].includes(up.status)&&up.headers.get("location")){
