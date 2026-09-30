@@ -386,12 +386,17 @@ async function autoReelTick(){
   // One-shot recovery for the poisoned legacy 7945 render job. A distinct
   // request id creates a fresh durable job; anti-duplicate protection then
   // resumes normally instead of re-enqueuing the zombie every scan.
-  const recoverPostId=Number(process.env.FNS_RECOVER_POST_ID||0);
-  const recoveryKey=recoverPostId?"recovered_"+recoverPostId:null;
-  const recoveryPending=recoverPostId&&!state[recoveryKey];
+  const recoverNonce=String(process.env.FNS_RECOVER_NONCE||"default");
+  const recoverPostIds=String(process.env.FNS_RECOVER_POST_IDS||process.env.FNS_RECOVER_POST_ID||"")
+   .split(",").map(x=>Number(x.trim())).filter(Boolean);
+  const recoveryFor=postId=>{
+   const id=Number(postId),key="recovered_"+id+"_"+recoverNonce;
+   return recoverPostIds.includes(id)&&!state[key]?{id,key}:null;
+  };
   const now=Date.now(),firstRun=!state.initialized;
   for(const post of posts){
-   if(seen.has(String(post.id))&&!(recoveryPending&&Number(post.id)===recoverPostId)){console.log("AUTO_REEL skip seen",post.id,post.title);continue;}
+   const recovery=recoveryFor(post.id);
+   if(seen.has(String(post.id))&&!recovery){console.log("AUTO_REEL skip seen",post.id,post.title);continue;}
    const age=now-postTime(post);
    // On first startup ignore future/scheduled posts WITHOUT marking them seen,
    // otherwise a post discovered a few minutes before its publish time would
@@ -405,20 +410,20 @@ async function autoReelTick(){
    const scenes=autoScenes(post),publication=autoPublicationMeta(post,category);
    const songTitle=category==="canzoni"?cleanAutoTitle(post.title):null;
    const payload={
-    request_id:(recoveryPending&&Number(post.id)===recoverPostId?"fuoconero-auto-v5-recovery-post-"+post.id+"-reel-story":"fuoconero-auto-v5-post-"+post.id+"-reel-story"),post_id:Number(post.id),category,
+    request_id:(recovery?"fuoconero-auto-v6-recovery-"+recoverNonce+"-post-"+post.id+"-reel-story":"fuoconero-auto-v5-post-"+post.id+"-reel-story"),post_id:Number(post.id),category,
     ...(category==="canzoni"?{music_title:songTitle}:{music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}),
-    outputs:(recoveryPending&&Number(post.id)===recoverPostId&&process.env.FNS_RECOVER_REEL_ONLY==="1"
+    outputs:(recovery&&process.env.FNS_RECOVER_REEL_ONLY==="1"
       ?{reel:{preset:"articolo",scene_texts:scenes.reel}}
       :{reel:{preset:"articolo",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}}),
     publication,
-    publication_authorized:!!(recoveryPending&&Number(post.id)===recoverPostId&&process.env.FNS_RECOVER_AUTO_PUBLISH==="1")
+    publication_authorized:!!(recovery&&process.env.FNS_RECOVER_AUTO_PUBLISH==="1")
    };
    const created=await wp("POST","/reel-maker/render-jobs",payload);
    console.log("AUTO_REEL enqueue",post.id,created.status,JSON.stringify(created.data));
-   if(recoveryPending&&Number(post.id)===recoverPostId&&created.status>=200&&created.status<300){
-    state[recoveryKey]=true;
+   if(recovery&&created.status>=200&&created.status<300){
+    state[recovery.key]=true;
     state["recovery_job_"+post.id]=created?.data?.render_job_id||"";
-    console.log("AUTO_REEL recovery job created",post.id,created?.data?.render_job_id||"");
+    console.log("AUTO_REEL recovery job created",post.id,created?.data?.render_job_id||"",recoverNonce);
    }
    if(created.status>=200&&created.status<300){
     const createdStatus=String(created?.data?.status||"").toLowerCase();
