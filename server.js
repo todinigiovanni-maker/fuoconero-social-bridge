@@ -709,6 +709,80 @@ async function tiktokCreatorInfo(){
  return data?.data||data;
 }
 
+function tiktokAdminCookie(openId){
+ const secret=process.env.TIKTOK_CLIENT_SECRET||"";
+ return crypto.createHmac("sha256",secret).update(String(openId||"")).digest("hex");
+}
+function isTikTokAdmin(req,st){
+ const got=cookieValue(req,"tiktok_admin_session");
+ const openId=st?.tiktok_oauth?.open_id||"";
+ if(!got||!openId)return false;
+ try{return crypto.timingSafeEqual(Buffer.from(got),Buffer.from(tiktokAdminCookie(openId)));}catch{return false;}
+}
+function driveDownloadUrl(input){
+ const u=new URL(input);
+ if(!["drive.google.com","drive.usercontent.google.com"].includes(u.hostname))throw new Error("Only Google Drive video URLs are allowed");
+ let id=u.searchParams.get("id");
+ if(!id){
+  const m=u.pathname.match(/\/file\/d\/([^/]+)/);
+  if(m)id=m[1];
+ }
+ if(!id)throw new Error("Google Drive file ID not found");
+ return "https://drive.usercontent.google.com/download?id="+encodeURIComponent(id)+"&export=download&confirm=t";
+}
+async function downloadTikTokVideo(inputUrl){
+ const url=driveDownloadUrl(inputUrl);
+ const r=await fetch(url,{redirect:"follow",signal:AbortSignal.timeout(120000)});
+ if(!r.ok)throw new Error("Drive download failed HTTP "+r.status);
+ const ct=(r.headers.get("content-type")||"").toLowerCase();
+ const buf=Buffer.from(await r.arrayBuffer());
+ if(buf.length<1000)throw new Error("Downloaded file is unexpectedly small");
+ if(buf.length>128*1024*1024)throw new Error("Video exceeds 128 MB test limit");
+ if(ct&&ct.includes("text/html"))throw new Error("Drive returned an HTML page instead of the MP4");
+ return {buf,contentType:ct.includes("quicktime")?"video/quicktime":ct.includes("webm")?"video/webm":"video/mp4"};
+}
+async function tiktokPublishStatus(publishId){
+ const token=await tiktokOauthToken();
+ const r=await fetch("https://open.tiktokapis.com/v2/post/publish/status/fetch/",{
+  method:"POST",headers:{authorization:"Bearer "+token,"content-type":"application/json; charset=UTF-8"},
+  body:JSON.stringify({publish_id:publishId}),signal:AbortSignal.timeout(30000)
+ });
+ const data=await r.json();
+ if(!r.ok||(data?.error?.code&&data.error.code!=="ok"))throw new Error("TikTok status failed: "+(data?.error?.message||data?.error?.code||r.status));
+ return data?.data||data;
+}
+async function tiktokDirectPostFromUrl({videoUrl,title=""}){
+ const creator=await tiktokCreatorInfo();
+ const privacy=Array.isArray(creator?.privacy_level_options)&&creator.privacy_level_options.includes("SELF_ONLY")?"SELF_ONLY":creator?.privacy_level_options?.[0];
+ if(!privacy)throw new Error("TikTok returned no usable privacy level");
+ const {buf,contentType}=await downloadTikTokVideo(videoUrl);
+ const token=await tiktokOauthToken();
+ const size=buf.length;
+ const init=await fetch("https://open.tiktokapis.com/v2/post/publish/video/init/",{
+  method:"POST",
+  headers:{authorization:"Bearer "+token,"content-type":"application/json; charset=UTF-8"},
+  body:JSON.stringify({
+   post_info:{title:String(title||"").slice(0,2200),privacy_level:privacy},
+   source_info:{source:"FILE_UPLOAD",video_size:size,chunk_size:size,total_chunk_count:1}
+  }),
+  signal:AbortSignal.timeout(30000)
+ });
+ const data=await init.json();
+ if(!init.ok||(data?.error?.code&&data.error.code!=="ok")||!data?.data?.upload_url||!data?.data?.publish_id){
+  throw new Error("TikTok init failed: "+(data?.error?.message||data?.error?.code||init.status));
+ }
+ const up=await fetch(data.data.upload_url,{
+  method:"PUT",
+  headers:{"content-type":contentType,"content-length":String(size),"content-range":"bytes 0-"+(size-1)+"/"+size},
+  body:buf,
+  signal:AbortSignal.timeout(120000)
+ });
+ if(![200,201,206].includes(up.status))throw new Error("TikTok upload failed HTTP "+up.status);
+ await sleep(2500);
+ let status=null;try{status=await tiktokPublishStatus(data.data.publish_id);}catch(e){status={status:"unknown",error:e.message};}
+ return {publish_id:data.data.publish_id,privacy_level:privacy,video_size:size,status};
+}
+
 const pump=worker(wp,{getTelegramChatId:async()=>process.env.FNS_TELEGRAM_CHAT_ID||telegramKnownChatId||await telegramChatId()||null});
 const server=http.createServer(async(req,res)=>{
  try{
@@ -739,8 +813,8 @@ const server=http.createServer(async(req,res)=>{
     await saveTikTokOauth(td);
     const creator=await tiktokCreatorInfo();
     console.log("TIKTOK OAuth connected",creator?.creator_username||creator?.creator_nickname||"creator",td.scope||"");
-    res.setHeader("set-cookie","tiktok_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
-    return html(res,200,"TikTok collegato ✅","Fuoconero Social è ora autorizzato sul tuo account TikTok. Puoi chiudere questa pagina.");
+    res.setHeader("set-cookie",["tiktok_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0","tiktok_admin_session="+encodeURIComponent(tiktokAdminCookie(td.open_id||""))+"; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400"]);
+    return html(res,200,"TikTok collegato ✅","Fuoconero Social è ora autorizzato sul tuo account TikTok. <a href=\"/tiktok/test\">Apri il test di pubblicazione</a>.");
    }catch(e){console.error("TIKTOK OAuth callback failed",e.message);return html(res,500,"Collegamento TikTok non riuscito","Errore durante l'autorizzazione. Controlla i log del bridge e riprova.");}
   }
   if(req.method==="GET"&&u.pathname==="/oauth/tiktok/status"){
@@ -751,6 +825,22 @@ const server=http.createServer(async(req,res)=>{
     return json(res,200,{configured:true,connected:true,scope:tok.scope||"",creator:{username:creator?.creator_username||null,nickname:creator?.creator_nickname||null,privacy_level_options:creator?.privacy_level_options||[]}});
    }catch(e){return json(res,200,{configured:!!(process.env.TIKTOK_CLIENT_KEY&&process.env.TIKTOK_CLIENT_SECRET),connected:false,error:e.message});}
   }
+  if(req.method==="GET"&&u.pathname==="/tiktok/test"){
+   const st=await autoState();
+   if(!isTikTokAdmin(req,st))return html(res,403,"Accesso negato","Ricollega TikTok da /oauth/tiktok per aprire questa pagina.");
+   res.writeHead(200,{"content-type":"text/html; charset=utf-8","cache-control":"no-store"});
+   return res.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test TikTok</title></head><body style="font-family:system-ui;max-width:760px;margin:50px auto;padding:0 20px"><h1>Test pubblicazione TikTok</h1><p>Il client non auditato pubblicherà il test come <b>privato (SELF_ONLY)</b>.</p><form method="post" action="/tiktok/test"><label>Link Google Drive MP4<br><input name="video_url" style="width:100%" required></label><br><br><label>Caption<br><textarea name="title" style="width:100%;height:120px">#Fuoconero test API TikTok</textarea></label><br><br><button type="submit">Pubblica test privato</button></form></body></html>`);
+  }
+  if(req.method==="POST"&&u.pathname==="/tiktok/test"){
+   const st=await autoState();
+   if(!isTikTokAdmin(req,st))return html(res,403,"Accesso negato","Ricollega TikTok e riprova.");
+   try{
+    const raw=await body(req),form=new URLSearchParams(raw);
+    const result=await tiktokDirectPostFromUrl({videoUrl:form.get("video_url")||"",title:form.get("title")||""});
+    return html(res,200,"Test TikTok inviato ✅","Publish ID: <code>"+result.publish_id+"</code><br>Privacy: <b>"+result.privacy_level+"</b><br>Stato iniziale: <pre>"+JSON.stringify(result.status,null,2).replace(/</g,"&lt;")+"</pre>");
+   }catch(e){console.error("TIKTOK test publish failed",e.message);return html(res,500,"Test TikTok non riuscito",String(e.message).replace(/</g,"&lt;"));}
+  }
+
   if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.25",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
