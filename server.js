@@ -941,6 +941,7 @@ const server=http.createServer(async(req,res)=>{
    authUrl.searchParams.set("scope","user.info.basic,video.publish,video.upload");
    authUrl.searchParams.set("redirect_uri",TIKTOK_REDIRECT_URI);
    authUrl.searchParams.set("state",state);
+   if(reset)authUrl.searchParams.set("disable_auto_auth","1");
    const cookies=["tiktok_oauth_state="+encodeURIComponent(state)+"; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600"];
    if(reset)cookies.push("tiktok_admin_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
    res.writeHead(302,{location:authUrl.toString(),"set-cookie":cookies,"cache-control":"no-store"});
