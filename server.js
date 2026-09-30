@@ -925,6 +925,15 @@ const server=http.createServer(async(req,res)=>{
   if(req.method==="GET"&&u.pathname==="/oauth/tiktok"){
    const key=process.env.TIKTOK_CLIENT_KEY,secret=process.env.TIKTOK_CLIENT_SECRET;
    if(!key||!secret)return html(res,503,"TikTok non configurato","Mancano le credenziali TikTok sul server.");
+   const reset=u.searchParams.get("reset")==="1";
+   if(reset){
+    try{
+     const st=await autoState();
+     delete st.tiktok_oauth;
+     await saveAutoState(st);
+     console.log("TIKTOK OAuth reset requested");
+    }catch(e){console.warn("TIKTOK OAuth reset failed",e.message);}
+   }
    const state=crypto.randomBytes(24).toString("hex");
    const authUrl=new URL("https://www.tiktok.com/v2/auth/authorize/");
    authUrl.searchParams.set("client_key",key);
@@ -932,7 +941,9 @@ const server=http.createServer(async(req,res)=>{
    authUrl.searchParams.set("scope","user.info.basic,video.publish,video.upload");
    authUrl.searchParams.set("redirect_uri",TIKTOK_REDIRECT_URI);
    authUrl.searchParams.set("state",state);
-   res.writeHead(302,{location:authUrl.toString(),"set-cookie":"tiktok_oauth_state="+encodeURIComponent(state)+"; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600","cache-control":"no-store"});
+   const cookies=["tiktok_oauth_state="+encodeURIComponent(state)+"; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600"];
+   if(reset)cookies.push("tiktok_admin_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
+   res.writeHead(302,{location:authUrl.toString(),"set-cookie":cookies,"cache-control":"no-store"});
    return res.end();
   }
   if(req.method==="GET"&&u.pathname==="/oauth/callback"){
