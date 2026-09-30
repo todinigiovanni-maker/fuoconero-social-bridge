@@ -785,13 +785,26 @@ async function tiktokDirectPostFromUrl({videoUrl,title="",privacyLevel,allowComm
  if(!init.ok||(data?.error?.code&&data.error.code!=="ok")||!data?.data?.upload_url||!data?.data?.publish_id){
   throw new Error("TikTok init failed: "+(data?.error?.message||data?.error?.code||init.status));
  }
- const up=await fetch(data.data.upload_url,{
+ const uploadUrl=data.data.upload_url;
+ const uploadMeta=(()=>{try{const x=new URL(uploadUrl);return x.origin+x.pathname;}catch{return "invalid_upload_url";}})();
+ console.log("TIKTOK init ok",data.data.publish_id,uploadMeta,data?.error?.log_id||data?.error?.logid||"");
+ const up=await fetch(uploadUrl,{
   method:"PUT",
-  headers:{"content-type":contentType,"content-length":String(size),"content-range":"bytes 0-"+(size-1)+"/"+size},
+  redirect:"manual",
+  headers:{"Content-Type":contentType,"Content-Length":String(size),"Content-Range":"bytes 0-"+(size-1)+"/"+size},
   body:buf,
   signal:AbortSignal.timeout(120000)
  });
- if(![200,201,206].includes(up.status))throw new Error("TikTok upload failed HTTP "+up.status);
+ const upText=await up.text().catch(()=> "");
+ console.log("TIKTOK upload response",up.status,up.headers.get("location")||"",up.headers.get("content-range")||"",upText.slice(0,500));
+ if([301,302,303,307,308].includes(up.status)&&up.headers.get("location")){
+  throw new Error("TikTok upload redirected HTTP "+up.status+" to "+up.headers.get("location"));
+ }
+ if(![200,201,206].includes(up.status)){
+  let statusAfter=null;try{statusAfter=await tiktokPublishStatus(data.data.publish_id);}catch(e){statusAfter={error:e.message};}
+  console.log("TIKTOK status after upload failure",JSON.stringify(statusAfter));
+  throw new Error("TikTok upload failed HTTP "+up.status+(upText?" — "+upText.slice(0,220):""));
+ }
  await sleep(2500);
  let status=null;try{status=await tiktokPublishStatus(data.data.publish_id);}catch(e){status={status:"unknown",error:e.message};}
  return {publish_id:data.data.publish_id,privacy_level:privacyLevel,video_size:size,status,creator};
