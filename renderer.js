@@ -19,7 +19,7 @@ const allowedHost=h=>h==='fuoconero.com'||h.endsWith('.fuoconero.com')||h.endsWi
 export async function download(url,path,max=67108864){
  for(let n=0;n<5;n++){
   const u=new URL(url);if(u.protocol!=='https:'||u.username||u.password||u.port||!allowedHost(u.hostname))throw new Error('Host asset non autorizzato.');
-  const r=await fetch(u,{redirect:'manual',signal:AbortSignal.timeout(90000)});
+  const r=await fetch(u,{redirect:'manual',signal:AbortSignal.timeout(240000)});
   if([301,302,303,307,308].includes(r.status)){url=new URL(r.headers.get('location'),u).href;await r.body?.cancel();continue;}
   if(!r.ok)throw new Error('Download asset: HTTP '+r.status);
   const chunks=[];let size=0;for await(const chunk of r.body){size+=chunk.length;if(size>max)throw new Error('Asset oltre il limite di 64 MiB.');chunks.push(chunk);}
