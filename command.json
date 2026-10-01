@@ -1,9 +1,5 @@
 {
   "version": 1,
-  "id": "poesia-ti-ho-visto-scrivere-20261001-v1",
-  "action": "suno_spoken_test",
-  "title": "Ti ho visto scrivere…",
-  "mv": "chirp-v6",
-  "tags": "spoken word, Italian male voice, poetry recital, dark ambient, cinematic, slow, intimate, expressive narration, no singing, no melodic vocal",
-  "poem": "Ti ho visto ferire la carta\nin modo gentile,\ninciderla come per tatuarla,\ncome per renderla eterna,\nusando la tua anima come inchiostro.\n\nMentre sorridevi piangendo,\nsenza neanche una bugia,\ntrasparente\ncome una realtà fatta soltanto di verità.\nMagari anche troppo.\n\nSenza atteggiamenti da scrittrice,\nma soltanto sensazioni\nche hanno il tuo sapore.\n\nQuel segreto a forma di diario\nè una strada emotiva:\nalti e bassi,\nmorsi e baci,\ntu e te.\n\nIo sono qui\nsolo per la fredda cronaca.\nAnzi, in questo caso è bollente.\nInfuocata.\n\nPerché ogni volta che mi guardi\nmi salta un battito,\nil respiro diventa un’opinione\ne io divento bravissimo con l’apnea.\n\nPerché quegli occhi,\nche hanno attraversato con te\nogni guerra e ogni rinascita,\nsono gli unici\nin cui vorrei perdermi.\n\nNon per essere salvato.\nNon per trovare una risposta.\nMa per restare.\n\nQuando tutto il resto\navrà smesso di fare rumore,\nquando perfino le parole\nsaranno diventate cenere,\nio vorrei essere ancora lì:\n\nl’ultima riga del tuo diario,\nquella che non si cancella,\nquella che non mette un punto,\nquella che continua a bruciare\nanche dopo la fine…"
+  "id": "idle-20261001-after-daily-poems",
+  "action": "noop"
 }
