@@ -38,6 +38,50 @@ function auth(method,signRoute,raw){
  const sig=crypto.createHmac("sha256",Buffer.from(secret,"hex")).update(canonical).digest("hex");
  return {"Content-Type":"application/json","X-FNS-Key":key,"X-FNS-Timestamp":ts,"X-FNS-Nonce":nonce,"X-FNS-Signature":sig};
 }
+async function sunoCredits(){
+ const apiKey=process.env.SUNO_API_KEY;
+ if(!apiKey) throw new Error("SUNO_API_KEY not configured");
+ const r=await fetch("https://api.aimusicapi.ai/api/v1/get-credits",{
+  headers:{Authorization:"Bearer "+apiKey},
+  signal:AbortSignal.timeout(30000)
+ });
+ let data;try{data=await r.json();}catch{data={};}
+ if(!r.ok) throw new Error("AI Music API credits check failed HTTP "+r.status);
+ return data;
+}
+async function sunoCreateMusic({title,prompt,tags,mv="chirp-v6"}){
+ const apiKey=process.env.SUNO_API_KEY;
+ if(!apiKey) throw new Error("SUNO_API_KEY not configured");
+ const payload={task_type:"create_music",custom_mode:true,mv,title,prompt,tags};
+ const r=await fetch("https://api.aimusicapi.ai/api/v1/sonic/create",{
+  method:"POST",
+  headers:{Authorization:"Bearer "+apiKey,"Content-Type":"application/json"},
+  body:JSON.stringify(payload),
+  signal:AbortSignal.timeout(30000)
+ });
+ let data;try{data=await r.json();}catch{data={};}
+ if(!r.ok||!data?.task_id) throw new Error("AI Music API create failed HTTP "+r.status+": "+JSON.stringify(data).slice(0,500));
+ return data;
+}
+async function sunoTask(taskId){
+ const apiKey=process.env.SUNO_API_KEY;
+ if(!apiKey) throw new Error("SUNO_API_KEY not configured");
+ const r=await fetch("https://api.aimusicapi.ai/api/v1/sonic/task/"+encodeURIComponent(taskId),{
+  headers:{Authorization:"Bearer "+apiKey},
+  signal:AbortSignal.timeout(30000)
+ });
+ let data;try{data=await r.json();}catch{data={};}
+ if(!r.ok&&r.status!==202) throw new Error("AI Music API task failed HTTP "+r.status);
+ return {status:r.status,data};
+}
+async function verifySunoApi(){
+ if(!process.env.SUNO_API_KEY){console.log("SUNO API not configured");return;}
+ try{
+  const data=await sunoCredits();
+  console.log("SUNO API ready credits="+String(data?.credits??"?")+" extra="+String(data?.extra_credits??0));
+ }catch(e){console.error("SUNO API check failed",e.message);}
+}
+
 async function forward(req,path,raw){
  const headers={"Content-Type":"application/json"};
  for(const name of ["X-FNS-Key","X-FNS-Timestamp","X-FNS-Nonce","X-FNS-Signature"]){
@@ -1289,7 +1333,7 @@ function previewDrive(v){const m=v.match(/\\/file\\/d\\/([^/]+)/)||v.match(/[?&]
     return html(res,500,"Controllo stato TikTok non riuscito",String(e.message).replace(/</g,"&lt;"));
    }
   }
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.25",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.26",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
@@ -1308,6 +1352,7 @@ for(const signal of ['SIGTERM','SIGINT']){
 }
 server.listen(PORT,()=>{
  console.log("Fuoconero Social Bridge listening on",PORT);
+ void verifySunoApi();
  void pump();
  setTimeout(()=>void autoReelTick(),15000);
  runCommand().catch(e=>console.error("COMMAND error",e.message));
