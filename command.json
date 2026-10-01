@@ -1,22 +1,9 @@
 {
   "version": 1,
-  "id": "render-difettosi-poetry-story-20261001-v1",
-  "action": "render",
-  "payload": {
-    "request_id": "fuoconero-difettosi-poetry-story-20261001-v1",
-    "post_id": 2293,
-    "category": "poesie",
-    "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-    "outputs": {
-      "story": {
-        "preset": "story",
-        "scene_texts": [
-          "Difettosi…",
-          "Ci sono progetti immensi, troppo grandi per essere visti con due soli occhi.",
-          "Forse il progetto non era così perfetto.",
-          "Continua su fuoconero.com"
-        ]
-      }
-    }
-  }
+  "id": "poesia-memoria-atomica-20261001-v1",
+  "action": "suno_spoken_test",
+  "title": "Memoria atomica…",
+  "mv": "chirp-v6",
+  "tags": "spoken word, Italian male voice, poetry recital, dark ambient, cinematic, slow, intimate, expressive narration, no singing, no melodic vocal",
+  "poem": "Miliardi di miliardi di atomi.\nMiliardi di miliardi\ndi storie diverse.\n\nQuello che oggi ci rende “noi”\nlo è solo da poco.\n\nIl nostro viaggio\nnon è cominciato con il nostro nome.\nÈ vecchio quanto l’universo.\n\nOgni atomo che ci compone\npotrebbe raccontare un’altra vita:\npianta,\nmetallo,\nlegno,\nanimale,\nstella.\n\nSiamo materia che ha cambiato forma.\nSiamo storia vivente.\nSiamo memoria dell’universo.\n\nMemoria atomica.\n\nSiamo fatti di infinito..."
 }
