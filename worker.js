@@ -60,6 +60,16 @@ function renderMusicUrlOverride(postId){
 function driveDirectAudioUrl(id){
  return "https://drive.usercontent.google.com/download?id="+encodeURIComponent(id)+"&export=download&confirm=t";
 }
+async function approvedPoetryAudio(wp,postId){
+ try{
+  const r=await wp('GET','/reel-maker/article/'+encodeURIComponent(postId)+'/audio');
+  const a=r?.data?.poetry_audio;
+  if(r?.status===200&&a?.status==='approved'&&typeof a?.audio_url==='string'&&/^https:\/\//i.test(a.audio_url)){
+   return {url:a.audio_url,drive_file_id:typeof a.drive_file_id==='string'?a.drive_file_id:'',audio_source:a.audio_source||'poetry_audio',revision:a.revision||''};
+  }
+ }catch(e){console.warn('RENDER poetry audio lookup failed',postId,e.message);}
+ return null;
+}
 export function worker(wp,options={}){
  let busy=false,last=0;
  async function call(path,data){const r=await wp('POST','/reel-maker/render-worker'+path,data);if(r.status<200||r.status>=300)throw new Error(r.data?.message||'Worker HTTP '+r.status);return r.data;}
@@ -75,7 +85,11 @@ export function worker(wp,options={}){
    dir=await mkdtemp(join(tmpdir(),'fns-render-'));console.log('RENDER start',job.render_job_id);
    const sharedDir=join(dir,'shared');await mkdir(sharedDir);const shared={images:{}};
    const plans=Object.values(job.plans),musicOverrideId=renderMusicFileIdOverride(job?.post_id),musicOverrideUrl=renderMusicUrlOverride(job?.post_id);
-   if(musicOverrideUrl){
+   const approvedAudio=await approvedPoetryAudio(wp,job?.post_id);
+   if(approvedAudio){
+    for(const p of plans)if(p?.music)p.music={...p.music,url:approvedAudio.url,drive_file_id:approvedAudio.drive_file_id||"",source:"poetry_audio",audio_source:approvedAudio.audio_source,audio_revision:approvedAudio.revision,reuse_existing:true};
+    console.log('RENDER poetry audio from WordPress',job.post_id);
+   }else if(musicOverrideUrl){
     for(const p of plans)if(p?.music)p.music={...p.music,url:musicOverrideUrl,drive_file_id:"",source:"approved_poetry_url"};
     console.log('RENDER music URL override',job.post_id);
    }else if(musicOverrideId){
