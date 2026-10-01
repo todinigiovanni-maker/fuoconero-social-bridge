@@ -1,9 +1,7 @@
 {
   "version": 1,
-  "id": "suno-spoken-difettosi-20261001",
-  "action": "suno_spoken_test",
+  "id": "suno-poll-difettosi-20261001",
+  "action": "suno_poll_existing",
   "title": "Difettosi…",
-  "mv": "chirp-v6",
-  "tags": "spoken word, Italian male vocal, poetry recital, dark ambient, cinematic, slow, intimate, expressive narration, no singing, no melodic vocal",
-  "poem": "Difettosi…\n\nCi sono progetti immensi\nTroppo grandi per essere visti con due soli occhi\nForse con occhi generati da altri occhi\nForse,\nall’inizio il progetto sembrava perfetto\nlineare\nnon c’era bisogno di altri occhi\ndato che da quell’altezza poteva vedere perfino il futuro\nnulla da dire\nanche se a volte\nl’ombra si nasconde\nalla ricerca del difetto\nseek and destroy\nsapendo che dentro di noi è comunque buio\ned è subito lì\nper accrescere i nostri difetti\nche non erano evidenti all’inizio\nadesso si vedono solo quelli\nspesso ci si basa la nostra vita\nusati come leva\nper sollevarci dalle responsabilità\nper far emergere le nostre verità\no anche semplicemente\nper rendere il mondo un posto peggiore\nforse il progetto\nnon era così perfetto\nforse era meglio\ntenere lo scontrino…"
+  "task_id": "b09d7087-96d7-45dc-a533-b0ecca81e8fa"
 }

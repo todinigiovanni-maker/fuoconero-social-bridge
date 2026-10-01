@@ -607,36 +607,45 @@ async function runCommand(){
  if(!c||c.action==="noop"){console.log("COMMAND idle",c?.id||"none");return;}
  if(!c.id){console.error("COMMAND invalid: missing id");return;}
 
- if(c.action==="suno_spoken_test"){
-  const poem=String(c.poem||"").trim(),title=String(c.title||"Spoken poem").trim();
-  if(!poem){console.error("COMMAND suno_spoken_test missing poem");return;}
+ if(c.action==="suno_spoken_test"||c.action==="suno_poll_existing"){
+  const title=String(c.title||"Spoken poem").trim();
   try{
-   console.log("COMMAND suno_spoken_test creating",title);
-   const created=await sunoCreateMusic({
-    title,
-    prompt:poem,
-    tags:String(c.tags||"spoken word, Italian male vocal, poetry recital, dark ambient, cinematic, slow, intimate, expressive narration, no singing, no melodic vocal"),
-    mv:String(c.mv||"chirp-v6")
-   });
-   const taskId=created.task_id;
-   console.log("SUNO SPOKEN task_id="+taskId);
-   let result=null;
+   let taskId=String(c.task_id||"").trim();
+   if(c.action==="suno_spoken_test"){
+    const poem=String(c.poem||"").trim();
+    if(!poem){console.error("COMMAND suno_spoken_test missing poem");return;}
+    console.log("COMMAND suno_spoken_test creating",title);
+    const created=await sunoCreateMusic({
+     title,
+     prompt:poem,
+     tags:String(c.tags||"spoken word, Italian male vocal, poetry recital, dark ambient, cinematic, slow, intimate, expressive narration, no singing, no melodic vocal"),
+     mv:String(c.mv||"chirp-v6")
+    });
+    taskId=created.task_id;
+    console.log("SUNO SPOKEN task_id="+taskId);
+   }else{
+    console.log("COMMAND suno_poll_existing",taskId,title);
+   }
+   if(!taskId)throw new Error("missing task id");
+   let payload=null,songs=[];
    for(let i=0;i<36;i++){
     await new Promise(r=>setTimeout(r,15000));
     const t=await sunoTask(taskId);
-    result=t.data;
-    const state=String(result?.state||result?.status||"").toLowerCase();
-    console.log("SUNO SPOKEN poll",i+1,"state="+state);
+    payload=t.data;
+    songs=Array.isArray(payload?.data)?payload.data:[];
+    const states=songs.map(s=>String(s?.state||"").toLowerCase()).filter(Boolean);
+    const state=states.length?(states.every(s=>s==="succeeded")?"succeeded":states.some(s=>s==="failed")?"failed":"running"):String(payload?.state||payload?.status||"").toLowerCase();
+    console.log("SUNO SPOKEN poll",i+1,"state="+state,"clips="+songs.length);
     if(state==="succeeded"||state==="failed")break;
    }
-   const state=String(result?.state||result?.status||"").toLowerCase();
-   if(state!=="succeeded")throw new Error("spoken task ended with state "+state);
-   const songs=Array.isArray(result?.data)?result.data:[];
-   const lines=songs.map((s,i)=>"Versione "+(i+1)+": "+(s.audio_url||s.stream_url||"(audio URL mancante)"));
-   console.log("SUNO SPOKEN success "+JSON.stringify(songs.map(s=>({id:s.id||s.clip_id||null,audio_url:s.audio_url||null,title:s.title||null}))));
+   const states=songs.map(s=>String(s?.state||"").toLowerCase()).filter(Boolean);
+   const finalState=states.length?(states.every(s=>s==="succeeded")?"succeeded":states.some(s=>s==="failed")?"failed":"running"):String(payload?.state||payload?.status||"").toLowerCase();
+   if(finalState!=="succeeded")throw new Error("spoken task ended with state "+finalState);
+   const lines=songs.map((s,i)=>"Versione "+(i+1)+": "+(s.audio_url||s.stream_audio_url||"(audio URL mancante)"));
+   console.log("SUNO SPOKEN success "+JSON.stringify(songs.map(s=>({id:s.clip_id||s.id||null,audio_url:s.audio_url||null,title:s.title||null,duration:s.duration||null}))));
    await telegramNotify("🎙️ Test poesia recitata completato\n"+title+"\n\n"+lines.join("\n"));
   }catch(e){
-   console.error("COMMAND suno_spoken_test failed",e.message);
+   console.error("COMMAND "+c.action+" failed",e.message);
    await telegramNotify("❌ Test poesia recitata fallito\n"+title+"\n"+e.message);
   }
   return;
@@ -1367,7 +1376,7 @@ function previewDrive(v){const m=v.match(/\\/file\\/d\\/([^/]+)/)||v.match(/[?&]
     return html(res,500,"Controllo stato TikTok non riuscito",String(e.message).replace(/</g,"&lt;"));
    }
   }
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.27",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.28",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
