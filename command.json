@@ -1,9 +1,88 @@
 {
   "version": 1,
-  "id": "poesia-il-colore-di-dio-20261001-v1",
-  "action": "suno_spoken_test",
-  "title": "Il colore di Dio…",
-  "mv": "chirp-v6",
-  "tags": "spoken word, Italian male voice, poetry recital, dark ambient, cinematic, slow, intimate, expressive narration, no singing, no melodic vocal",
-  "poem": "Erano anni che lo cercavo,\nquesto mantello fatto di buio e di notte.\n\nIl colore che li contiene tutti\ne li tiene per sé,\nnel suo buio.\n\nLo indosso con rispetto,\nperché ha lo stesso colore dell’infinito.\n\nNon apre porte:\nè la porta.\n\nUn piacere sottile,\nun desiderio inconfessabile,\nun attimo che basta a sé stesso\nperché contiene tutto.\n\nForse un po’ avaro,\nperché trattiene per sé\nil calore e ogni colore.\n\nL’infinito.\n\nForse è il vero colore di Dio.\nIn fondo,\nè il colore dell’universo.\n\nE del mio mantello..."
+  "id": "render-batch-poesie-approved-20261001-v1",
+  "action": "render_batch",
+  "items": [
+    {
+      "request_id": "poesia-memoria-atomica-reel-story-20261001-v1",
+      "post_id": 5261,
+      "category": "poesie",
+      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
+      "outputs": {
+        "reel": {
+          "preset": "poesia",
+          "scene_texts": [
+            "Memoria atomica…",
+            "Il nostro viaggio non è cominciato con il nostro nome.",
+            "Ogni atomo che ci compone potrebbe raccontare un’altra vita.",
+            "Siamo memoria dell’universo.",
+            "Siamo fatti di infinito…"
+          ]
+        },
+        "story": {
+          "preset": "story",
+          "scene_texts": [
+            "Memoria atomica…",
+            "Siamo materia che ha cambiato forma.",
+            "Siamo memoria dell’universo.",
+            "Continua su fuoconero.com"
+          ]
+        }
+      }
+    },
+    {
+      "request_id": "poesia-puzzle-di-vento-reel-story-20261001-v1",
+      "post_id": 4796,
+      "category": "poesie",
+      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
+      "outputs": {
+        "reel": {
+          "preset": "poesia",
+          "scene_texts": [
+            "Puzzle di vento…",
+            "Raccolgo frammenti di vento di un puzzle infinito.",
+            "Provo a incastrarli, ma cambiano forma mentre li guardo.",
+            "Ogni volta resta fuori qualcosa. O qualcuno.",
+            "Forse il puzzle non sono io…"
+          ]
+        },
+        "story": {
+          "preset": "story",
+          "scene_texts": [
+            "Puzzle di vento…",
+            "Alcuni frammenti tagliano. Altri non sono miei.",
+            "Ogni volta resta fuori qualcosa.",
+            "Continua su fuoconero.com"
+          ]
+        }
+      }
+    },
+    {
+      "request_id": "poesia-il-colore-di-dio-reel-story-20261001-v1",
+      "post_id": 6816,
+      "category": "poesie",
+      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
+      "outputs": {
+        "reel": {
+          "preset": "poesia",
+          "scene_texts": [
+            "Il colore di Dio…",
+            "Un mantello fatto di buio e di notte.",
+            "Lo indosso con rispetto: ha lo stesso colore dell’infinito.",
+            "Non apre porte: è la porta.",
+            "Forse è il vero colore di Dio."
+          ]
+        },
+        "story": {
+          "preset": "story",
+          "scene_texts": [
+            "Il colore di Dio…",
+            "Il colore che li contiene tutti e li tiene per sé.",
+            "Lo stesso colore dell’infinito.",
+            "Continua su fuoconero.com"
+          ]
+        }
+      }
+    }
+  ]
 }
