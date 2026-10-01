@@ -1,5 +1,9 @@
 {
   "version": 1,
-  "id": "idle-20261001-poetry-flow",
-  "action": "noop"
+  "id": "poesia-controluce-20261001-v1",
+  "action": "suno_spoken_test",
+  "title": "Controluce…",
+  "mv": "chirp-v6",
+  "tags": "spoken word, Italian male voice, poetry recital, dark ambient, cinematic, slow, intimate, expressive narration, no singing, no melodic vocal",
+  "poem": "La luna ha deciso di sfidare nuovamente il sole.\nPuò farlo soltanto per poco,\nuna piccola rivincita.\n\nMa, in fondo, il contrario non può accadere mai:\nil sole non può coprire la luna,\nnonostante la sua potenza,\ni suoi miliardi di watt.\n\nE invece oggi\nun piccolo sasso\nsarà il protagonista\ndi un balletto cosmico.\n\nMetto la mano davanti agli occhi,\nnel tentativo di filtrare la luce,\ndi rubare qualche istante all’eclissi\nsenza bruciare occhi e sentimenti.\n\nE allora le mie ossa diventano una silhouette,\nuna radiografia disegnata dai fotoni,\nfatta di luce,\nfatta di verità.\n\nPerché forse è soltanto cambiando punto di vista\nche riusciamo a vedere le cose per ciò che sono davvero.\n\nForse è soltanto controluce\nche riusciamo a vedere\ncome siamo fatti dentro…"
 }
