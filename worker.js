@@ -46,6 +46,17 @@ function renderMusicFileIdOverride(postId){
  }
  return null;
 }
+function renderMusicUrlOverride(postId){
+ const raw=String(process.env.FNS_RENDER_MUSIC_URL_BY_POST||"");
+ for(const item of raw.split(";")){
+  const i=item.indexOf(":");if(i<1)continue;
+  if(Number(item.slice(0,i).trim())===Number(postId)){
+   const url=item.slice(i+1).trim();
+   if(/^https:\/\//i.test(url))return url;
+  }
+ }
+ return null;
+}
 function driveDirectAudioUrl(id){
  return "https://drive.usercontent.google.com/download?id="+encodeURIComponent(id)+"&export=download&confirm=t";
 }
@@ -63,8 +74,11 @@ export function worker(wp,options={}){
    ({job}=await call('/claim',{}));if(!job)return;
    dir=await mkdtemp(join(tmpdir(),'fns-render-'));console.log('RENDER start',job.render_job_id);
    const sharedDir=join(dir,'shared');await mkdir(sharedDir);const shared={images:{}};
-   const plans=Object.values(job.plans),musicOverrideId=renderMusicFileIdOverride(job?.post_id);
-   if(musicOverrideId){
+   const plans=Object.values(job.plans),musicOverrideId=renderMusicFileIdOverride(job?.post_id),musicOverrideUrl=renderMusicUrlOverride(job?.post_id);
+   if(musicOverrideUrl){
+    for(const p of plans)if(p?.music)p.music={...p.music,url:musicOverrideUrl,drive_file_id:"",source:"approved_poetry_url"};
+    console.log('RENDER music URL override',job.post_id);
+   }else if(musicOverrideId){
     for(const p of plans)if(p?.music)p.music={...p.music,url:driveDirectAudioUrl(musicOverrideId),drive_file_id:musicOverrideId,source:"render_override"};
     console.log('RENDER music override',job.post_id,musicOverrideId);
    }
