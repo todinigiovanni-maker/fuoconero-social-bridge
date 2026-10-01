@@ -609,9 +609,29 @@ async function runCommand(){
 
  if(c.action==="suno_spoken_test"||c.action==="suno_poll_existing"){
   const title=String(c.title||"Spoken poem").trim();
+  const state=await autoState();
+  const spoken=(state.spoken_commands&&typeof state.spoken_commands==="object")?state.spoken_commands:{};
+  let record=(spoken[c.id]&&typeof spoken[c.id]==="object")?spoken[c.id]:{};
+  const persist=async patch=>{
+   record={...record,...patch,updated_at:Date.now()};
+   spoken[c.id]=record;
+   const entries=Object.entries(spoken).sort((a,b)=>Number(b[1]?.updated_at||0)-Number(a[1]?.updated_at||0)).slice(0,100);
+   state.spoken_commands=Object.fromEntries(entries);
+   await saveAutoState(state);
+  };
   try{
-   let taskId=String(c.task_id||"").trim();
-   if(c.action==="suno_spoken_test"){
+   let taskId=String(c.task_id||record.task_id||"").trim();
+   let songs=Array.isArray(record.songs)?record.songs:[];
+   if(record.status==="succeeded"&&songs.length){
+    console.log("COMMAND spoken already completed",c.id,"task",taskId||"stored");
+    if(!record.notified){
+     const lines=songs.map((s,i)=>"Versione "+(i+1)+": "+(s.audio_url||"(audio URL mancante)"));
+     await telegramNotify("🎙️ Poesia recitata pronta\n"+title+"\n\n"+lines.join("\n"));
+     await persist({notified:true});
+    }
+    return;
+   }
+   if(c.action==="suno_spoken_test"&&!taskId){
     const poem=String(c.poem||"").trim();
     if(!poem){console.error("COMMAND suno_spoken_test missing poem");return;}
     console.log("COMMAND suno_spoken_test creating",title);
@@ -622,31 +642,44 @@ async function runCommand(){
      mv:String(c.mv||"chirp-v6")
     });
     taskId=created.task_id;
+    await persist({task_id:taskId,status:"running",title,created_at:record.created_at||Date.now(),notified:false});
     console.log("SUNO SPOKEN task_id="+taskId);
    }else{
-    console.log("COMMAND suno_poll_existing",taskId,title);
+    console.log("COMMAND spoken resume",c.id,taskId,title);
+    if(taskId&&!record.task_id)await persist({task_id:taskId,status:"running",title,created_at:record.created_at||Date.now(),notified:false});
    }
    if(!taskId)throw new Error("missing task id");
-   let payload=null,songs=[];
+   let payload=null;
    for(let i=0;i<36;i++){
     await new Promise(r=>setTimeout(r,15000));
     const t=await sunoTask(taskId);
     payload=t.data;
-    songs=Array.isArray(payload?.data)?payload.data:[];
-    const states=songs.map(s=>String(s?.state||"").toLowerCase()).filter(Boolean);
-    const state=states.length?(states.every(s=>s==="succeeded")?"succeeded":states.some(s=>s==="failed")?"failed":"running"):String(payload?.state||payload?.status||"").toLowerCase();
-    console.log("SUNO SPOKEN poll",i+1,"state="+state,"clips="+songs.length);
-    if(state==="succeeded"||state==="failed")break;
+    const rawSongs=Array.isArray(payload?.data)?payload.data:[];
+    songs=rawSongs.map(s=>({
+     id:s.clip_id||s.id||null,
+     audio_url:s.audio_url||s.stream_audio_url||null,
+     title:s.title||title,
+     duration:s.duration||null,
+     state:s.state||null
+    }));
+    const states=rawSongs.map(s=>String(s?.state||"").toLowerCase()).filter(Boolean);
+    const stateName=states.length?(states.every(s=>s==="succeeded")?"succeeded":states.some(s=>s==="failed")?"failed":"running"):String(payload?.state||payload?.status||"").toLowerCase();
+    console.log("SUNO SPOKEN poll",i+1,"state="+stateName,"clips="+rawSongs.length);
+    if(stateName==="succeeded"||stateName==="failed")break;
    }
-   const states=songs.map(s=>String(s?.state||"").toLowerCase()).filter(Boolean);
-   const finalState=states.length?(states.every(s=>s==="succeeded")?"succeeded":states.some(s=>s==="failed")?"failed":"running"):String(payload?.state||payload?.status||"").toLowerCase();
+   const finalStates=songs.map(s=>String(s?.state||"").toLowerCase()).filter(Boolean);
+   const finalState=finalStates.length?(finalStates.every(s=>s==="succeeded")?"succeeded":finalStates.some(s=>s==="failed")?"failed":"running"):String(payload?.state||payload?.status||"").toLowerCase();
    if(finalState!=="succeeded")throw new Error("spoken task ended with state "+finalState);
-   const lines=songs.map((s,i)=>"Versione "+(i+1)+": "+(s.audio_url||s.stream_audio_url||"(audio URL mancante)"));
-   console.log("SUNO SPOKEN success "+JSON.stringify(songs.map(s=>({id:s.clip_id||s.id||null,audio_url:s.audio_url||null,title:s.title||null,duration:s.duration||null}))));
-   await telegramNotify("🎙️ Test poesia recitata completato\n"+title+"\n\n"+lines.join("\n"));
+   songs=songs.map(({state,...s})=>s);
+   await persist({task_id:taskId,status:"succeeded",songs,notified:false});
+   console.log("SUNO SPOKEN success "+JSON.stringify(songs));
+   const lines=songs.map((s,i)=>"Versione "+(i+1)+": "+(s.audio_url||"(audio URL mancante)"));
+   await telegramNotify("🎙️ Poesia recitata pronta\n"+title+"\n\n"+lines.join("\n"));
+   await persist({notified:true});
   }catch(e){
    console.error("COMMAND "+c.action+" failed",e.message);
-   await telegramNotify("❌ Test poesia recitata fallito\n"+title+"\n"+e.message);
+   await persist({status:"failed",last_error:e.message});
+   await telegramNotify("❌ Poesia recitata fallita\n"+title+"\n"+e.message);
   }
   return;
  }
