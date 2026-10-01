@@ -1,61 +1,9 @@
 {
   "version": 1,
-  "id": "render-batch-poesie-controluce-ti-ho-visto-20261001-v1",
-  "action": "render_batch",
-  "items": [
-    {
-      "request_id": "poesia-controluce-reel-story-20261001-v1",
-      "post_id": 6990,
-      "category": "poesie",
-      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-      "outputs": {
-        "reel": {
-          "preset": "poesia",
-          "scene_texts": [
-            "Controluce…",
-            "La luna ha deciso di sfidare nuovamente il sole.",
-            "Le mie ossa diventano una silhouette disegnata dai fotoni.",
-            "Forse è soltanto cambiando punto di vista che vediamo davvero.",
-            "Forse è soltanto controluce che vediamo come siamo fatti dentro…"
-          ]
-        },
-        "story": {
-          "preset": "story",
-          "scene_texts": [
-            "Controluce…",
-            "Una piccola rivincita in un balletto cosmico.",
-            "Fatta di luce. Fatta di verità.",
-            "Continua su fuoconero.com"
-          ]
-        }
-      }
-    },
-    {
-      "request_id": "poesia-ti-ho-visto-scrivere-reel-story-20261001-v1",
-      "post_id": 6800,
-      "category": "poesie",
-      "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-      "outputs": {
-        "reel": {
-          "preset": "poesia",
-          "scene_texts": [
-            "Ti ho visto scrivere…",
-            "Ti ho visto ferire la carta in modo gentile.",
-            "Usando la tua anima come inchiostro.",
-            "Non per essere salvato. Non per trovare una risposta. Ma per restare.",
-            "L’ultima riga del tuo diario, quella che continua a bruciare…"
-          ]
-        },
-        "story": {
-          "preset": "story",
-          "scene_texts": [
-            "Ti ho visto scrivere…",
-            "Usando la tua anima come inchiostro.",
-            "Quando perfino le parole saranno diventate cenere.",
-            "Continua su fuoconero.com"
-          ]
-        }
-      }
-    }
-  ]
+  "id": "suno-jingle-ani-male-20261002-v1",
+  "action": "suno_spoken_test",
+  "title": "ANI…MALE — Jingle Fuoconero",
+  "poem": "Ani… MALE!",
+  "tags": "ultra short jingle, 3 to 5 seconds, Italian male vocal sting, playful wild energy, quirky animal vibe, punchy percussion, dark playful branding, catchy sonic logo, only the words Ani... MALE!, no verse, no chorus, no extra lyrics, no long intro, no long outro",
+  "mv": "chirp-v6"
 }
