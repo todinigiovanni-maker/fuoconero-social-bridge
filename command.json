@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "id": "rerender-naturalmente-7933-jingle-fit-v1",
+  "id": "rerender-naturalmente-7933-jingle-fit-v2",
   "action": "render",
   "payload": {
-    "request_id": "naturalmente-7933-jingle-fit-20261002-v1",
+    "request_id": "naturalmente-7933-jingle-fit-20261002-v2",
     "post_id": 7933,
     "category": "naturalmente",
-    "music_title": "Fuoconero (rock)",
+    "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
     "outputs": {
       "reel": {
         "preset": "articolo",
@@ -19,6 +19,7 @@
         "allow_extended_duration": false
       },
       "story": {
+        "preset": "story",
         "scene_texts": [
           "Stiamo costruendo piccoli cuori umani.",
           "Farli battere non basta: devono maturare davvero.",
