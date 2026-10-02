@@ -1,7 +1,23 @@
 {
   "version": 1,
-  "id": "resume-ultima-luce-spoken-20261002-v1",
-  "action": "suno_poll_existing",
-  "title": "L’ultima luce",
-  "task_id": "bd921d4c-47d0-4313-96b8-2b89cee00d82"
+  "id": "render-ultima-luce-approved-audio-20261002-v1",
+  "action": "render",
+  "payload": {
+    "request_id": "ultima-luce-approved-audio-20261002-v1",
+    "post_id": 7248,
+    "category": "poesie",
+    "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
+    "outputs": {
+      "reel": {
+        "preset": "poesia",
+        "scene_texts": [
+          "L’ultima luce…",
+          "Aiuto: lo sto chiedendo adesso.",
+          "Con il senno di poi non si costruisce la realtà.",
+          "Anche adesso, che nulla può toccarmi, mi giudicate.",
+          "Mentre vedo l’ultima luce…"
+        ]
+      }
+    }
+  }
 }
