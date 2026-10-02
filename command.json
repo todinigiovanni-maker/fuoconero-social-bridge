@@ -1,9 +1,23 @@
 {
   "version": 1,
-  "id": "test-bonino-spoken-parser-v2",
-  "action": "suno_spoken_test",
-  "title": "Quando muore un gigante",
-  "mv": "chirp-v6",
-  "tags": "spoken word, Italian male voice, poetry recital, solemn, intimate, restrained, respectful, slow, expressive narration, no singing, no melodic vocal, natural pauses",
-  "poem": "Quando muore un gigante\nnon importa da quale parte\nguardavi il suo cammino.\n\nPuoi averne odiato una scelta,\ncontestato una parola,\npensato cento volte\nche quella strada\nnon fosse la tua.\n\nMa quando muore un gigante\nresta un vuoto strano,\nuno spazio più grande\ndella persona che se n’è andata.\n\nPerché ci sono uomini e donne\nche attraversano il tempo\nsenza chiedergli permesso,\nche prendono una voce\ne la consumano\nfino a trasformarla in storia.\n\nNon bisogna essere d’accordo\nper riconoscere il coraggio.\n\nNon bisogna seguirne i passi\nper sapere quanto lontano\nabbiano camminato.\n\nHai combattuto battaglie\nche qualcuno chiamava follia,\naltri libertà,\naltri ancora errore.\n\nEd è forse questo\nil destino di chi lascia un segno:\n\nnon mettere tutti d’accordo,\nma impedire a tutti\ndi restare indifferenti.\n\nCi sono idee\nche ho sentito lontane dalle mie,\nparole davanti alle quali\navrei risposto con altre parole.\n\nE va bene così.\n\nPerché la democrazia\nnon è pensare la stessa cosa.\n\nÈ poter guardare qualcuno\ndall’altra parte del tavolo\ne riconoscere comunque\nla grandezza della sua battaglia.\n\nOggi non muore\nuna parte politica.\n\nMuore una voce\nche per mezzo secolo\nha litigato con il mondo\nper provare a cambiarlo.\n\nE forse i giganti\nservono proprio a questo:\n\na costringerci ad alzare lo sguardo,\nanche quando non vogliamo\nandare nella loro direzione.\n\nDomani resteranno\nle discussioni,\ni giudizi,\nle ragioni e i torti.\n\nCome deve essere.\n\nMa stasera\ndavanti al silenzio\nche viene dopo una vita così rumorosa,\nsi può deporre per un momento\nogni bandiera.\n\nE dire soltanto:\n\nnon ero sempre con te.\nMa so che sei passata di qui.\n\nE la storia,\nda domani,\navrà una voce in meno\ncon cui discutere.\n\nQuando muore un gigante\nnon diventa improvvisamente santo.\n\nDiventa memoria.\n\nE a volte\nè persino più grande."
+  "id": "render-bonino-approved-audio-20261002-v1",
+  "action": "render",
+  "payload": {
+    "request_id": "bonino-approved-audio-20261002-v1",
+    "post_id": 7359,
+    "category": "poesie",
+    "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
+    "outputs": {
+      "reel": {
+        "preset": "poesia",
+        "scene_texts": [
+          "Quando muore un gigante",
+          "Non bisogna essere d’accordo per riconoscere il coraggio.",
+          "La democrazia non è pensare la stessa cosa.",
+          "Non ero sempre con te. Ma so che sei passata di qui.",
+          "Diventa memoria. E a volte è persino più grande."
+        ]
+      }
+    }
+  }
 }
