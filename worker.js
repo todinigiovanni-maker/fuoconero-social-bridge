@@ -1,3 +1,4 @@
+import Redis from 'ioredis';
 import {mkdtemp,mkdir,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -91,6 +92,26 @@ function renderJobCategory(job,plans=[]){
 function driveDirectAudioUrl(id){
  return "https://drive.usercontent.google.com/download?id="+encodeURIComponent(id)+"&export=download&confirm=t";
 }
+let poetryStateRedis=null;
+async function approvedPoetryBridgeAudio(postId){
+ if(!process.env.REDIS_URL)return null;
+ try{
+  if(!poetryStateRedis){
+   poetryStateRedis=new Redis(process.env.REDIS_URL,{lazyConnect:true,maxRetriesPerRequest:2,enableReadyCheck:true});
+   poetryStateRedis.on("error",e=>console.warn("POETRY Redis error",e.message));
+  }
+  if(poetryStateRedis.status==="wait")await poetryStateRedis.connect();
+  const raw=await poetryStateRedis.get("fuoconero:social:state:v1");
+  if(!raw)return null;
+  const state=JSON.parse(raw);
+  const rec=state?.poetry_pipeline?.[String(postId)];
+  const url=String(rec?.selected_audio_url||"");
+  if(["approved","rendered"].includes(String(rec?.status||""))&&/^https:\/\//i.test(url)){
+   return {url,audio_source:"telegram_poetry_choice",revision:String(rec?.selected_audio_id||rec?.selected_at||"")};
+  }
+ }catch(e){console.warn("RENDER poetry bridge lookup failed",postId,e.message);}
+ return null;
+}
 async function approvedPoetryAudio(wp,postId){
  try{
   const r=await wp('GET','/reel-maker/article/'+encodeURIComponent(postId)+'/audio');
@@ -128,9 +149,13 @@ export function worker(wp,options={}){
    const plans=Object.values(job.plans),musicOverrideId=renderMusicFileIdOverride(job?.post_id),musicOverrideUrl=renderMusicUrlOverride(job?.post_id);
    const category=renderJobCategory(job,plans),categoryMusicUrl=renderMusicUrlByCategory(category);
    const approvedAudio=await approvedPoetryAudio(wp,job?.post_id);
+   const bridgePoetryAudio=approvedAudio?null:await approvedPoetryBridgeAudio(job?.post_id);
    if(approvedAudio){
     for(const p of plans)if(p?.music)p.music={...p.music,url:approvedAudio.url,drive_file_id:approvedAudio.drive_file_id||"",source:"poetry_audio",audio_source:approvedAudio.audio_source,audio_revision:approvedAudio.revision,reuse_existing:true};
     console.log('RENDER poetry audio from WordPress',job.post_id);
+   }else if(bridgePoetryAudio){
+    for(const p of plans)if(p?.music)p.music={...p.music,url:bridgePoetryAudio.url,drive_file_id:"",source:"poetry_audio",audio_source:bridgePoetryAudio.audio_source,audio_revision:bridgePoetryAudio.revision,reuse_existing:true};
+    console.log('RENDER poetry audio from bridge state',job.post_id);
    }else if(musicOverrideUrl){
     for(const p of plans)if(p?.music)p.music={...p.music,url:musicOverrideUrl,drive_file_id:"",source:"approved_poetry_url"};
     console.log('RENDER music URL override',job.post_id);
