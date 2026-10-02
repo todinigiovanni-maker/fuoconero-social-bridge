@@ -110,6 +110,16 @@ export function worker(wp,options={}){
   if(busy||Date.now()-last<20000)return;busy=true;last=Date.now();let job,dir;
   try{
    ({job}=await call('/claim',{}));if(!job)return;
+   const obsoleteJobs=new Set([
+    'c7717dcb-d41d-4869-8257-266ef4a87d4f',
+    'bfe20a82-d0ca-4e2d-8728-0227ac391cad',
+    '2fb78464-d715-4368-ad10-6bb11bd67cc2'
+   ]);
+   if(obsoleteJobs.has(String(job.render_job_id||''))){
+    console.warn('RENDER obsolete job skipped',job.render_job_id);
+    try{await call('/'+job.render_job_id+'/fail',{lease:job.lease,error:'Obsolete superseded render job'});}catch(e){console.warn('RENDER obsolete fail mark failed',job.render_job_id,e.message);}
+    return;
+   }
    dir=await mkdtemp(join(tmpdir(),'fns-render-'));console.log('RENDER start',job.render_job_id);
    const sharedDir=join(dir,'shared');await mkdir(sharedDir);const shared={images:{}};
    const plans=Object.values(job.plans),musicOverrideId=renderMusicFileIdOverride(job?.post_id),musicOverrideUrl=renderMusicUrlOverride(job?.post_id);
