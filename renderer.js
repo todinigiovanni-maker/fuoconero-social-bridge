@@ -51,11 +51,20 @@ function text(ctx,lines,rect,size,color,align,font){
  const y=rect.y+(rect.height-lines.length*size*1.2)/2;lines.forEach((s,i)=>ctx.fillText(s,x,y+i*size*1.2));
 }
 export async function render(plan,dir,fetchAsset=download,shared={},outputKind='reel'){
- dir=resolve(dir);const p=plan.preset,sceneCards=cards(plan),font=family(p,plan.brand);let duration=sceneCards.reduce((a,b)=>a+b.duration,0);
+ dir=resolve(dir);const p=plan.preset;let sceneCards=cards(plan);const font=family(p,plan.brand);let duration=sceneCards.reduce((a,b)=>a+b.duration,0);
  console.log('RENDER phase music-download start');const music=shared.music||join(dir,'music.audio');if(!shared.music)await fetchAsset(plan.music.url,music);console.log('RENDER phase music-download end',shared.music?'cached':'downloaded');
  // Decode locally downloaded files only. FFmpeg network protocols are disabled.
  const musicInfo=JSON.parse(await run(probe.path,['-v','error','-protocol_whitelist','file,pipe','-show_streams','-show_format','-of','json',music],30000));
  if(!musicInfo.streams.some(s=>s.codec_type==='audio'))throw new Error('La base non contiene audio valido.');
+ const categoryJingle=String(plan?.music?.source||'')==='category_jingle';
+ const musicDuration=Number(musicInfo?.format?.duration||0);
+ if(categoryJingle&&Number.isFinite(musicDuration)&&musicDuration>duration){
+  const extra=musicDuration-duration;
+  const last=sceneCards.length-1;
+  if(last>=0)sceneCards=sceneCards.map((x,i)=>i===last?{...x,duration:x.duration+extra}:x);
+  duration=sceneCards.reduce((a,b)=>a+b.duration,0);
+  console.log('RENDER category jingle fit',musicDuration,'video',duration);
+ }
  console.log('RENDER phase images-download start',plan.images.length);const assets=[];for(let i=0;i<plan.images.length;i++){
   const file=shared.images?.[plan.images[i].url]||join(dir,`source-${i}`);if(!shared.images?.[plan.images[i].url])await fetchAsset(plan.images[i].url,file);const meta=await sharp(file,{limitInputPixels:40000000}).metadata();
   if(!['png','jpeg','webp'].includes(meta.format))throw new Error('Formato immagine non valido.');assets.push(file);console.log('RENDER phase image ready',i+1,'of',plan.images.length);
@@ -84,7 +93,11 @@ export async function render(plan,dir,fetchAsset=download,shared={},outputKind='
  }
  console.log('RENDER phase scene-build end');const concatFile=join(dir,'concat.txt');await writeFile(concatFile,sceneParts.map(x=>"file '"+x.replaceAll("'","'\\''")+"'").join('\n')+'\n');const videoOnly=join(dir,'video.mp4');
  console.log('RENDER phase ffmpeg-video start');await run(ffmpeg,['-nostdin','-v','error','-y','-f','concat','-safe','0','-protocol_whitelist','file,pipe','-i',concatFile,'-c','copy','-movflags','+faststart',videoOnly]);console.log('RENDER phase ffmpeg-video end');const output=join(dir,'output.mp4');const fadeIn=Math.min(p.render.fade_in,duration/2),fadeOut=Math.min(p.render.fade_out,duration/2);
- console.log('RENDER phase ffmpeg-audio start');await run(ffmpeg,['-nostdin','-v','error','-y','-threads','1','-protocol_whitelist','file,pipe','-i',videoOnly,'-stream_loop','-1','-ss',String(Number.isFinite(Number(plan.audio_start))?Number(plan.audio_start):(Number.isFinite(Number(process.env.FNS_AUDIO_START_OVERRIDE))?Number(process.env.FNS_AUDIO_START_OVERRIDE):p.render.audio_start)),'-protocol_whitelist','file,pipe','-i',music,'-map','0:v:0','-map','1:a:0','-t',String(duration),'-c:v','copy','-c:a','aac','-b:a','128k','-ar','48000','-ac','2','-af',`volume=${p.render.music_gain_db}dB,afade=t=in:st=0:d=${fadeIn},afade=t=out:st=${duration-fadeOut}:d=${fadeOut}`,'-movflags','+faststart',output]);
+ console.log('RENDER phase ffmpeg-audio start');
+ const audioArgs=categoryJingle
+  ? ['-nostdin','-v','error','-y','-threads','1','-protocol_whitelist','file,pipe','-i',videoOnly,'-protocol_whitelist','file,pipe','-i',music,'-map','0:v:0','-map','1:a:0','-t',String(duration),'-c:v','copy','-c:a','aac','-b:a','128k','-ar','48000','-ac','2','-af',`volume=${p.render.music_gain_db}dB,apad=pad_dur=${Math.max(0,duration-musicDuration)},atrim=0:${duration}`,'-movflags','+faststart',output]
+  : ['-nostdin','-v','error','-y','-threads','1','-protocol_whitelist','file,pipe','-i',videoOnly,'-stream_loop','-1','-ss',String(Number.isFinite(Number(plan.audio_start))?Number(plan.audio_start):(Number.isFinite(Number(process.env.FNS_AUDIO_START_OVERRIDE))?Number(process.env.FNS_AUDIO_START_OVERRIDE):p.render.audio_start)),'-protocol_whitelist','file,pipe','-i',music,'-map','0:v:0','-map','1:a:0','-t',String(duration),'-c:v','copy','-c:a','aac','-b:a','128k','-ar','48000','-ac','2','-af',`volume=${p.render.music_gain_db}dB,afade=t=in:st=0:d=${fadeIn},afade=t=out:st=${duration-fadeOut}:d=${fadeOut}`,'-movflags','+faststart',output];
+ await run(ffmpeg,audioArgs);
  console.log('RENDER phase ffmpeg-audio end');const size=(await stat(output)).size;if(size>33554432)throw new Error('MP4 superiore al limite storage di 32 MiB. Nessun upload eseguito.');
  console.log('RENDER phase verify start');const info=JSON.parse(await run(probe.path,['-v','error','-show_streams','-show_format','-of','json',output],30000));const video=info.streams.find(s=>s.codec_type==='video'),audio=info.streams.find(s=>s.codec_type==='audio');
  if(video?.codec_name!=='h264'||audio?.codec_name!=='aac'||video.width!==1080||video.height!==1920||video.pix_fmt!=='yuv420p')throw new Error('Verifica codec o dimensioni non superata.');
