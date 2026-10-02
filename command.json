@@ -1,9 +1,5 @@
 {
   "version": 1,
-  "id": "test-pruriti-spoken-parser-v2",
-  "action": "suno_spoken_test",
-  "title": "Pruriti…",
-  "mv": "chirp-v6",
-  "tags": "spoken word, Italian male voice, poetry recital, dark ambient, intimate, slow, expressive narration, no singing, no melodic vocal, natural pauses, emotional but restrained",
-  "poem": "Ho provato con le unghie,\n\ncon gli stuzzicadenti,\n\ncol massaggiatore per la testa\nche sembra un ragno,\n\nma non ha funzionato nulla.\n\nIl prurito che sento in testa\nè dentro,\n\ntra un neurone e un ganglio,\n\ntra una sinapsi che si spegne\ne una che nasce,\n\nperché imparare\nci modifica fisicamente il cervello.\n\nI ricordi non stanno\ndentro un archivio:\n\nsono l’archivio.\n\nIl cervello non li conserva soltanto:\n\ndiventa i suoi ricordi.\n\nÈ come un libro\nin cui, quando impariamo qualcosa,\n\nnon vengono semplicemente aggiunte\no cancellate parole:\n\ncambia il libro.\n\nOgni cosa che impariamo,\nogni cosa che dimentichiamo,\n\nmodifica il posto\nin cui la conserviamo.\n\nOgni cosa che entra\ncambia l’archivio,\n\nogni cosa che svanisce\nlascia comunque\nuna forma diversa.\n\nQuel prurito scompare solo se scrivo,\n\nsolo se metto su carta un’emozione:\n\nbella,\n\nbrutta,\n\nsporca,\n\npulita.\n\nÈ indifferente.\n\nBasta che sia fuori.\n\nSu un foglio,\n\nnell’etere,\n\ncambia poco.\n\nL’importante è il sollievo.\n\nFino al prossimo prurito…"
+  "id": "idle-20261002-pruriti-parser-test-complete",
+  "action": "noop"
 }
