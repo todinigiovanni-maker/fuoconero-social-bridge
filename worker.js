@@ -47,6 +47,9 @@ function renderMusicFileIdOverride(postId){
  return null;
 }
 function renderMusicUrlOverride(postId){
+ const defaults={
+  4820:"https://fuoconero.com/wp-content/uploads/2026/10/parole-vuote-audio-poesia.mp3"
+ };
  const raw=String(process.env.FNS_RENDER_MUSIC_URL_BY_POST||"");
  for(const item of raw.split(";")){
   const i=item.indexOf(":");if(i<1)continue;
@@ -55,7 +58,8 @@ function renderMusicUrlOverride(postId){
    if(/^https:\/\//i.test(url))return url;
   }
  }
- return null;
+ const fallback=defaults[Number(postId)];
+ return /^https:\/\//i.test(String(fallback||""))?fallback:null;
 }
 function renderMusicUrlByCategory(category){
  const key=String(category||"").trim().toLowerCase();
