@@ -1,32 +1,79 @@
 {
   "version": 1,
-  "id": "rerender-naturalmente-7933-jingle-fit-v3",
-  "action": "render",
-  "payload": {
-    "request_id": "naturalmente-7933-jingle-fit-20261002-v3",
-    "post_id": 7933,
-    "category": "naturalmente",
-    "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-    "outputs": {
-      "reel": {
-        "preset": "articolo",
-        "scene_texts": [
-          "Stiamo costruendo piccoli cuori umani.",
-          "Farli battere non basta: devono maturare davvero.",
-          "Heart-on-chip, vasi e segnali elettrici provano a imitare un cuore adulto.",
-          "Scopri di più su fuoconero.com"
-        ],
-        "allow_extended_duration": false
-      },
-      "story": {
-        "preset": "story",
-        "scene_texts": [
-          "Stiamo costruendo piccoli cuori umani.",
-          "Farli battere non basta: devono maturare davvero.",
-          "Continua su fuoconero.com"
-        ],
-        "allow_extended_duration": false
+  "id": "render-batch-poesie-20261002-v1",
+  "action": "render_batch",
+  "items": [
+    {
+      "request_id": "poesia-parole-vuote-reel-20261002-v1",
+      "post_id": 4820,
+      "category": "poesie",
+      "music_id": "1ylzlY8UB0wk04cGRBluNj2ENJDGIkjid",
+      "outputs": {
+        "reel": {
+          "preset": "poesia",
+          "scene_texts": [
+            "Mi sento pieno, ma di nulla.",
+            "Mi hai riempito di parole vuote, di silenzi con una massa infinita.",
+            "Forse è per questo che ho un buco allo stomaco.",
+            "La mia mente è finalmente vuota."
+          ],
+          "allow_extended_duration": false
+        }
+      }
+    },
+    {
+      "request_id": "poesia-fiore-nero-reel-20261002-v1",
+      "post_id": 4717,
+      "category": "poesie",
+      "music_id": "1ylzlY8UB0wk04cGRBluNj2ENJDGIkjid",
+      "outputs": {
+        "reel": {
+          "preset": "poesia",
+          "scene_texts": [
+            "Ogni attimo che mordo sembra progettato per creare un ricordo.",
+            "Scrivere e vivere fanno rima — almeno per me.",
+            "Dentro quel fiore nero nascono le paure, i sogni e noi.",
+            "Un profumo che sa di te."
+          ],
+          "allow_extended_duration": false
+        }
+      }
+    },
+    {
+      "request_id": "poesia-pantone-memoria-reel-20261002-v1",
+      "post_id": 4744,
+      "category": "poesie",
+      "music_id": "1ylzlY8UB0wk04cGRBluNj2ENJDGIkjid",
+      "outputs": {
+        "reel": {
+          "preset": "poesia",
+          "scene_texts": [
+            "Ascolto. Leggo. Studio tutto quello che ha funzionato.",
+            "Poi cambio tutto. E lo butto.",
+            "Il mio motore non gira a regole. Gira a inchiostro.",
+            "Quello che esce non deve piacere. Deve essere vero."
+          ],
+          "allow_extended_duration": false
+        }
+      }
+    },
+    {
+      "request_id": "poesia-pagine-reel-20261002-v1",
+      "post_id": 4770,
+      "category": "poesie",
+      "music_id": "1ylzlY8UB0wk04cGRBluNj2ENJDGIkjid",
+      "outputs": {
+        "reel": {
+          "preset": "poesia",
+          "scene_texts": [
+            "Scorro il dito sulla carta per errore. Taglio. Sangue.",
+            "La sofferenza copre la storia e le cambia il punto di vista.",
+            "Voltare pagina? Non so quanto serva.",
+            "Questa volta è una storia che voglio scrivere io."
+          ],
+          "allow_extended_duration": false
+        }
       }
     }
-  }
+  ]
 }
