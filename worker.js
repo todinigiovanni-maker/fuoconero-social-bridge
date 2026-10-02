@@ -60,7 +60,8 @@ function renderMusicUrlOverride(postId){
 function renderMusicUrlByCategory(category){
  const key=String(category||"").trim().toLowerCase();
  const defaults={
-  animale:"https://fuoconero.com/wp-content/uploads/2026/10/ani-male-jingle.mp3"
+  animale:"https://fuoconero.com/wp-content/uploads/2026/10/ani-male-jingle.mp3",
+  naturalmente:"https://files.aimusicapi.ai/stems/8b22a8e7-2169-484e-bdc6-740cfa5bc663.mp3"
  };
  const raw=String(process.env.FNS_RENDER_MUSIC_URL_BY_CATEGORY||"");
  for(const item of raw.split(";")){
