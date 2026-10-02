@@ -1,32 +1,5 @@
 {
   "version": 1,
-  "id": "render-parole-vuote-approved-final-20261002-v2",
-  "action": "render",
-  "payload": {
-    "request_id": "parole-vuote-approved-final-20261002-v2",
-    "post_id": 4820,
-    "category": "poesie",
-    "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-    "outputs": {
-      "reel": {
-        "preset": "poesia",
-        "scene_texts": [
-          "Parole vuote…",
-          "Mi sento pieno, ma di nulla.",
-          "Mi hai riempito di parole vuote e buchi neri emotivi.",
-          "Forse è per questo che ho un buco allo stomaco.",
-          "La mia mente è finalmente vuota."
-        ]
-      },
-      "story": {
-        "preset": "story",
-        "scene_texts": [
-          "Parole vuote…",
-          "Mi sento pieno, ma di nulla.",
-          "Parole vuote. Buchi neri emotivi.",
-          "Continua su fuoconero.com"
-        ]
-      }
-    }
-  }
+  "id": "idle-20261002-parole-vuote-retry-created",
+  "action": "noop"
 }
