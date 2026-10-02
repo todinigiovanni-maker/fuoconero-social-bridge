@@ -350,7 +350,7 @@ async function poetryAudioStatus(postId){
   return {status:"missing",audio_url:"",drive_file_id:"",revision:""};
  }
 }
-const AUTO_POETRY_MANUAL_DONE=new Set([4820]);
+const AUTO_POETRY_MANUAL_DONE=new Set([4820,7443,7359]);
 
 const AUTO_REEL_CATEGORY_IDS={
  "789517870":"animale","577762893":"fisicamente","790278878":"naturalmente",
@@ -542,6 +542,13 @@ setInterval(()=>void autoPoetryPollTick(),30000).unref();
 async function autoPoetryBranch(state){
  const pipeline=(state.poetry_pipeline&&typeof state.poetry_pipeline==="object")?state.poetry_pipeline:{};
  const rendered=new Set(Array.isArray(state.poetry_rendered)?state.poetry_rendered.map(String):[]);
+ for(const doneId of AUTO_POETRY_MANUAL_DONE){
+  const key=String(doneId);
+  if(pipeline[key])delete pipeline[key];
+  rendered.add(key);
+ }
+ state.poetry_pipeline=pipeline;
+ state.poetry_rendered=[...rendered].slice(-1000);
  if(Number(state.poetry_extractor_version||0)<2){
   for(const [id,rec] of Object.entries(pipeline)){
    if(rec?.status==="skipped_too_long"){delete pipeline[id];rendered.delete(String(id));}
