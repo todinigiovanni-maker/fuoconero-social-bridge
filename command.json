@@ -1,5 +1,7 @@
 {
   "version": 1,
-  "id": "idle-20261002-bonino-reel-created",
-  "action": "noop"
+  "id": "resume-ultima-luce-spoken-20261002-v1",
+  "action": "suno_poll_existing",
+  "title": "L’ultima luce",
+  "task_id": "bd921d4c-47d0-4313-96b8-2b89cee00d82"
 }
