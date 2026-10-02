@@ -1,5 +1,31 @@
 {
   "version": 1,
-  "id": "idle-20261002-jingles-mapped",
-  "action": "noop"
+  "id": "rerender-naturalmente-7933-jingle-fit-v1",
+  "action": "render",
+  "payload": {
+    "request_id": "naturalmente-7933-jingle-fit-20261002-v1",
+    "post_id": 7933,
+    "category": "naturalmente",
+    "music_title": "Fuoconero (rock)",
+    "outputs": {
+      "reel": {
+        "preset": "articolo",
+        "scene_texts": [
+          "Stiamo costruendo piccoli cuori umani.",
+          "Farli battere non basta: devono maturare davvero.",
+          "Heart-on-chip, vasi e segnali elettrici provano a imitare un cuore adulto.",
+          "Scopri di più su fuoconero.com"
+        ],
+        "allow_extended_duration": false
+      },
+      "story": {
+        "scene_texts": [
+          "Stiamo costruendo piccoli cuori umani.",
+          "Farli battere non basta: devono maturare davvero.",
+          "Continua su fuoconero.com"
+        ],
+        "allow_extended_duration": false
+      }
+    }
+  }
 }
