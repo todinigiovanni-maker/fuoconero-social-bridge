@@ -57,6 +57,27 @@ function renderMusicUrlOverride(postId){
  }
  return null;
 }
+function renderMusicUrlByCategory(category){
+ const key=String(category||"").trim().toLowerCase();
+ const defaults={
+  animale:"https://fuoconero.com/wp-content/uploads/2026/10/ani-male-jingle.mp3"
+ };
+ const raw=String(process.env.FNS_RENDER_MUSIC_URL_BY_CATEGORY||"");
+ for(const item of raw.split(";")){
+  const i=item.indexOf(":");if(i<1)continue;
+  const name=item.slice(0,i).trim().toLowerCase();
+  const url=item.slice(i+1).trim();
+  if(name===key&&/^https:\/\//i.test(url))return url;
+ }
+ return defaults[key]||null;
+}
+function renderJobCategory(job,plans=[]){
+ const candidates=[
+  job?.category,job?.article?.category,job?.source?.category,
+  ...plans.flatMap(p=>[p?.category,p?.article?.category,p?.source?.category])
+ ];
+ return String(candidates.find(x=>typeof x==="string"&&x.trim())||"").trim().toLowerCase();
+}
 function driveDirectAudioUrl(id){
  return "https://drive.usercontent.google.com/download?id="+encodeURIComponent(id)+"&export=download&confirm=t";
 }
@@ -85,6 +106,7 @@ export function worker(wp,options={}){
    dir=await mkdtemp(join(tmpdir(),'fns-render-'));console.log('RENDER start',job.render_job_id);
    const sharedDir=join(dir,'shared');await mkdir(sharedDir);const shared={images:{}};
    const plans=Object.values(job.plans),musicOverrideId=renderMusicFileIdOverride(job?.post_id),musicOverrideUrl=renderMusicUrlOverride(job?.post_id);
+   const category=renderJobCategory(job,plans),categoryMusicUrl=renderMusicUrlByCategory(category);
    const approvedAudio=await approvedPoetryAudio(wp,job?.post_id);
    if(approvedAudio){
     for(const p of plans)if(p?.music)p.music={...p.music,url:approvedAudio.url,drive_file_id:approvedAudio.drive_file_id||"",source:"poetry_audio",audio_source:approvedAudio.audio_source,audio_revision:approvedAudio.revision,reuse_existing:true};
@@ -95,6 +117,9 @@ export function worker(wp,options={}){
    }else if(musicOverrideId){
     for(const p of plans)if(p?.music)p.music={...p.music,url:driveDirectAudioUrl(musicOverrideId),drive_file_id:musicOverrideId,source:"render_override"};
     console.log('RENDER music override',job.post_id,musicOverrideId);
+   }else if(categoryMusicUrl){
+    for(const p of plans)if(p?.music)p.music={...p.music,url:categoryMusicUrl,drive_file_id:"",source:"category_jingle",category};
+    console.log('RENDER category jingle',job.post_id,category);
    }
    const first=plans[0];
    if(first?.music?.url){shared.music=join(sharedDir,'music.audio');await download(first.music.url,shared.music);}
