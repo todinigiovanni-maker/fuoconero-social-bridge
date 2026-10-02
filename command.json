@@ -1,5 +1,9 @@
 {
   "version": 1,
-  "id": "idle-20261002-poetry-batch-complete",
-  "action": "noop"
+  "id": "poesia-parole-vuote-spoken-20261002-v1",
+  "action": "suno_spoken_test",
+  "title": "Parole vuote…",
+  "mv": "chirp-v6",
+  "tags": "spoken word, Italian male voice, poetry recital, dark ambient, intimate, slow, expressive narration, no singing, no melodic vocal, natural pauses, emotional but restrained",
+  "poem": "Mi sento pieno\nma di nulla.\n\nForse ho fame d’altro.\nDi qualcuno che mi capisca,\ndi qualcosa che mi somigli\nalmeno un po’.\n\nPerché finora\nmi hai riempito di parole vuote,\ndi silenzi con una massa infinita,\ndi buchi neri emotivi.\n\nForse è per questo\nche ho un buco allo stomaco.\n\nE forse è per questo\nche i giorni sono relativi:\nné veloci né lenti,\nsolo adattabili\nai miei stati d’umore,\nche cercano di stare al passo coi tuoi\nfallendo miseramente.\n\nAllora vomito\ntutte quelle parole vuote.\n\nIl mio peso non è cambiato,\nma la mia mente\nè finalmente vuota."
 }
