@@ -245,7 +245,7 @@ async function telegramChatId(){
  }catch(e){console.warn("TELEGRAM chat lookup failed",e.message);}
  return null;
 }
-async function telegramNotify(message){
+async function telegramNotify(message,inlineKeyboard=null){
  const token=process.env.FNS_TELEGRAM_BOT_TOKEN;if(!token)return false;
  // Older callers stored literal "\\n" sequences. Normalize them so Telegram
  // renders real line breaks instead of showing backslash-n in the message.
@@ -253,9 +253,11 @@ async function telegramNotify(message){
  const chatId=process.env.FNS_TELEGRAM_CHAT_ID||await telegramChatId();
  if(!chatId){console.warn("TELEGRAM no chat id — send /start to the bot");return false;}
  try{
+  const body={chat_id:chatId,text:message,disable_web_page_preview:true};
+  if(Array.isArray(inlineKeyboard)&&inlineKeyboard.length)body.reply_markup={inline_keyboard:inlineKeyboard};
   const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{
    method:"POST",headers:{"content-type":"application/json"},
-   body:JSON.stringify({chat_id:chatId,text:message,disable_web_page_preview:true}),
+   body:JSON.stringify(body),
    signal:AbortSignal.timeout(15000)
   });
   if(!r.ok){console.warn("TELEGRAM send failed",r.status);return false;}
@@ -533,7 +535,8 @@ async function autoPoetryPollTick(){
   rec.status="generated";rec.updated_at=Date.now();
   state.poetry_pipeline=pipeline;await saveAutoState(state);
   const lines=rec.songs.map((s,i)=>"Versione "+(i+1)+" ("+(s.duration?Number(s.duration).toFixed(1)+" s":"durata n/d")+"): "+s.audio_url);
-  await telegramNotify("🎙️ Fuoconero Social — poesia pronta\n"+(rec.title||("Post "+postId))+"\n\n"+lines.join("\n")+"\n\nScegli A/B: il Reel partirà solo dopo l’approvazione dell’audio.");
+  const pickButtons=[rec.songs.slice(0,2).map((s,i)=>({text:"✅ VERSIONE "+(i+1),callback_data:"poetrypick:"+postId+":"+(i+1)}))];
+  await telegramNotify("🎙️ Fuoconero Social — poesia pronta\n"+(rec.title||("Post "+postId))+"\n\n"+lines.join("\n")+"\n\nScegli direttamente qui sotto quale audio approvare.",pickButtons);
  }catch(e){console.warn("AUTO_POETRY poll failed",e.message);}
  finally{autoPoetryPollBusy=false;}
 }
@@ -779,6 +782,35 @@ async function telegramApprovalTick(){
    telegramOffset=Math.max(telegramOffset,(Number(update.update_id)||0)+1);
    const q=update?.callback_query,data=String(q?.data||""),chat=String(q?.message?.chat?.id||"");
    if(!q||chat!==allowed||telegramHandled.has(data))continue;
+
+   const poetryPick=data.match(/^poetrypick:(\d+):([12])$/);
+   if(poetryPick){
+    const postId=Number(poetryPick[1]),choice=Number(poetryPick[2]);
+    try{
+     const state=await autoState();
+     const pipeline=(state.poetry_pipeline&&typeof state.poetry_pipeline==="object")?state.poetry_pipeline:{};
+     const rec=pipeline[String(postId)];
+     if(!rec||!Array.isArray(rec.songs)||!rec.songs[choice-1]?.audio_url)throw new Error("versione audio non disponibile");
+     const selected=rec.songs[choice-1];
+     rec.selected_index=choice;
+     rec.selected_audio_url=selected.audio_url;
+     rec.selected_audio_id=selected.id||null;
+     rec.selected_duration=selected.duration||null;
+     rec.selected_at=Date.now();
+     rec.status="generated";
+     pipeline[String(postId)]=rec;
+     state.poetry_pipeline=pipeline;
+     await saveAutoState(state);
+     telegramHandled.add(data);
+     await telegramAnswerCallback(token,q.id,"Versione "+choice+" approvata.");
+     await telegramNotify("✅ Fuoconero Social — poesia\nVersione "+choice+" approvata per:\n"+(rec.title||("Post "+postId))+"\n\nScelta registrata nel flusso.");
+    }catch(e){
+     await telegramAnswerCallback(token,q.id,"Non sono riuscito a registrare la scelta.");
+     console.warn("TELEGRAM poetry pick failed",postId,choice,e.message);
+    }
+    continue;
+   }
+
    const m=data.match(/^(approve|queue|reject):([a-f0-9-]{36}):(\d+)$/);if(!m)continue;
    const [,action,renderJobId,postIdRaw]=m,postId=Number(postIdRaw);
    telegramHandled.add(data);
