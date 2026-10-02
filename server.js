@@ -615,6 +615,13 @@ async function autoPoetryBranch(state){
   console.warn("AUTO_POETRY empty poem",post.id);
   rendered.add(id);state.poetry_rendered=[...rendered].slice(-1000);state.poetry_pipeline=pipeline;return;
  }
+ if(poem.length>4800){
+  console.warn("AUTO_POETRY poem too long",post.id,"chars",poem.length,post.title);
+  pipeline[id]={post_id:Number(post.id),title:post.title,status:"skipped_too_long",chars:poem.length,updated_at:Date.now()};
+  rendered.add(id);state.poetry_pipeline=pipeline;state.poetry_rendered=[...rendered].slice(-1000);await saveAutoState(state);
+  await telegramNotify("⏭️ Fuoconero Social — poesia saltata\n"+post.title+"\n\nTesto troppo lungo per la generazione automatica ("+poem.length+" caratteri; limite API 5000). Cercherò automaticamente la prossima poesia adatta.");
+  return;
+ }
  const created=await sunoCreateMusic({
   title:post.title,prompt:poem,
   tags:"spoken word, Italian male voice, poetry recital, dark ambient, intimate, slow, expressive narration, no singing, no melodic vocal, natural pauses, emotional but restrained",
