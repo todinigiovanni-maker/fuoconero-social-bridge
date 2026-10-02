@@ -350,7 +350,7 @@ async function poetryAudioStatus(postId){
   return {status:"missing",audio_url:"",drive_file_id:"",revision:""};
  }
 }
-const AUTO_POETRY_MANUAL_DONE=new Set([4820,7443,7359]);
+const AUTO_POETRY_MANUAL_DONE=new Set([4820,7443,7359,7248]);
 
 const AUTO_REEL_CATEGORY_IDS={
  "789517870":"animale","577762893":"fisicamente","790278878":"naturalmente",
