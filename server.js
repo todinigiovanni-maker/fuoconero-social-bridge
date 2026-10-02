@@ -284,6 +284,61 @@ async function recentPublishedPosts(){
  }));
 }
 
+async function recentPublishedPoems(){
+ const u=new URL(BASE+"/wp-json/wp/v2/posts");
+ u.searchParams.set("status","publish");u.searchParams.set("categories","14831");
+ u.searchParams.set("per_page","50");u.searchParams.set("orderby","date");u.searchParams.set("order","desc");
+ u.searchParams.set("_fields","id,date,date_gmt,link,title,excerpt,categories");
+ const r=await fetch(u,{headers:{"user-agent":"FuoconeroSocialBridge/0.4.24"},signal:AbortSignal.timeout(30000)});
+ if(!r.ok)throw new Error("WordPress poetry feed HTTP "+r.status);
+ const a=await r.json();
+ return (Array.isArray(a)?a:[]).map(p=>({
+  ...p,title:decodeHtml(p?.title?.rendered||p?.title||""),
+  excerpt:decodeHtml(p?.excerpt?.rendered||p?.excerpt||"")
+ }));
+}
+function poemTextFromHtml(html=""){
+ return String(html||"")
+  .replace(/<!--[^]*?-->/g,"")
+  .replace(/<(?:script|style)[^>]*>[^]*?<\/(?:script|style)>/gi,"")
+  .replace(/<br\s*\/?>/gi,"\n")
+  .replace(/<\/(?:p|div|blockquote|li|h[1-6])>/gi,"\n")
+  .replace(/<[^>]+>/g," ")
+  .replace(/&nbsp;/gi," ")
+  .replace(/&#8230;|&hellip;/gi,"…")
+  .replace(/&#8211;|&ndash;/gi,"–")
+  .replace(/&#8212;|&mdash;/gi,"—")
+  .replace(/&#8217;|&rsquo;/gi,"’")
+  .replace(/&amp;/gi,"&")
+  .replace(/&quot;/gi,'"')
+  .replace(/&#39;|&apos;/gi,"'")
+  .replace(/&#(\d+);/g,(_,n)=>{try{return String.fromCodePoint(Number(n));}catch{return " ";}})
+  .replace(/[ \t]+\n/g,"\n")
+  .replace(/\n[ \t]+/g,"\n")
+  .replace(/[ \t]{2,}/g," ")
+  .replace(/\n{3,}/g,"\n\n")
+  .trim();
+}
+async function publishedPoemText(postId){
+ const u=new URL(BASE+"/wp-json/wp/v2/posts/"+encodeURIComponent(postId));
+ u.searchParams.set("context","view");u.searchParams.set("_fields","id,status,content");
+ const r=await fetch(u,{headers:{"user-agent":"FuoconeroSocialBridge/0.4.24"},signal:AbortSignal.timeout(30000)});
+ if(!r.ok)throw new Error("WordPress poem content HTTP "+r.status);
+ const p=await r.json();
+ return poemTextFromHtml(p?.content?.rendered||p?.content||"");
+}
+async function poetryAudioStatus(postId){
+ try{
+  const r=await wp("GET","/reel-maker/article/"+encodeURIComponent(postId)+"/audio");
+  const a=r?.data?.poetry_audio||{};
+  return {status:String(a.status||"missing").toLowerCase(),audio_url:String(a.audio_url||""),drive_file_id:String(a.drive_file_id||""),revision:String(a.revision||"")};
+ }catch(e){
+  console.warn("AUTO_POETRY audio lookup failed",postId,e.message);
+  return {status:"missing",audio_url:"",drive_file_id:"",revision:""};
+ }
+}
+const AUTO_POETRY_MANUAL_DONE=new Set([4820]);
+
 const AUTO_REEL_CATEGORY_IDS={
  "789517870":"animale","577762893":"fisicamente","790278878":"naturalmente",
  "790278776":"mondo","14831":"poesie","11817":"canzoni","790178670":"dossier"
@@ -442,6 +497,96 @@ function autoMusicIdOverride(postId){
  }
  return null;
 }
+let autoPoetryPollBusy=false;
+async function autoPoetryPollTick(){
+ if(autoPoetryPollBusy)return;autoPoetryPollBusy=true;
+ try{
+  const state=await autoState(),pipeline=(state.poetry_pipeline&&typeof state.poetry_pipeline==="object")?state.poetry_pipeline:{};
+  const entry=Object.entries(pipeline).find(([,x])=>x&&x.status==="running"&&x.task_id);
+  if(!entry)return;
+  const [postId,rec]=entry,t=await sunoTask(rec.task_id),payload=t.data;
+  const rawSongs=Array.isArray(payload?.data)?payload.data:[];
+  const states=rawSongs.map(s=>String(s?.state||"").toLowerCase()).filter(Boolean);
+  const status=states.length?(states.every(s=>s==="succeeded")?"succeeded":states.some(s=>s==="failed")?"failed":"running"):String(payload?.state||payload?.status||"").toLowerCase();
+  console.log("AUTO_POETRY poll",postId,"state="+status,"clips="+rawSongs.length);
+  if(status==="running"||!status)return;
+  if(status!=="succeeded"){
+   rec.status="failed";rec.last_error="spoken task ended with state "+status;rec.updated_at=Date.now();
+   state.poetry_pipeline=pipeline;await saveAutoState(state);
+   await telegramNotify("❌ Fuoconero Social — poesia\nGenerazione audio fallita: "+(rec.title||("post "+postId))+".");
+   return;
+  }
+  rec.songs=rawSongs.map(s=>({id:s.clip_id||s.id||null,audio_url:s.audio_url||s.stream_audio_url||null,duration:s.duration||null})).filter(s=>s.audio_url);
+  rec.status="generated";rec.updated_at=Date.now();
+  state.poetry_pipeline=pipeline;await saveAutoState(state);
+  const lines=rec.songs.map((s,i)=>"Versione "+(i+1)+" ("+(s.duration?Number(s.duration).toFixed(1)+" s":"durata n/d")+"): "+s.audio_url);
+  await telegramNotify("🎙️ Fuoconero Social — poesia pronta\n"+(rec.title||("Post "+postId))+"\n\n"+lines.join("\n")+"\n\nScegli A/B: il Reel partirà solo dopo l’approvazione dell’audio.");
+ }catch(e){console.warn("AUTO_POETRY poll failed",e.message);}
+ finally{autoPoetryPollBusy=false;}
+}
+setInterval(()=>void autoPoetryPollTick(),30000).unref();
+
+async function autoPoetryBranch(state){
+ const pipeline=(state.poetry_pipeline&&typeof state.poetry_pipeline==="object")?state.poetry_pipeline:{};
+ const rendered=new Set(Array.isArray(state.poetry_rendered)?state.poetry_rendered.map(String):[]);
+ const poems=await recentPublishedPoems();
+
+ // First render any poem whose editorial audio is already approved.
+ for(const post of poems){
+  const id=String(post.id);
+  if(rendered.has(id))continue;
+  if(AUTO_POETRY_MANUAL_DONE.has(Number(post.id))){rendered.add(id);continue;}
+  const audio=await poetryAudioStatus(post.id);
+  if(audio.status!=="approved"||!/^https:\/\//i.test(audio.audio_url))continue;
+  const scenes=autoScenes(post),publication=autoPublicationMeta(post,"poesie");
+  const payload={
+   request_id:"fuoconero-auto-poetry-v1-post-"+post.id+"-reel-story",
+   post_id:Number(post.id),category:"poesie",
+   music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
+   outputs:{reel:{preset:"poesia",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}},
+   publication,publication_authorized:false
+  };
+  const created=await wp("POST","/reel-maker/render-jobs",payload);
+  console.log("AUTO_POETRY enqueue approved",post.id,created.status,JSON.stringify(created.data));
+  if(created.status>=200&&created.status<300||isExistingRender(created)){
+   rendered.add(id);state.poetry_rendered=[...rendered].slice(-1000);await saveAutoState(state);
+   if(created.status>=200&&created.status<300){
+    await telegramNotify("🖋️ Fuoconero Social\nPoesia con audio approvato rilevata:\n"+post.title+"\n\n⚙️ Reel + Story accodati con la recitazione approvata.");
+    void pump();
+   }
+  }
+  state.poetry_pipeline=pipeline;return;
+ }
+
+ // Never generate a second poem while one is still awaiting generation/approval.
+ const waiting=Object.values(pipeline).find(x=>x&&["running","generated"].includes(String(x.status||"")));
+ if(waiting){console.log("AUTO_POETRY waiting",waiting.post_id||"",waiting.status,waiting.title||"");state.poetry_pipeline=pipeline;state.poetry_rendered=[...rendered].slice(-1000);return;}
+
+ // Backfill one archive poem at a time. Skip those already processed or manually completed.
+ for(const post of poems){
+  const id=String(post.id);
+  if(rendered.has(id)||AUTO_POETRY_MANUAL_DONE.has(Number(post.id)))continue;
+  const existing=pipeline[id];
+  if(existing&&["generated","running"].includes(existing.status))continue;
+  const audio=await poetryAudioStatus(post.id);
+  if(audio.status==="approved")continue;
+  const poem=await publishedPoemText(post.id);
+  if(!poem||poem.length<20){console.warn("AUTO_POETRY empty poem",post.id);rendered.add(id);continue;}
+  const created=await sunoCreateMusic({
+   title:post.title,
+   prompt:poem,
+   tags:"spoken word, Italian male voice, poetry recital, dark ambient, intimate, slow, expressive narration, no singing, no melodic vocal, natural pauses, emotional but restrained",
+   mv:"chirp-v6"
+  });
+  pipeline[id]={post_id:Number(post.id),title:post.title,task_id:created.task_id,status:"running",created_at:Date.now(),updated_at:Date.now()};
+  state.poetry_pipeline=pipeline;state.poetry_rendered=[...rendered].slice(-1000);await saveAutoState(state);
+  console.log("AUTO_POETRY generation started",post.id,created.task_id,post.title);
+  await telegramNotify("🖋️ Fuoconero Social\nPoesia trovata automaticamente:\n"+post.title+"\n\n🎙️ Sto preparando 2 recitazioni. Nessun Reel verrà creato prima della tua scelta.");
+  return;
+ }
+ state.poetry_pipeline=pipeline;state.poetry_rendered=[...rendered].slice(-1000);
+}
+
 async function autoReelTick(){
  if(autoReelBusy)return;autoReelBusy=true;
  try{
@@ -472,6 +617,7 @@ async function autoReelTick(){
    if(firstRun&&age>120*60*1000){console.log("AUTO_REEL skip first-run age",post.id,Math.round(age/60000),post.title);seen.add(String(post.id));continue;}
    const cats=(post.categories||[]).map(String),category=cats.map(x=>AUTO_REEL_CATEGORY_IDS[x]).find(Boolean);
    if(!category){console.log("AUTO_REEL skip category",post.id,cats,post.title);seen.add(String(post.id));continue;}
+   if(category==="poesie"){console.log("AUTO_REEL poetry delegated",post.id,post.title);continue;}
    console.log("AUTO_REEL eligible",post.id,category,Math.round(age/60000),post.title);
    const scenes=autoScenes(post),publication=autoPublicationMeta(post,category);
    const songTitle=category==="canzoni"?cleanAutoTitle(post.title):null;
@@ -527,8 +673,9 @@ async function autoReelTick(){
     }
    }
   }
+  await autoPoetryBranch(state);
   state.initialized=true;state.seen=[...seen].slice(-1000);await saveAutoState(state);
- }catch(e){console.warn("AUTO_REEL tick failed",e.message);await telegramNotify("⚠️ Fuoconero Social\nControllo nuovi articoli fallito: "+e.message);}
+ }catch(e){console.warn("AUTO_REEL tick failed",e.message);await telegramNotify("⚠️ Fuoconero Social\nControllo nuovi articoli/poesie fallito: "+e.message);}
  finally{autoReelBusy=false;}
 }
 setInterval(()=>void autoReelTick(),300000).unref();
