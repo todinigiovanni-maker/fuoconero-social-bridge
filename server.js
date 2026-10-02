@@ -297,6 +297,15 @@ async function recentPublishedPoems(){
   excerpt:decodeHtml(p?.excerpt?.rendered||p?.excerpt||"")
  }));
 }
+function poetryHtmlFromPost(html=""){
+ const raw=String(html||"");
+ const marked=raw.match(/<div\b[^>]*class=(["'])[^"']*\bfuoconero-poesia\b[^"']*\1[^>]*>([\s\S]*?)<\/div>/i);
+ if(marked?.[2]){
+  console.log("AUTO_POETRY marked poem block detected");
+  return marked[2].replace(/<h[1-6]\b[^>]*>[\s\S]*?<\/h[1-6]>/i,"");
+ }
+ return raw;
+}
 function poemTextFromHtml(html=""){
  return String(html||"")
   .replace(/<!--[^]*?-->/g,"")
@@ -322,10 +331,14 @@ function poemTextFromHtml(html=""){
 async function publishedPoemText(postId){
  const u=new URL(BASE+"/wp-json/wp/v2/posts/"+encodeURIComponent(postId));
  u.searchParams.set("context","view");u.searchParams.set("_fields","id,status,content");
- const r=await fetch(u,{headers:{"user-agent":"FuoconeroSocialBridge/0.4.24"},signal:AbortSignal.timeout(30000)});
+ const r=await fetch(u,{headers:{"user-agent":"FuoconeroSocialBridge/0.4.25"},signal:AbortSignal.timeout(30000)});
  if(!r.ok)throw new Error("WordPress poem content HTTP "+r.status);
  const p=await r.json();
- return poemTextFromHtml(p?.content?.rendered||p?.content||"");
+ const html=p?.content?.rendered||p?.content||"";
+ const poemHtml=poetryHtmlFromPost(html);
+ const text=poemTextFromHtml(poemHtml);
+ console.log("AUTO_POETRY extracted chars",postId,text.length,poemHtml!==html?"marked-block":"full-post");
+ return text;
 }
 async function poetryAudioStatus(postId){
  try{
@@ -529,6 +542,16 @@ setInterval(()=>void autoPoetryPollTick(),30000).unref();
 async function autoPoetryBranch(state){
  const pipeline=(state.poetry_pipeline&&typeof state.poetry_pipeline==="object")?state.poetry_pipeline:{};
  const rendered=new Set(Array.isArray(state.poetry_rendered)?state.poetry_rendered.map(String):[]);
+ if(Number(state.poetry_extractor_version||0)<2){
+  for(const [id,rec] of Object.entries(pipeline)){
+   if(rec?.status==="skipped_too_long"){delete pipeline[id];rendered.delete(String(id));}
+  }
+  state.poetry_extractor_version=2;
+  state.poetry_pipeline=pipeline;
+  state.poetry_rendered=[...rendered].slice(-1000);
+  await saveAutoState(state);
+  console.log("AUTO_POETRY extractor migration v2 applied");
+ }
  const now=Date.now();
  const lastScan=Number(state.poetry_last_scan||0);
  if(now-lastScan<15*60*1000){console.log("AUTO_POETRY throttled",Math.round((15*60*1000-(now-lastScan))/1000),"s");return;}
