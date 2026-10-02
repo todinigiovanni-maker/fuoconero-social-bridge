@@ -578,10 +578,32 @@ async function autoPoetryBranch(state){
  }
 
  // If one poem is already in-flight or awaiting approval, only inspect that one.
- const waitingEntry=Object.entries(pipeline).find(([,x])=>x&&["running","generated"].includes(String(x.status||"")));
+ const waitingEntry=Object.entries(pipeline).find(([,x])=>x&&["running","generated","approved"].includes(String(x.status||"")));
  if(waitingEntry){
   const [id,rec]=waitingEntry;
-  if(rec.status==="generated"){
+  if(rec.status==="approved"&&/^https:\/\//i.test(String(rec.selected_audio_url||""))){
+   const post=poems.find(p=>Number(p.id)===Number(id));
+   if(post){
+    const scenes=autoScenes(post),publication=autoPublicationMeta(post,"poesie");
+    const payload={
+     request_id:"fuoconero-auto-poetry-v2-post-"+post.id+"-reel-story",
+     post_id:Number(post.id),category:"poesie",
+     music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
+     outputs:{reel:{preset:"poesia",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}},
+     publication,publication_authorized:false
+    };
+    const created=await wp("POST","/reel-maker/render-jobs",payload);
+    console.log("AUTO_POETRY enqueue Telegram-approved",post.id,created.status,JSON.stringify(created.data));
+    if(created.status>=200&&created.status<300||isExistingRender(created)){
+     rendered.add(String(post.id));rec.status="rendered";rec.updated_at=Date.now();
+     state.poetry_rendered=[...rendered].slice(-1000);
+     if(created.status>=200&&created.status<300){
+      await telegramNotify("🖋️ Fuoconero Social\nRecitazione approvata:\n"+post.title+"\n\n⚙️ Reel + Story accodati automaticamente.");
+      void pump();
+     }
+    }
+   }
+  }else if(rec.status==="generated"){
    const audio=await poetryAudioStatus(Number(id));
    if(audio.status==="approved"&&/^https:\/\//i.test(audio.audio_url)){
     const post=poems.find(p=>Number(p.id)===Number(id));
@@ -797,7 +819,7 @@ async function telegramApprovalTick(){
      rec.selected_audio_id=selected.id||null;
      rec.selected_duration=selected.duration||null;
      rec.selected_at=Date.now();
-     rec.status="generated";
+     rec.status="approved";
      pipeline[String(postId)]=rec;
      state.poetry_pipeline=pipeline;
      await saveAutoState(state);
