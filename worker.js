@@ -50,7 +50,8 @@ function renderMusicUrlOverride(postId){
  const defaults={
   4820:"https://fuoconero.com/wp-content/uploads/2026/10/parole-vuote-audio-poesia.mp3",
   7443:"https://fuoconero.com/wp-content/uploads/2026/10/pruriti-audio-poesia.mp3",
-  7359:"https://fuoconero.com/wp-content/uploads/2026/10/quando-muore-un-gigante-audio-poesia.mp3"
+  7359:"https://fuoconero.com/wp-content/uploads/2026/10/quando-muore-un-gigante-audio-poesia.mp3",
+  7248:"https://fuoconero.com/wp-content/uploads/2026/10/ultima-luce-audio-poesia.mp3"
  };
  const raw=String(process.env.FNS_RENDER_MUSIC_URL_BY_POST||"");
  for(const item of raw.split(";")){
