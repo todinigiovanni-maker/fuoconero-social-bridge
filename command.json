@@ -1,23 +1,5 @@
 {
   "version": 1,
-  "id": "render-pruriti-approved-audio-20261002-v1",
-  "action": "render",
-  "payload": {
-    "request_id": "pruriti-approved-audio-20261002-v1",
-    "post_id": 7443,
-    "category": "poesie",
-    "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
-    "outputs": {
-      "reel": {
-        "preset": "poesia",
-        "scene_texts": [
-          "Pruriti…",
-          "Il prurito che sento in testa è dentro.",
-          "I ricordi non stanno dentro un archivio: sono l’archivio.",
-          "Il cervello non li conserva soltanto: diventa i suoi ricordi.",
-          "L’importante è il sollievo. Fino al prossimo prurito…"
-        ]
-      }
-    }
-  }
+  "id": "idle-20261002-pruriti-reel-created",
+  "action": "noop"
 }
