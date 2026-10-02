@@ -56,7 +56,10 @@ export async function render(plan,dir,fetchAsset=download,shared={},outputKind='
  // Decode locally downloaded files only. FFmpeg network protocols are disabled.
  const musicInfo=JSON.parse(await run(probe.path,['-v','error','-protocol_whitelist','file,pipe','-show_streams','-show_format','-of','json',music],30000));
  if(!musicInfo.streams.some(s=>s.codec_type==='audio'))throw new Error('La base non contiene audio valido.');
- const categoryJingle=String(plan?.music?.source||'')==='category_jingle';
+ const musicSource=String(plan?.music?.source||'');
+ const categoryJingle=musicSource==='category_jingle';
+ const poetryAudio=['poetry_audio','approved_poetry_url','poetry_audio_override'].includes(musicSource);
+ const singlePassAudio=categoryJingle||poetryAudio;
  const musicDuration=Number(musicInfo?.format?.duration||0);
  if(categoryJingle&&Number.isFinite(musicDuration)&&musicDuration>duration){
   const extra=musicDuration-duration;
@@ -94,7 +97,7 @@ export async function render(plan,dir,fetchAsset=download,shared={},outputKind='
  console.log('RENDER phase scene-build end');const concatFile=join(dir,'concat.txt');await writeFile(concatFile,sceneParts.map(x=>"file '"+x.replaceAll("'","'\\''")+"'").join('\n')+'\n');const videoOnly=join(dir,'video.mp4');
  console.log('RENDER phase ffmpeg-video start');await run(ffmpeg,['-nostdin','-v','error','-y','-f','concat','-safe','0','-protocol_whitelist','file,pipe','-i',concatFile,'-c','copy','-movflags','+faststart',videoOnly]);console.log('RENDER phase ffmpeg-video end');const output=join(dir,'output.mp4');const fadeIn=Math.min(p.render.fade_in,duration/2),fadeOut=Math.min(p.render.fade_out,duration/2);
  console.log('RENDER phase ffmpeg-audio start');
- const audioArgs=categoryJingle
+ const audioArgs=singlePassAudio
   ? ['-nostdin','-v','error','-y','-threads','1','-protocol_whitelist','file,pipe','-i',videoOnly,'-protocol_whitelist','file,pipe','-i',music,'-map','0:v:0','-map','1:a:0','-t',String(duration),'-c:v','copy','-c:a','aac','-b:a','128k','-ar','48000','-ac','2','-af',`volume=${p.render.music_gain_db}dB,${Math.max(0,duration-musicDuration)>0.01?`apad=pad_dur=${(duration-musicDuration).toFixed(3)},`:''}atrim=0:${duration.toFixed(3)}`,'-movflags','+faststart',output]
   : ['-nostdin','-v','error','-y','-threads','1','-protocol_whitelist','file,pipe','-i',videoOnly,'-stream_loop','-1','-ss',String(Number.isFinite(Number(plan.audio_start))?Number(plan.audio_start):(Number.isFinite(Number(process.env.FNS_AUDIO_START_OVERRIDE))?Number(process.env.FNS_AUDIO_START_OVERRIDE):p.render.audio_start)),'-protocol_whitelist','file,pipe','-i',music,'-map','0:v:0','-map','1:a:0','-t',String(duration),'-c:v','copy','-c:a','aac','-b:a','128k','-ar','48000','-ac','2','-af',`volume=${p.render.music_gain_db}dB,afade=t=in:st=0:d=${fadeIn},afade=t=out:st=${duration-fadeOut}:d=${fadeOut}`,'-movflags','+faststart',output];
  await run(ffmpeg,audioArgs);
