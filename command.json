@@ -1,9 +1,5 @@
 {
   "version": 1,
-  "id": "suno-jingle-natural-mente-20261002-v1",
-  "action": "suno_spoken_test",
-  "title": "NATURAL…MENTE — Quando la realtà supera l’immaginazione",
-  "poem": "Non è magia, non è invenzione,\nla natura cambia ogni previsione.\nCorpi, menti, vita sorprendente…\nguarda più a fondo: NATURAL…MENTE.\n[spoken, slower] NATURAL…MENTE — quando la realtà supera l’immaginazione.",
-  "tags": "20 second branded jingle, Italian male vocal, exact words only, atmospheric electronic hip hop, cinematic electro pulse, curious and mysterious, scientific wonder, punchy restrained drums, warm synth bass, rhythmic sung-spoken delivery, clever not childish, no long intro, memorable sonic logo, strong emphasis on NATURAL…MENTE, final tagline spoken slower with dramatic pause, clean ending, no extra lyrics, no repeated chorus",
-  "mv": "chirp-v6"
+  "id": "idle-20261002-jingles-mapped",
+  "action": "noop"
 }
