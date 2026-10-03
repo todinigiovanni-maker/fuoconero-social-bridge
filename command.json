@@ -1,13 +1,6 @@
 {
   "version": 1,
-  "id": "inspect-tiktok-candidates-20261003-v1",
-  "action": "inspect_render_output_batch",
-  "job_ids": [
-    "042fbd98-dc48-4644-93ba-4dcabf19e384",
-    "0ffdbe8e-fca0-418d-9fa1-c626e639e277",
-    "5ae403a9-79cc-4848-8655-6d129e2761d5",
-    "f48f16bc-6c73-49a9-9ade-e3536e002f1b",
-    "f650e827-fb67-45aa-b2a8-5d35c6e2bbd1",
-    "c5210fc9-369c-444d-ac61-15f69956c018"
-  ]
+  "id": "inspect-pruriti-tiktok-20261003-v1",
+  "action": "inspect_render_output",
+  "render_job_id": "042fbd98-dc48-4644-93ba-4dcabf19e384"
 }
