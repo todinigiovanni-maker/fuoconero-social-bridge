@@ -623,6 +623,27 @@ async function autoPoetryPollTick(){
 }
 setInterval(()=>void autoPoetryPollTick(),30000).unref();
 
+async function resendPendingPoetryControls(){
+ try{
+  const state=await autoState();
+  if(Number(state.poetry_skip_button_version||0)>=1)return;
+  const pipeline=(state.poetry_pipeline&&typeof state.poetry_pipeline==="object")?state.poetry_pipeline:{};
+  const pending=Object.entries(pipeline).find(([,x])=>x&&x.status==="generated"&&Array.isArray(x.songs)&&x.songs.length);
+  state.poetry_skip_button_version=1;
+  await saveAutoState(state);
+  if(!pending)return;
+  const [postId,rec]=pending;
+  const lines=rec.songs.map((s,i)=>"Versione "+(i+1)+" ("+(s.duration?Number(s.duration).toFixed(1)+" s":"durata n/d")+"): "+s.audio_url);
+  const buttons=[
+   rec.songs.slice(0,2).map((s,i)=>({text:"✅ VERSIONE "+(i+1),callback_data:"poetrypick:"+postId+":"+(i+1)})),
+   [{text:"❌ SCARTA POESIA",callback_data:"poetryskip:"+postId}]
+  ];
+  await telegramNotify("🎙️ Fuoconero Social — poesia in attesa\n"+(rec.title||("Post "+postId))+"\n\n"+lines.join("\n")+"\n\nOra puoi scegliere una versione oppure scartare la poesia senza bloccare il flusso.",buttons);
+  console.log("AUTO_POETRY pending controls resent",postId);
+ }catch(e){console.warn("AUTO_POETRY resend controls failed",e.message);}
+}
+setTimeout(()=>void resendPendingPoetryControls(),7000);
+
 async function autoPoetryBranch(state){
  const pipeline=(state.poetry_pipeline&&typeof state.poetry_pipeline==="object")?state.poetry_pipeline:{};
  const rendered=new Set(Array.isArray(state.poetry_rendered)?state.poetry_rendered.map(String):[]);
