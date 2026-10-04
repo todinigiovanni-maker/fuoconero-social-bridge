@@ -545,11 +545,13 @@ setInterval(()=>void autoPoetryPollTick(),30000).unref();
 async function autoPoetryBranch(state){
  const pipeline=(state.poetry_pipeline&&typeof state.poetry_pipeline==="object")?state.poetry_pipeline:{};
  const rendered=new Set(Array.isArray(state.poetry_rendered)?state.poetry_rendered.map(String):[]);
+ let manualCleanup=false;
  for(const doneId of AUTO_POETRY_MANUAL_DONE){
   const key=String(doneId);
-  if(pipeline[key])delete pipeline[key];
+  if(pipeline[key]){delete pipeline[key];manualCleanup=true;}
   rendered.add(key);
  }
+ if(manualCleanup)state.poetry_last_scan=0;
  state.poetry_pipeline=pipeline;
  state.poetry_rendered=[...rendered].slice(-1000);
  if(Number(state.poetry_extractor_version||0)<2){
