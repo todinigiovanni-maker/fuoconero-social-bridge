@@ -613,11 +613,14 @@ async function autoPoetryPollTick(){
   rec.status="generated";rec.updated_at=Date.now();
   state.poetry_pipeline=pipeline;await saveAutoState(state);
   const lines=rec.songs.map((s,i)=>"Versione "+(i+1)+" ("+(s.duration?Number(s.duration).toFixed(1)+" s":"durata n/d")+"): "+s.audio_url);
+  const post=await publishedPostById(Number(postId)).catch(()=>null);
+  const poemLink=post?.link||"";
   const pickButtons=[
    rec.songs.slice(0,2).map((s,i)=>({text:"✅ VERSIONE "+(i+1),callback_data:"poetrypick:"+postId+":"+(i+1)})),
+   poemLink?[{text:"🔗 APRI POESIA",url:poemLink}]:[],
    [{text:"❌ SCARTA POESIA",callback_data:"poetryskip:"+postId}]
-  ];
-  await telegramNotify("🎙️ Fuoconero Social — poesia pronta\n"+(rec.title||("Post "+postId))+"\n\n"+lines.join("\n")+"\n\nScegli direttamente qui sotto quale audio approvare.",pickButtons);
+  ].filter(row=>row.length);
+  await telegramNotify("🎙️ Fuoconero Social — poesia pronta\n"+(rec.title||("Post "+postId))+(poemLink?"\n"+poemLink:"")+"\n\n"+lines.join("\n")+"\n\nScegli direttamente qui sotto quale audio approvare.",pickButtons);
  }catch(e){console.warn("AUTO_POETRY poll failed",e.message);}
  finally{autoPoetryPollBusy=false;}
 }
@@ -634,11 +637,14 @@ async function resendPendingPoetryControls(){
   if(!pending)return;
   const [postId,rec]=pending;
   const lines=rec.songs.map((s,i)=>"Versione "+(i+1)+" ("+(s.duration?Number(s.duration).toFixed(1)+" s":"durata n/d")+"): "+s.audio_url);
+  const post=await publishedPostById(Number(postId)).catch(()=>null);
+  const poemLink=post?.link||"";
   const buttons=[
    rec.songs.slice(0,2).map((s,i)=>({text:"✅ VERSIONE "+(i+1),callback_data:"poetrypick:"+postId+":"+(i+1)})),
+   poemLink?[{text:"🔗 APRI POESIA",url:poemLink}]:[],
    [{text:"❌ SCARTA POESIA",callback_data:"poetryskip:"+postId}]
-  ];
-  await telegramNotify("🎙️ Fuoconero Social — poesia in attesa\n"+(rec.title||("Post "+postId))+"\n\n"+lines.join("\n")+"\n\nOra puoi scegliere una versione oppure scartare la poesia senza bloccare il flusso.",buttons);
+  ].filter(row=>row.length);
+  await telegramNotify("🎙️ Fuoconero Social — poesia in attesa\n"+(rec.title||("Post "+postId))+(poemLink?"\n"+poemLink:"")+"\n\n"+lines.join("\n")+"\n\nOra puoi scegliere una versione oppure scartare la poesia senza bloccare il flusso.",buttons);
   console.log("AUTO_POETRY pending controls resent",postId);
  }catch(e){console.warn("AUTO_POETRY resend controls failed",e.message);}
 }
@@ -806,7 +812,7 @@ async function autoPoetryBranch(state){
  pipeline[id]={post_id:Number(post.id),title:post.title,task_id:created.task_id,status:"running",created_at:Date.now(),updated_at:Date.now()};
  state.poetry_pipeline=pipeline;state.poetry_rendered=[...rendered].slice(-1000);await saveAutoState(state);
  console.log("AUTO_POETRY generation started",post.id,created.task_id,post.title);
- await telegramNotify("🖋️ Fuoconero Social\nPoesia trovata automaticamente:\n"+post.title+"\n\n🎙️ Sto preparando 2 recitazioni. Nessun Reel verrà creato prima della tua scelta.");
+ await telegramNotify("🖋️ Fuoconero Social\nPoesia trovata automaticamente:\n"+post.title+"\n"+(post.link||"")+"\n\n🎙️ Sto preparando 2 recitazioni. Nessun Reel verrà creato prima della tua scelta.");
 }
 
 async function autoReelTick(){
