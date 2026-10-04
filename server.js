@@ -554,6 +554,12 @@ async function autoPoetryBranch(state){
  if(manualCleanup)state.poetry_last_scan=0;
  state.poetry_pipeline=pipeline;
  state.poetry_rendered=[...rendered].slice(-1000);
+ if(Number(state.poetry_resume_version||0)<1){
+  state.poetry_last_scan=0;
+  state.poetry_resume_version=1;
+  await saveAutoState(state);
+  console.log("AUTO_POETRY resume migration applied");
+ }
  if(Number(state.poetry_extractor_version||0)<2){
   for(const [id,rec] of Object.entries(pipeline)){
    if(rec?.status==="skipped_too_long"){delete pipeline[id];rendered.delete(String(id));}
