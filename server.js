@@ -650,6 +650,28 @@ async function resendPendingPoetryControls(){
 }
 setTimeout(()=>void resendPendingPoetryControls(),7000);
 
+async function resendFiondeOnce(){
+ try{
+  const state=await autoState();
+  if(Number(state.fionde_resend_version||0)>=1)return;
+  const rec=state?.poetry_pipeline?.["5227"];
+  state.fionde_resend_version=1;
+  await saveAutoState(state);
+  if(!rec||!Array.isArray(rec.songs)||!rec.songs.length)return;
+  const post=await publishedPostById(5227).catch(()=>null);
+  const poemLink=post?.link||"";
+  const lines=rec.songs.map((s,i)=>"Versione "+(i+1)+" ("+(s.duration?Number(s.duration).toFixed(1)+" s":"durata n/d")+"): "+s.audio_url);
+  const buttons=[
+   rec.songs.slice(0,2).map((s,i)=>({text:"✅ VERSIONE "+(i+1),callback_data:"poetrypick:5227:"+(i+1)})),
+   poemLink?[{text:"🔗 APRI POESIA",url:poemLink}]:[],
+   [{text:"❌ SCARTA POESIA",callback_data:"poetryskip:5227"}]
+  ].filter(row=>row.length);
+  await telegramNotify("🎙️ Fuoconero Social — riprova Fionde…"+(poemLink?"\n"+poemLink:"")+"\n\n"+lines.join("\n")+"\n\nRiproponiamo la poesia con il flusso aggiornato.",buttons);
+  console.log("AUTO_POETRY Fionde controls resent");
+ }catch(e){console.warn("AUTO_POETRY Fionde resend failed",e.message);}
+}
+setTimeout(()=>void resendFiondeOnce(),10000);
+
 async function autoPoetryBranch(state){
  const pipeline=(state.poetry_pipeline&&typeof state.poetry_pipeline==="object")?state.poetry_pipeline:{};
  const rendered=new Set(Array.isArray(state.poetry_rendered)?state.poetry_rendered.map(String):[]);
