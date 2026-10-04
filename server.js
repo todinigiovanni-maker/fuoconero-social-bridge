@@ -352,7 +352,36 @@ async function poetryAudioStatus(postId){
   return {status:"missing",audio_url:"",drive_file_id:"",revision:""};
  }
 }
-const AUTO_POETRY_MANUAL_DONE=new Set([4820,7443,7359,7248,7053,6990]);
+function poetryTitleKey(title=""){
+ return decodeHtml(title||"").toLocaleLowerCase("it-IT").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/[^\p{L}\p{N}]+/gu," ").replace(/\s+/g," ").trim();
+}
+function rememberPoetryHistory(state,postId,title,status,extra={}){
+ const id=String(postId),key=poetryTitleKey(title);
+ const history=(state.poetry_history&&typeof state.poetry_history==="object")?state.poetry_history:{};
+ history[id]={...(history[id]||{}),post_id:Number(postId),title:String(title||history[id]?.title||""),title_key:key,status,updated_at:Date.now(),...extra};
+ state.poetry_history=history;
+ if(key){
+  const keys=new Set(Array.isArray(state.poetry_title_history)?state.poetry_title_history:[]);
+  keys.add(key);
+  state.poetry_title_history=[...keys].slice(-2000);
+ }
+}
+function poetryHistoryEvidence(state,post){
+ const id=String(post?.id||""),key=poetryTitleKey(post?.title||"");
+ const history=(state.poetry_history&&typeof state.poetry_history==="object")?state.poetry_history:{};
+ const h=history[id];
+ if(h&&["running","generated","approved","rendered","published","manual_done","existing_audio"].includes(String(h.status||"")))return {source:"history",status:h.status};
+ const titleHistory=new Set(Array.isArray(state.poetry_title_history)?state.poetry_title_history:[]);
+ if(key&&titleHistory.has(key))return {source:"title_history",status:"done"};
+ const spoken=(state.spoken_commands&&typeof state.spoken_commands==="object")?state.spoken_commands:{};
+ for(const rec of Object.values(spoken)){
+  const st=String(rec?.status||"").toLowerCase();
+  if(!["running","succeeded"].includes(st))continue;
+  if(key&&poetryTitleKey(rec?.title||"")===key)return {source:"spoken_commands",status:st};
+ }
+ return null;
+}
+const AUTO_POETRY_MANUAL_DONE=new Set([2293,4796,4820,5261,6800,6816,6990,7053,7248,7359,7443]);
 
 const AUTO_REEL_CATEGORY_IDS={
  "789517870":"animale","577762893":"fisicamente","790278878":"naturalmente",
@@ -643,12 +672,23 @@ async function autoPoetryBranch(state){
  }
 
  // Process exactly one new poem per scan to avoid hammering WordPress and the audio API.
- const post=poems.find(p=>{
-  const id=String(p.id);
-  return !rendered.has(id)&&!AUTO_POETRY_MANUAL_DONE.has(Number(p.id))&&!pipeline[id];
- });
+ // Multi-source duplicate guard: durable history + previous manual spoken commands + current pipeline.
+ let post=null;
+ for(const candidate of poems){
+  const candidateId=String(candidate.id);
+  if(rendered.has(candidateId)||AUTO_POETRY_MANUAL_DONE.has(Number(candidate.id))||pipeline[candidateId])continue;
+  const evidence=poetryHistoryEvidence(state,candidate);
+  if(evidence){
+   rendered.add(candidateId);
+   rememberPoetryHistory(state,candidate.id,candidate.title,"manual_done",{dedupe_source:evidence.source,dedupe_status:evidence.status});
+   console.log("AUTO_POETRY duplicate guard skip",candidate.id,evidence.source,evidence.status,candidate.title);
+   continue;
+  }
+  post=candidate;
+  break;
+ }
  if(!post){
-  state.poetry_pipeline=pipeline;state.poetry_rendered=[...rendered].slice(-1000);
+  state.poetry_pipeline=pipeline;state.poetry_rendered=[...rendered].slice(-1000);await saveAutoState(state);
   console.log("AUTO_POETRY no candidate");
   return;
  }
