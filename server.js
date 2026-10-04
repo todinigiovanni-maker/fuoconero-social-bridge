@@ -1189,13 +1189,25 @@ async function telegramApprovalTick(){
      rec.selected_audio_id=selected.id||null;
      rec.selected_duration=selected.duration||null;
      rec.selected_at=Date.now();
-     rec.status="render_queued";
+     rec.status="approving";
      pipeline[String(postId)]=rec;
      state.poetry_pipeline=pipeline;
      await saveAutoState(state);
-     telegramHandled.add(data);
-     await telegramAnswerCallback(token,q.id,"Versione "+choice+" approvata. Creo Reel + Story.");
      try{
+      const saved=await wp("POST","/reel-maker/article/"+encodeURIComponent(postId)+"/audio",{
+       approved:true,audio_url:selected.audio_url,drive_file_id:"",audio_source:"suno"
+      });
+      const official=saved?.data?.poetry_audio;
+      if(saved.status<200||saved.status>=300||official?.status!=="approved"||!/^https:\/\//i.test(String(official?.audio_url||""))){
+       throw new Error(String(saved?.data?.message||saved?.data?.error||"salvataggio audio ufficiale non riuscito"));
+      }
+      rec.selected_audio_url=official.audio_url;
+      rec.official_audio_url=official.audio_url;
+      rec.official_audio_revision=official.revision||null;
+      rec.status="render_queued";
+      pipeline[String(postId)]=rec;state.poetry_pipeline=pipeline;await saveAutoState(state);
+      telegramHandled.add(data);
+      await telegramAnswerCallback(token,q.id,"Versione "+choice+" approvata. Audio salvato nel blog; creo Reel + Story.");
       const post=await publishedPostById(postId);
       if(!post)throw new Error("poesia pubblicata non disponibile");
       const scenes=autoScenes(post),publication=autoPublicationMeta(post,"poesie");
@@ -1217,10 +1229,20 @@ async function telegramApprovalTick(){
       await telegramNotify("✅ Fuoconero Social — poesia\nVersione "+choice+" approvata per:\n"+post.title+"\n\n⚙️ Reel + Story accodati subito con questa recitazione.");
       void pump();
      }catch(renderError){
-      rec.status="approved";rec.updated_at=Date.now();rec.last_error=renderError.message;
+      const official=await poetryAudioStatus(postId).catch(()=>({status:"missing"}));
+      rec.status=official?.status==="approved"?"approved":"generated";
+      rec.updated_at=Date.now();rec.last_error=renderError.message;
       state.poetry_last_scan=0;state.poetry_pipeline=pipeline;await saveAutoState(state);
-      await telegramNotify("⚠️ Fuoconero Social — poesia\nRecitazione approvata, ma il render non è partito subito: "+renderError.message+"\nRiproverò automaticamente.");
-      console.warn("TELEGRAM poetry immediate render failed",postId,renderError.message);
+      if(rec.status==="approved"){
+       telegramHandled.add(data);
+       await telegramAnswerCallback(token,q.id,"Audio salvato; render da riprovare.");
+       await telegramNotify("⚠️ Fuoconero Social — poesia\nL’audio scelto è già nel blog, ma il render non è partito subito: "+renderError.message+"\nRiproverò automaticamente.");
+      }else{
+       telegramHandled.delete(data);
+       await telegramAnswerCallback(token,q.id,"Salvataggio audio non riuscito. Puoi riprovare.");
+       await telegramNotify("⚠️ Fuoconero Social — poesia\nNon sono riuscito a salvare la recitazione nel blog: "+renderError.message+"\nPuoi premere di nuovo VERSIONE "+choice+".");
+      }
+      console.warn("TELEGRAM poetry approval/render failed",postId,renderError.message);
      }
     }catch(e){
      await telegramAnswerCallback(token,q.id,"Non sono riuscito a registrare la scelta.");
