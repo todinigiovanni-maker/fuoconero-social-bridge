@@ -323,6 +323,22 @@ async function searchPublishedPosts(query){
   excerpt:decodeHtml(p?.excerpt?.rendered||p?.excerpt||"")
  }));
 }
+async function archivePublishedPosts(maxPages=6){
+ const out=[];
+ for(let page=1;page<=maxPages;page++){
+  const u=new URL(BASE+"/wp-json/wp/v2/posts");
+  u.searchParams.set("status","publish");u.searchParams.set("per_page","50");u.searchParams.set("page",String(page));u.searchParams.set("orderby","date");u.searchParams.set("order","desc");
+  u.searchParams.set("_fields","id,date,date_gmt,link,title,excerpt,categories");
+  const r=await fetch(u,{headers:{"user-agent":"FuoconeroSocialBridge/0.5.1"},signal:AbortSignal.timeout(30000)});
+  if(r.status===400)break;
+  if(!r.ok)throw new Error("WordPress archive feed HTTP "+r.status);
+  const a=await r.json();
+  if(!Array.isArray(a)||!a.length)break;
+  out.push(...a.map(p=>({...p,title:decodeHtml(p?.title?.rendered||p?.title||""),excerpt:decodeHtml(p?.excerpt?.rendered||p?.excerpt||"")})));
+  if(a.length<50)break;
+ }
+ return out;
+}
 
 async function recentPublishedPoems(){
  const u=new URL(BASE+"/wp-json/wp/v2/posts");
@@ -867,8 +883,73 @@ async function autoReelTick(){
 }
 setInterval(()=>void autoReelTick(),300000).unref();
 
+let archiveSuggestionBusy=false;
+async function nextArchiveSuggestion(chatId,{force=false,excludeId=null}={}){
+ if(archiveSuggestionBusy)return false;
+ archiveSuggestionBusy=true;
+ try{
+  const state=await autoState(),now=Date.now();
+  const pending=state.archive_pending_suggestion;
+  if(!force&&pending?.post_id)return false;
+  const last=Number(state.archive_last_suggestion_at||0);
+  if(!force&&last&&now-last<6*60*60*1000)return false;
+
+  const proposed=new Set(Array.isArray(state.archive_suggested_ids)?state.archive_suggested_ids.map(String):[]);
+  if(excludeId)proposed.add(String(excludeId));
+  const archiveHist=(state.telegram_archive_history&&typeof state.telegram_archive_history==="object")?state.telegram_archive_history:{};
+  const alreadyRequested=new Set(Object.keys(archiveHist).map(k=>String(k).split(":")[0]));
+  const posts=await archivePublishedPosts(6);
+  const cutoff=now-7*24*60*60*1000;
+
+  let candidate=null;
+  for(const post of posts){
+   const id=String(post.id),ts=new Date((post.date_gmt||post.date)+"Z").getTime();
+   const category=publicationCategory(post);
+   if(!category||ts>cutoff||proposed.has(id)||alreadyRequested.has(id))continue;
+   if(category==="poesie"){
+    if(AUTO_POETRY_MANUAL_DONE.has(Number(post.id))||poetryHistoryEvidence(state,post))continue;
+    const pipe=(state.poetry_pipeline&&typeof state.poetry_pipeline==="object")?state.poetry_pipeline:{};
+    if(pipe[id])continue;
+   }
+   candidate=post;break;
+  }
+  if(!candidate){
+   state.archive_last_suggestion_at=now;
+   await saveAutoState(state);
+   if(force)await telegramSend(chatId,"📚 Ho controllato l’archivio: per ora non trovo altri contenuti vecchi eleggibili che non siano già stati proposti o lavorati.");
+   return false;
+  }
+
+  const id=String(candidate.id),category=publicationCategory(candidate);
+  proposed.add(id);
+  state.archive_suggested_ids=[...proposed].slice(-2000);
+  state.archive_pending_suggestion={post_id:Number(candidate.id),title:candidate.title,category,created_at:now};
+  state.archive_last_suggestion_at=now;
+  await saveAutoState(state);
+
+  const label=category==="poesie"?"🖋️ POESIA DA RECUPERARE":"📚 DAL VECCHIO ARCHIVIO";
+  const body=label+"\n\n"+candidate.title+"\n\nQuesto non risulta ancora lavorato dal nuovo sistema. Lo trasformiamo in Reel?";
+  const buttons=[
+   [{text:category==="poesie"?"🎙️ RECITA + REEL":"🎬 CREA REEL",callback_data:"archiverender:"+candidate.id+":reel"}],
+   [{text:category==="poesie"?"🎙️ RECITA + REEL + STORY":"🎬 + 📱 REEL + STORY",callback_data:"archiverender:"+candidate.id+":both"}],
+   [{text:"⏭️ SALTA",callback_data:"archiveskip:"+candidate.id},{text:"🔄 DAMMENE UN ALTRO",callback_data:"archivenext:"+candidate.id}]
+  ];
+  await telegramSend(chatId,body,buttons);
+  console.log("ARCHIVE suggestion sent",candidate.id,category,candidate.title);
+  return true;
+ }catch(e){
+  console.warn("ARCHIVE suggestion failed",e.message);
+  return false;
+ }finally{archiveSuggestionBusy=false;}
+}
+async function archiveSuggestionTick(){
+ const chatId=process.env.FNS_TELEGRAM_CHAT_ID||await telegramChatId();
+ if(!chatId)return;
+ await nextArchiveSuggestion(chatId);
+}
 async function telegramArchiveRender(post,mode,chatId){
  const state=await autoState(),category=publicationCategory(post),key=String(post.id)+":"+mode;
+ if(Number(state.archive_pending_suggestion?.post_id)===Number(post.id))state.archive_pending_suggestion=null;
  const hist=(state.telegram_archive_history&&typeof state.telegram_archive_history==="object")?state.telegram_archive_history:{};
  const previous=hist[key];
  if(previous?.render_job_id){
@@ -982,6 +1063,34 @@ async function telegramApprovalTick(){
     continue;
    }
 
+   const archiveSkip=data.match(/^archiveskip:(\d+)$/);
+   if(archiveSkip){
+    telegramHandled.add(data);
+    try{
+     const state=await autoState();
+     if(Number(state.archive_pending_suggestion?.post_id)===Number(archiveSkip[1]))state.archive_pending_suggestion=null;
+     const skipped=new Set(Array.isArray(state.archive_skipped_ids)?state.archive_skipped_ids.map(String):[]);
+     skipped.add(String(archiveSkip[1]));state.archive_skipped_ids=[...skipped].slice(-2000);
+     await saveAutoState(state);
+     await telegramAnswerCallback(token,q.id,"Saltato.");
+     await telegramSend(chat,"⏭️ Saltato. Non te lo ripropongo.");
+    }catch(e){await telegramAnswerCallback(token,q.id,"Errore.");}
+    continue;
+   }
+
+   const archiveNext=data.match(/^archivenext:(\d+)$/);
+   if(archiveNext){
+    telegramHandled.add(data);
+    try{
+     const state=await autoState();
+     if(Number(state.archive_pending_suggestion?.post_id)===Number(archiveNext[1]))state.archive_pending_suggestion=null;
+     await saveAutoState(state);
+     await telegramAnswerCallback(token,q.id,"Cerco il prossimo.");
+     await nextArchiveSuggestion(chat,{force:true,excludeId:Number(archiveNext[1])});
+    }catch(e){console.warn("ARCHIVE next failed",e.message);await telegramAnswerCallback(token,q.id,"Errore.");}
+    continue;
+   }
+
    const archiveRender=data.match(/^archiverender:(\d+):(reel|both)$/);
    if(archiveRender){
     telegramHandled.add(data);
@@ -1068,6 +1177,8 @@ async function telegramApprovalTick(){
 setInterval(()=>void telegramApprovalTick(),5000).unref();
 setTimeout(()=>void telegramApprovalTick(),3000);
 setTimeout(()=>void telegramConfigureCommands(),5000);
+setInterval(()=>void archiveSuggestionTick(),15*60*1000).unref();
+setTimeout(()=>void archiveSuggestionTick(),15000);
 
 async function runCommand(){
  let c; try{c=JSON.parse(await readFile(new URL("./command.json",import.meta.url),"utf8"));}catch(e){console.error("COMMAND read error",e.message);return;}
