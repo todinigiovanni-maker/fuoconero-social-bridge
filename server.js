@@ -613,7 +613,10 @@ async function autoPoetryPollTick(){
   rec.status="generated";rec.updated_at=Date.now();
   state.poetry_pipeline=pipeline;await saveAutoState(state);
   const lines=rec.songs.map((s,i)=>"Versione "+(i+1)+" ("+(s.duration?Number(s.duration).toFixed(1)+" s":"durata n/d")+"): "+s.audio_url);
-  const pickButtons=[rec.songs.slice(0,2).map((s,i)=>({text:"✅ VERSIONE "+(i+1),callback_data:"poetrypick:"+postId+":"+(i+1)}))];
+  const pickButtons=[
+   rec.songs.slice(0,2).map((s,i)=>({text:"✅ VERSIONE "+(i+1),callback_data:"poetrypick:"+postId+":"+(i+1)})),
+   [{text:"❌ SCARTA POESIA",callback_data:"poetryskip:"+postId}]
+  ];
   await telegramNotify("🎙️ Fuoconero Social — poesia pronta\n"+(rec.title||("Post "+postId))+"\n\n"+lines.join("\n")+"\n\nScegli direttamente qui sotto quale audio approvare.",pickButtons);
  }catch(e){console.warn("AUTO_POETRY poll failed",e.message);}
  finally{autoPoetryPollBusy=false;}
@@ -1121,6 +1124,33 @@ async function telegramApprovalTick(){
      await telegramAnswerCallback(token,q.id,"Avvio il render.");
      await telegramArchiveRender(post,archiveRender[2],chat);
     }catch(e){console.warn("TELEGRAM archive render failed",e.message);await telegramAnswerCallback(token,q.id,"Render non avviato.");await telegramSend(chat,"⚠️ Reel Maker archivio: "+e.message);}
+    continue;
+   }
+
+   const poetrySkip=data.match(/^poetryskip:(\d+)$/);
+   if(poetrySkip){
+    const postId=Number(poetrySkip[1]);
+    try{
+     const state=await autoState();
+     const pipeline=(state.poetry_pipeline&&typeof state.poetry_pipeline==="object")?state.poetry_pipeline:{};
+     const rec=pipeline[String(postId)];
+     const title=rec?.title||("Post "+postId);
+     delete pipeline[String(postId)];
+     const rendered=new Set(Array.isArray(state.poetry_rendered)?state.poetry_rendered.map(String):[]);
+     rendered.add(String(postId));
+     state.poetry_pipeline=pipeline;
+     state.poetry_rendered=[...rendered].slice(-1000);
+     state.poetry_last_scan=0;
+     rememberPoetryHistory(state,postId,title,"skipped_by_user",{source:"telegram",skipped_at:Date.now()});
+     await saveAutoState(state);
+     telegramHandled.add(data);
+     await telegramAnswerCallback(token,q.id,"Poesia scartata.");
+     await telegramNotify("⏭️ Fuoconero Social — poesia scartata\n"+title+"\n\nNon la ripropongo. Cerco la prossima poesia.");
+     setTimeout(()=>void autoReelTick(),1000);
+    }catch(e){
+     await telegramAnswerCallback(token,q.id,"Non sono riuscito a scartarla.");
+     console.warn("TELEGRAM poetry skip failed",postId,e.message);
+    }
     continue;
    }
 
