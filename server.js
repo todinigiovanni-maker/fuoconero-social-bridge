@@ -52,7 +52,8 @@ async function sunoCredits(){
 async function sunoCreateMusic({title,prompt,tags,mv="chirp-v6"}){
  const apiKey=process.env.SUNO_API_KEY;
  if(!apiKey) throw new Error("SUNO_API_KEY not configured");
- const payload={task_type:"create_music",custom_mode:true,mv,title,prompt,tags};
+ const safeTitle=String(title||"Fuoconero").replace(/\s+/g," ").trim().slice(0,79);
+ const payload={task_type:"create_music",custom_mode:true,mv,title:safeTitle,prompt,tags};
  const r=await fetch("https://api.aimusicapi.ai/api/v1/sonic/create",{
   method:"POST",
   headers:{Authorization:"Bearer "+apiKey,"Content-Type":"application/json"},
