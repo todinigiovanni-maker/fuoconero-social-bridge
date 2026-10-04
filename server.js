@@ -878,6 +878,21 @@ async function autoReelTick(){
 setInterval(()=>void autoReelTick(),300000).unref();
 
 let archiveSuggestionBusy=false;
+function archiveAlreadyWorkedIds(state){
+ const ids=new Set();
+ for(const x of Array.isArray(state?.seen)?state.seen:[])ids.add(String(x));
+ for(const x of Array.isArray(state?.poetry_rendered)?state.poetry_rendered:[])ids.add(String(x));
+ for(const item of Array.isArray(state?.approval_queue)?state.approval_queue:[]){
+  if(item?.post_id)ids.add(String(item.post_id));
+ }
+ const archiveHist=(state?.telegram_archive_history&&typeof state.telegram_archive_history==="object")?state.telegram_archive_history:{};
+ for(const k of Object.keys(archiveHist))ids.add(String(k).split(":")[0]);
+ const poetryHist=(state?.poetry_history&&typeof state.poetry_history==="object")?state.poetry_history:{};
+ for(const k of Object.keys(poetryHist))ids.add(String(k).split(":")[0]);
+ const pipeline=(state?.poetry_pipeline&&typeof state.poetry_pipeline==="object")?state.poetry_pipeline:{};
+ for(const k of Object.keys(pipeline))ids.add(String(k));
+ return ids;
+}
 async function nextArchiveSuggestion(chatId,{force=false,excludeId=null}={}){
  if(archiveSuggestionBusy)return false;
  archiveSuggestionBusy=true;
@@ -892,6 +907,7 @@ async function nextArchiveSuggestion(chatId,{force=false,excludeId=null}={}){
   if(excludeId)proposed.add(String(excludeId));
   const archiveHist=(state.telegram_archive_history&&typeof state.telegram_archive_history==="object")?state.telegram_archive_history:{};
   const alreadyRequested=new Set(Object.keys(archiveHist).map(k=>String(k).split(":")[0]));
+  const alreadyWorked=archiveAlreadyWorkedIds(state);
   let page=Math.max(1,Number(state.archive_page_cursor||1));
   let posts=await archivePublishedPage(page);
   if(!posts.length&&page>1){page=1;posts=await archivePublishedPage(page);}
@@ -901,7 +917,7 @@ async function nextArchiveSuggestion(chatId,{force=false,excludeId=null}={}){
   for(const post of posts){
    const id=String(post.id),ts=new Date((post.date_gmt||post.date)+"Z").getTime();
    const category=publicationCategory(post);
-   if(!category||ts>cutoff||proposed.has(id)||alreadyRequested.has(id))continue;
+   if(!category||ts>cutoff||proposed.has(id)||alreadyRequested.has(id)||alreadyWorked.has(id))continue;
    if(category==="poesie"){
     if(AUTO_POETRY_MANUAL_DONE.has(Number(post.id))||poetryHistoryEvidence(state,post))continue;
     const pipe=(state.poetry_pipeline&&typeof state.poetry_pipeline==="object")?state.poetry_pipeline:{};
@@ -950,6 +966,12 @@ async function telegramArchiveRender(post,mode,chatId){
  if(Number(state.archive_pending_suggestion?.post_id)===Number(post.id))state.archive_pending_suggestion=null;
  const hist=(state.telegram_archive_history&&typeof state.telegram_archive_history==="object")?state.telegram_archive_history:{};
  const previous=hist[key];
+ const alreadyWorked=archiveAlreadyWorkedIds(state);
+ if(alreadyWorked.has(String(post.id))&&!previous?.render_job_id){
+  await telegramSend(chatId,"♻️ Questo contenuto risulta già lavorato dal sistema Reel:\n"+post.title+"\n\nNon creo un doppione. Cerco il prossimo candidato.");
+  await nextArchiveSuggestion(chatId,{force:true,excludeId:post.id});
+  return;
+ }
  if(previous?.render_job_id){
   const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(previous.render_job_id)+"/output");
   const reelId=findDriveFileId(out.data,"reel"),storyId=findDriveFileId(out.data,"story"),buttons=[];
