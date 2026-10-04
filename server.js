@@ -1189,13 +1189,39 @@ async function telegramApprovalTick(){
      rec.selected_audio_id=selected.id||null;
      rec.selected_duration=selected.duration||null;
      rec.selected_at=Date.now();
-     rec.status="approved";
+     rec.status="render_queued";
      pipeline[String(postId)]=rec;
      state.poetry_pipeline=pipeline;
      await saveAutoState(state);
      telegramHandled.add(data);
-     await telegramAnswerCallback(token,q.id,"Versione "+choice+" approvata.");
-     await telegramNotify("✅ Fuoconero Social — poesia\nVersione "+choice+" approvata per:\n"+(rec.title||("Post "+postId))+"\n\nScelta registrata nel flusso.");
+     await telegramAnswerCallback(token,q.id,"Versione "+choice+" approvata. Creo Reel + Story.");
+     try{
+      const post=await publishedPostById(postId);
+      if(!post)throw new Error("poesia pubblicata non disponibile");
+      const scenes=autoScenes(post),publication=autoPublicationMeta(post,"poesie");
+      const payload={
+       request_id:"fuoconero-auto-poetry-v3-post-"+post.id+"-reel-story",
+       post_id:Number(post.id),category:"poesie",
+       music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B",
+       outputs:{reel:{preset:"poesia",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}},
+       publication,publication_authorized:false
+      };
+      const created=await wp("POST","/reel-maker/render-jobs",payload);
+      if(!(created.status>=200&&created.status<300)&&!isExistingRender(created))throw new Error(String(created?.data?.message||created?.data?.error||"render non creato"));
+      rec.status="rendered";rec.updated_at=Date.now();rec.render_job_id=created?.data?.render_job_id||rec.render_job_id||null;
+      const rendered=new Set(Array.isArray(state.poetry_rendered)?state.poetry_rendered.map(String):[]);
+      rendered.add(String(postId));
+      state.poetry_rendered=[...rendered].slice(-1000);
+      rememberPoetryHistory(state,postId,post.title,"rendered",{render_job_id:rec.render_job_id,selected_audio_id:rec.selected_audio_id||null});
+      await saveAutoState(state);
+      await telegramNotify("✅ Fuoconero Social — poesia\nVersione "+choice+" approvata per:\n"+post.title+"\n\n⚙️ Reel + Story accodati subito con questa recitazione.");
+      void pump();
+     }catch(renderError){
+      rec.status="approved";rec.updated_at=Date.now();rec.last_error=renderError.message;
+      state.poetry_last_scan=0;state.poetry_pipeline=pipeline;await saveAutoState(state);
+      await telegramNotify("⚠️ Fuoconero Social — poesia\nRecitazione approvata, ma il render non è partito subito: "+renderError.message+"\nRiproverò automaticamente.");
+      console.warn("TELEGRAM poetry immediate render failed",postId,renderError.message);
+     }
     }catch(e){
      await telegramAnswerCallback(token,q.id,"Non sono riuscito a registrare la scelta.");
      console.warn("TELEGRAM poetry pick failed",postId,choice,e.message);
