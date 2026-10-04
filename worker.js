@@ -106,7 +106,7 @@ async function approvedPoetryBridgeAudio(postId){
   const state=JSON.parse(raw);
   const rec=state?.poetry_pipeline?.[String(postId)];
   const url=String(rec?.selected_audio_url||"");
-  if(["approved","rendered"].includes(String(rec?.status||""))&&/^https:\/\//i.test(url)){
+  if(["approved","render_queued","rendered"].includes(String(rec?.status||""))&&/^https:\/\//i.test(url)){
    return {url,audio_source:"telegram_poetry_choice",revision:String(rec?.selected_audio_id||rec?.selected_at||"")};
   }
  }catch(e){console.warn("RENDER poetry bridge lookup failed",postId,e.message);}
