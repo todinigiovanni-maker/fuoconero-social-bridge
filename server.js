@@ -1077,7 +1077,47 @@ async function telegramArchiveRender(post,mode,chatId){
  void pump();
 }
 let telegramOffset=null,telegramApprovalBusy=false,telegramKnownChatId=process.env.FNS_TELEGRAM_CHAT_ID||null;
+let telegramOffsetLoaded=false,telegramPollFailures=0;
 const telegramHandled=new Set();
+async function loadTelegramOffset(){
+ if(telegramOffsetLoaded)return;
+ telegramOffsetLoaded=true;
+ try{
+  const st=await autoState();
+  const saved=Number(st?.telegram_update_offset);
+  if(Number.isInteger(saved)&&saved>=0){telegramOffset=saved;console.log("TELEGRAM offset restored",saved);}
+ }catch(e){console.warn("TELEGRAM offset restore failed",e.message);}
+}
+async function saveTelegramOffset(){
+ if(telegramOffset===null)return;
+ try{
+  const st=await autoState();
+  if(Number(st?.telegram_update_offset)===telegramOffset)return;
+  st.telegram_update_offset=telegramOffset;
+  await saveAutoState(st);
+ }catch(e){console.warn("TELEGRAM offset persist failed",e.message);}
+}
+async function telegramGetUpdates(url,attempts=3){
+ let lastError=null;
+ for(let attempt=1;attempt<=attempts;attempt++){
+  try{
+   const r=await fetch(url,{signal:AbortSignal.timeout(12000)});
+   if(!r.ok){
+    const body=await r.text().catch(()=>"");
+    throw new Error("HTTP "+r.status+(body?" "+body.slice(0,180):""));
+   }
+   const j=await r.json();
+   if(j?.ok===false)throw new Error("Telegram "+String(j?.error_code||"API")+" "+String(j?.description||"error"));
+   telegramPollFailures=0;
+   return j;
+  }catch(e){
+   lastError=e;
+   if(attempt<attempts)await new Promise(r=>setTimeout(r,500*attempt));
+  }
+ }
+ telegramPollFailures++;
+ throw new Error((lastError?.message||"getUpdates failed")+" (after "+attempts+" attempts, consecutive failures "+telegramPollFailures+")");
+}
 async function telegramAnswerCallback(token,id,textValue){
  try{await fetch("https://api.telegram.org/bot"+token+"/answerCallbackQuery",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({callback_query_id:id,text:textValue,show_alert:false}),signal:AbortSignal.timeout(15000)});}catch(e){console.warn("TELEGRAM callback answer failed",e.message);}
 }
@@ -1085,14 +1125,15 @@ async function telegramApprovalTick(){
  if(telegramApprovalBusy)return;telegramApprovalBusy=true;
  try{
   const token=process.env.FNS_TELEGRAM_BOT_TOKEN;if(!token)return;
+  await loadTelegramOffset();
   const qs=new URLSearchParams({timeout:"0",limit:"20",allowed_updates:JSON.stringify(["message","callback_query"])});
   if(telegramOffset!==null)qs.set("offset",String(telegramOffset));
-  const r=await fetch("https://api.telegram.org/bot"+token+"/getUpdates?"+qs,{signal:AbortSignal.timeout(15000)});
-  const j=await r.json(),updates=Array.isArray(j?.result)?j.result:[];
+  const j=await telegramGetUpdates("https://api.telegram.org/bot"+token+"/getUpdates?"+qs),updates=Array.isArray(j?.result)?j.result:[];
   if(!telegramKnownChatId){for(let i=updates.length-1;i>=0;i--){const id=updates[i]?.message?.chat?.id||updates[i]?.callback_query?.message?.chat?.id;if(id){telegramKnownChatId=String(id);console.log("TELEGRAM chat learned");try{const st=await autoState();st.telegram_chat_id=telegramKnownChatId;await saveAutoState(st);console.log("TELEGRAM chat persisted");}catch(e){console.warn("TELEGRAM chat persist failed",e.message);}break;}}}
   const allowed=String(process.env.FNS_TELEGRAM_CHAT_ID||telegramKnownChatId||"");
   if(telegramOffset===null){
    telegramOffset=updates.length?Math.max(...updates.map(x=>Number(x.update_id)||0))+1:0;
+   await saveTelegramOffset();
    return;
   }
   for(const update of updates){
@@ -1319,6 +1360,7 @@ async function telegramApprovalTick(){
     await telegramNotify("⚠️ Fuoconero Social\\nApprovazione ricevuta, ma la pubblicazione non è partita: "+e.message);
    }
   }
+  await saveTelegramOffset();
  }catch(e){console.warn("TELEGRAM approval poll failed",e.message);}
  finally{telegramApprovalBusy=false;}
 }
