@@ -323,21 +323,15 @@ async function searchPublishedPosts(query){
   excerpt:decodeHtml(p?.excerpt?.rendered||p?.excerpt||"")
  }));
 }
-async function archivePublishedPosts(maxPages=6){
- const out=[];
- for(let page=1;page<=maxPages;page++){
-  const u=new URL(BASE+"/wp-json/wp/v2/posts");
-  u.searchParams.set("status","publish");u.searchParams.set("per_page","50");u.searchParams.set("page",String(page));u.searchParams.set("orderby","date");u.searchParams.set("order","desc");
-  u.searchParams.set("_fields","id,date,date_gmt,link,title,excerpt,categories");
-  const r=await fetch(u,{headers:{"user-agent":"FuoconeroSocialBridge/0.5.1"},signal:AbortSignal.timeout(30000)});
-  if(r.status===400)break;
-  if(!r.ok)throw new Error("WordPress archive feed HTTP "+r.status);
-  const a=await r.json();
-  if(!Array.isArray(a)||!a.length)break;
-  out.push(...a.map(p=>({...p,title:decodeHtml(p?.title?.rendered||p?.title||""),excerpt:decodeHtml(p?.excerpt?.rendered||p?.excerpt||"")})));
-  if(a.length<50)break;
- }
- return out;
+async function archivePublishedPage(page=1){
+ const u=new URL(BASE+"/wp-json/wp/v2/posts");
+ u.searchParams.set("status","publish");u.searchParams.set("per_page","50");u.searchParams.set("page",String(Math.max(1,Number(page)||1)));u.searchParams.set("orderby","date");u.searchParams.set("order","desc");
+ u.searchParams.set("_fields","id,date,date_gmt,link,title,excerpt,categories");
+ const r=await fetch(u,{headers:{"user-agent":"FuoconeroSocialBridge/0.5.2"},signal:AbortSignal.timeout(30000)});
+ if(r.status===400)return [];
+ if(!r.ok)throw new Error("WordPress archive feed HTTP "+r.status);
+ const a=await r.json();
+ return (Array.isArray(a)?a:[]).map(p=>({...p,title:decodeHtml(p?.title?.rendered||p?.title||""),excerpt:decodeHtml(p?.excerpt?.rendered||p?.excerpt||"")}));
 }
 
 async function recentPublishedPoems(){
@@ -898,7 +892,9 @@ async function nextArchiveSuggestion(chatId,{force=false,excludeId=null}={}){
   if(excludeId)proposed.add(String(excludeId));
   const archiveHist=(state.telegram_archive_history&&typeof state.telegram_archive_history==="object")?state.telegram_archive_history:{};
   const alreadyRequested=new Set(Object.keys(archiveHist).map(k=>String(k).split(":")[0]));
-  const posts=await archivePublishedPosts(6);
+  let page=Math.max(1,Number(state.archive_page_cursor||1));
+  let posts=await archivePublishedPage(page);
+  if(!posts.length&&page>1){page=1;posts=await archivePublishedPage(page);}
   const cutoff=now-7*24*60*60*1000;
 
   let candidate=null;
@@ -914,12 +910,14 @@ async function nextArchiveSuggestion(chatId,{force=false,excludeId=null}={}){
    candidate=post;break;
   }
   if(!candidate){
-   state.archive_last_suggestion_at=now;
+   state.archive_page_cursor=page+1;
+   state.archive_last_suggestion_at=force?0:now;
    await saveAutoState(state);
-   if(force)await telegramSend(chatId,"📚 Ho controllato l’archivio: per ora non trovo altri contenuti vecchi eleggibili che non siano già stati proposti o lavorati.");
+   if(force)await telegramSend(chatId,"📚 In questa parte dell’archivio non ho trovato candidati nuovi. Al prossimo giro passo alla pagina successiva.");
    return false;
   }
 
+  state.archive_page_cursor=page;
   const id=String(candidate.id),category=publicationCategory(candidate);
   proposed.add(id);
   state.archive_suggested_ids=[...proposed].slice(-2000);
