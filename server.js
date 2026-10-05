@@ -194,9 +194,22 @@ async function prepareAndConfirmScheduled(spec,driveFileId,suffix){
  const conf=await wp("POST","/jobs/"+encodeURIComponent(prep.data.job_id)+"/confirm",{confirmed:true,digest:prep.data.digest});
  console.log("SCHEDULE confirm",id,conf.status,JSON.stringify(conf.data));
  if(conf.status<200||conf.status>=300)throw new Error("confirm failed "+id);
- const tick=await wp("POST","/publish-worker/tick",{});
- console.log("SCHEDULE publish tick",id,tick.status,JSON.stringify(tick.data));
- if(tick.status<200||tick.status>=300)throw new Error("publish tick failed "+id+" HTTP "+tick.status);
+ let tick=null;
+ for(let attempt=0;attempt<4;attempt++){
+  tick=await wp("POST","/publish-worker/tick",{});
+  console.log("SCHEDULE publish tick",id,"attempt",attempt+1,tick.status,JSON.stringify(tick.data));
+  if(tick.status<200||tick.status>=300)throw new Error("publish tick failed "+id+" HTTP "+tick.status);
+  const status=await wp("GET","/jobs/"+encodeURIComponent(prep.data.job_id));
+  if(status.status===200&&allDestinationsSucceeded(status.data))break;
+  if(status.status===200&&Array.isArray(status.data?.destinations)&&status.data.destinations.some(x=>x?.status==="error")){
+   throw new Error("publication failed "+id+": "+JSON.stringify(status.data.destinations));
+  }
+  if(attempt<3)await sleep(2500);
+ }
+ const postTick=await wp("GET","/jobs/"+encodeURIComponent(prep.data.job_id));
+ if(postTick.status!==200||!allDestinationsSucceeded(postTick.data)){
+  console.warn("SCHEDULE publication still queued",id,postTick.status,JSON.stringify(postTick.data?.destinations||[]));
+ }
  const storageId=conf.data?.payload?.storage_id||prep.data?.payload?.storage_id||st.data.storage_id;
  if(storageId)void cleanupPublishedJob(prep.data.job_id,storageId,{title:spec.title,kind:suffix,notify:true});
  return prep.data.job_id;
