@@ -1,5 +1,9 @@
 {
   "version": 1,
-  "id": "noop-20261005-after-latest-inspect",
-  "action": "noop"
+  "id": "inspect-etere-20261005",
+  "action": "inspect",
+  "job_ids": [
+    "bddf8338-6fe9-43ed-99db-42f37c462f23",
+    "089ec6cf-653d-4bd7-a373-6968ba91fb6c"
+  ]
 }
