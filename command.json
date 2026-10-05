@@ -1,9 +1,5 @@
 {
   "version": 1,
-  "id": "inspect-derapate-publish-20261005-v1",
-  "action": "inspect",
-  "job_ids": [
-    "5ee0b19e-2556-47cf-8f95-bf45e1eb8c79",
-    "9a62e244-6911-4582-ba1f-17a753c714bb"
-  ]
+  "id": "noop-20261005-after-derapate",
+  "action": "noop"
 }
