@@ -269,13 +269,31 @@ async function prepareAndConfirmScheduled(spec,driveFileId,suffix,existingStorag
   if(st.status<200||st.status>=300||!st.data?.storage_id)throw new Error("storage import failed "+id+" HTTP "+st.status+" "+JSON.stringify(st.data));
   storageId=st.data.storage_id;
  }
- const prep=await wp("POST","/prepare",{
+ let prep=await wp("POST","/prepare",{
   request_id:"prepare-"+id,storage_id:storageId,title:String(spec.title||"Fuoconero").slice(0,100),
   caption:spec.caption||"",facebook_caption:spec.facebook_caption||spec.caption||"",
   targets,youtube_privacy:spec.youtube_privacy||"public",
   made_for_kids:yesNo(spec.made_for_kids),synthetic_media:yesNo(spec.synthetic_media)
  });
  console.log("SCHEDULE prepare",id,prep.status,JSON.stringify(prep.data));
+ // Render storage references can expire while a scheduled item waits in queue.
+ // If /prepare rejects the cached storage_id, recover from the durable Drive file
+ // instead of retrying forever with the same dead reference.
+ const staleStorage=prep.status===400&&driveFileId&&/Riferimento video scaduto o assente/i.test(String(prep.data?.message||""));
+ if(staleStorage){
+  console.warn("SCHEDULE stale render storage; reimporting from Drive",id,storageId,driveFileId);
+  const st=await wp("POST","/storage/drive",{request_id:"drive-recover-"+id+"-"+Date.now(),drive_file_id:driveFileId});
+  console.log("SCHEDULE storage recovery",id,st.status,JSON.stringify(st.data));
+  if(st.status<200||st.status>=300||!st.data?.storage_id)throw new Error("storage recovery failed "+id+" HTTP "+st.status+" "+JSON.stringify(st.data));
+  storageId=st.data.storage_id;
+  prep=await wp("POST","/prepare",{
+   request_id:"prepare-recover-"+id+"-"+Date.now(),storage_id:storageId,title:String(spec.title||"Fuoconero").slice(0,100),
+   caption:spec.caption||"",facebook_caption:spec.facebook_caption||spec.caption||"",
+   targets,youtube_privacy:spec.youtube_privacy||"public",
+   made_for_kids:yesNo(spec.made_for_kids),synthetic_media:yesNo(spec.synthetic_media)
+  });
+  console.log("SCHEDULE prepare recovery",id,prep.status,JSON.stringify(prep.data));
+ }
  if(prep.status<200||prep.status>=300||!prep.data?.job_id)throw new Error("prepare failed "+id);
  if(prep.data?.status!=="prepared"||!prep.data?.digest)throw new Error("prepared job unavailable "+id);
  // WordPress /prepare + /confirm remain the authoritative publication gate.
