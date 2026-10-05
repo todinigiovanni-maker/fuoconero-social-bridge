@@ -587,6 +587,7 @@ async function approvalQueueTick(){
  finally{approvalQueueBusy=false;}
 }
 setInterval(()=>void approvalQueueTick(),30000).unref();
+setTimeout(()=>void approvalQueueTick(),5000);
 function isArticleNotReady(created){
  return created?.status===400 && /articolo pubblicato e non protetto/i.test(String(created?.data?.message||""));
 }
