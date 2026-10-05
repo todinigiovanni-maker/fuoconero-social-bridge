@@ -559,11 +559,23 @@ async function enqueueApprovedPublication(renderJobId,postId){
  const ordered=queue.filter(x=>x.status==="queued").sort((a,b)=>a.due_at-b.due_at);
  return {position:ordered.findIndex(x=>x.render_job_id===renderJobId)+1,due_at:dueAt,existing:false};
 }
+function isMixedPublicationError(message=""){
+ const s=String(message||"");
+ return /publication failed/i.test(s)&&/"status":"success"/.test(s)&&/"status":"error"/.test(s);
+}
 let approvalQueueBusy=false;
 async function approvalQueueTick(){
  if(approvalQueueBusy)return;approvalQueueBusy=true;
  try{
   const state=await autoState(),queue=Array.isArray(state.approval_queue)?state.approval_queue:[];
+  const mixed=queue.filter(x=>x.status==="queued"&&isMixedPublicationError(x.last_error));
+  if(mixed.length){
+   const mixedIds=new Set(mixed.map(x=>x.render_job_id));
+   state.approval_queue=queue.filter(x=>!mixedIds.has(x.render_job_id));
+   await saveAutoState(state);
+   for(const x of mixed)await telegramNotify("⚠️ Fuoconero Social\nPubblicazione parziale già avvenuta. Blocco il retry completo per evitare duplicati sui canali riusciti. Render: "+x.render_job_id+".");
+   return;
+  }
   const item=queue.filter(x=>x.status==="queued"&&Number(x.due_at)<=Date.now()).sort((a,b)=>a.due_at-b.due_at)[0];
   if(!item)return;
   item.status="publishing";await saveAutoState(state);
@@ -580,8 +592,14 @@ async function approvalQueueTick(){
    await executeScheduledPublication({id:"queue-"+item.render_job_id,attempt_id:"queue-"+item.render_job_id+"-"+Date.now(),render_job_id:item.render_job_id,publish_at:new Date().toISOString(),title:publication.title,caption:publication.caption,facebook_caption:publication.facebook_caption,youtube_privacy:"public",made_for_kids:"no",synthetic_media:"no"});
    state.approval_queue=(state.approval_queue||[]).filter(x=>x.render_job_id!==item.render_job_id);await saveAutoState(state);
   }catch(e){
-   item.status="queued";item.due_at=Date.now()+10*60*1000;item.last_error=e.message;await saveAutoState(state);
-   await telegramNotify("⚠️ Fuoconero Social\nPubblicazione dalla coda non riuscita: "+e.message+"\nRiprovo automaticamente tra 10 minuti.");
+   if(isMixedPublicationError(e.message)){
+    state.approval_queue=(state.approval_queue||[]).filter(x=>x.render_job_id!==item.render_job_id);
+    await saveAutoState(state);
+    await telegramNotify("⚠️ Fuoconero Social\nPubblicazione parziale: almeno un canale è riuscito e almeno uno ha fallito. Non riprovo l'intero pacchetto per evitare duplicati.\n"+e.message);
+   }else{
+    item.status="queued";item.due_at=Date.now()+10*60*1000;item.last_error=e.message;await saveAutoState(state);
+    await telegramNotify("⚠️ Fuoconero Social\nPubblicazione dalla coda non riuscita: "+e.message+"\nRiprovo automaticamente tra 10 minuti.");
+   }
   }
  }catch(e){console.warn("APPROVAL_QUEUE tick failed",e.message);}
  finally{approvalQueueBusy=false;}
