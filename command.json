@@ -1,8 +1,5 @@
 {
   "version": 1,
-  "id": "inspect-derapate-retry-20261005-v2",
-  "action": "inspect",
-  "job_ids": [
-    "56337c42-aa9e-4327-b129-c0f7ca6a9764"
-  ]
+  "id": "noop-20261005-after-latest-inspect",
+  "action": "noop"
 }
