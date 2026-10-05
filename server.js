@@ -753,13 +753,13 @@ async function autoPoetryBranch(state){
   await saveAutoState(state);
   console.log("AUTO_POETRY extractor migration v2 applied");
  }
- if(Number(state.poetry_pagination_version||0)<1){
-  state.poetry_pagination_version=1;
-  state.poetry_archive_page=2;
+ if(Number(state.poetry_pagination_version||0)<2){
+  state.poetry_pagination_version=2;
+  if(!Number(state.poetry_archive_page))state.poetry_archive_page=2;
   state.poetry_archive_exhausted=false;
   state.poetry_last_scan=0;
   await saveAutoState(state);
-  console.log("AUTO_POETRY pagination migration applied");
+  console.log("AUTO_POETRY pagination migration v2 applied");
  }
  const now=Date.now();
  const lastScan=Number(state.poetry_last_scan||0);
@@ -857,10 +857,12 @@ async function autoPoetryBranch(state){
   const maxPages=Math.max(1,Math.min(10,Number(process.env.FNS_AUTO_POETRY_PAGES_PER_SCAN)||5));
   for(let scanned=0;scanned<maxPages&&!post;scanned++,page++){
    let batch;
+   await sleep(1500);
    try{batch=await recentPublishedPoems(page);}
    catch(e){
     if(/HTTP 429/.test(String(e.message||""))){
-     console.warn("AUTO_POETRY WordPress archive rate limited — retry next scheduled scan");
+     state.poetry_last_scan=Date.now()-10*60*1000;
+     console.warn("AUTO_POETRY WordPress archive rate limited — retry in about 5 minutes");
      break;
     }
     throw e;
