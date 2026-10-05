@@ -1719,6 +1719,10 @@ async function runCommand(){
   await saveAutoState(st);
   console.log("COMMAND set_instagram_cooldown",c.id,new Date(st.instagram_cooldown_until).toISOString(),st.instagram_cooldown_reason);
   await telegramNotify("⏸️ Fuoconero Social\nInstagram in pausa per "+hours+" ore. Facebook e YouTube restano attivi.");
+  const items=Array.isArray(c.items)?c.items:[];
+  let accepted=0;
+  for(const item of items)if(schedulePublicationItem(item))accepted++;
+  if(items.length)console.log("COMMAND set_instagram_cooldown scheduled",accepted,"of",items.length);
   return;
  }
  if(c.action==="scheduled_publish_batch"){
