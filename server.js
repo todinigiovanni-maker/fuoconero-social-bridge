@@ -1711,6 +1711,16 @@ async function runCommand(){
   for(const id of ids){const j=await wp("GET","/jobs/"+encodeURIComponent(id));console.log("COMMAND inspect",c.id,id,j.status,JSON.stringify(j.data));}
   return;
  }
+ if(c.action==="set_instagram_cooldown"){
+  const hours=Math.max(1,Math.min(12,Number(c.hours)||3));
+  const st=await autoState();
+  st.instagram_cooldown_until=Date.now()+hours*60*60*1000;
+  st.instagram_cooldown_reason=String(c.reason||"manual cooldown");
+  await saveAutoState(st);
+  console.log("COMMAND set_instagram_cooldown",c.id,new Date(st.instagram_cooldown_until).toISOString(),st.instagram_cooldown_reason);
+  await telegramNotify("⏸️ Fuoconero Social\nInstagram in pausa per "+hours+" ore. Facebook e YouTube restano attivi.");
+  return;
+ }
  if(c.action==="scheduled_publish_batch"){
   const items=Array.isArray(c.items)?c.items:[];
   if(!items.length||items.length>25){console.error("COMMAND invalid scheduled_publish_batch");return;}
