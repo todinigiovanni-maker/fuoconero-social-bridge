@@ -284,7 +284,11 @@ async function prepareAndConfirmScheduled(spec,driveFileId,suffix,existingStorag
   console.warn("SCHEDULE stale render storage; reimporting from Drive",id,storageId,driveFileId);
   const st=await wp("POST","/storage/drive",{request_id:"drvrec-"+String(spec.id||id).replace(/[^a-zA-Z0-9_-]/g,"").slice(-48)+"-"+Date.now().toString(36),drive_file_id:driveFileId});
   console.log("SCHEDULE storage recovery",id,st.status,JSON.stringify(st.data));
-  if(st.status<200||st.status>=300||!st.data?.storage_id)throw new Error("storage recovery failed "+id+" HTTP "+st.status+" "+JSON.stringify(st.data));
+  if(st.status<200||st.status>=300||!st.data?.storage_id){
+   const missingDriveMp4=st.status===400&&/file deve essere un MP4 nella cartella Video temporanei/i.test(String(st.data?.message||""));
+   if(missingDriveMp4)throw new Error("media source expired "+id);
+   throw new Error("storage recovery failed "+id+" HTTP "+st.status+" "+JSON.stringify(st.data));
+  }
   storageId=st.data.storage_id;
   prep=await wp("POST","/prepare",{
    request_id:"prprec-"+String(spec.id||id).replace(/[^a-zA-Z0-9_-]/g,"").slice(-48)+"-"+Date.now().toString(36),storage_id:storageId,title:String(spec.title||"Fuoconero").slice(0,100),
@@ -701,6 +705,34 @@ async function approvalQueueTick(){
     state.approval_queue=(state.approval_queue||[]).filter(x=>x.render_job_id!==item.render_job_id);
     await saveAutoState(state);
     await telegramNotify("⚠️ Fuoconero Social\nPubblicazione parziale: almeno un canale è riuscito e almeno uno ha fallito. Non riprovo l'intero pacchetto per evitare duplicati.\n"+e.message);
+   }else if(/media source expired/i.test(String(e.message||""))){
+    // The approved render is no longer recoverable: remove the zombie queue item
+    // and create one fresh render from the WordPress article. Never retry the dead
+    // storage/Drive references every ten minutes.
+    state.approval_queue=(state.approval_queue||[]).filter(x=>x.render_job_id!==item.render_job_id);
+    const recoveryKey="queue_media_recovery_"+item.render_job_id;
+    if(!state[recoveryKey]){
+     const post=await publishedPostById(item.post_id);
+     if(!post)throw new Error("media source expired and article unavailable");
+     const category=publicationCategory(post),scenes=autoScenes(post),publication=autoPublicationMeta(post,category);
+     const songTitle=category==="canzoni"?cleanAutoTitle(post.title):null;
+     const musicTitleOverride=autoMusicTitleOverride(post.id),musicIdOverride=autoMusicIdOverride(post.id);
+     const payload={
+      request_id:"fuoconero-queue-recovery-"+item.post_id+"-"+Date.now().toString(36),
+      post_id:Number(post.id),category,
+      ...(musicIdOverride?{music_id:musicIdOverride}:musicTitleOverride?{music_title:musicTitleOverride}:category==="canzoni"?{music_title:songTitle}:{music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}),
+      outputs:{reel:{preset:"articolo",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}},
+      publication,publication_authorized:false
+     };
+     const created=await wp("POST","/reel-maker/render-jobs",payload);
+     console.log("APPROVAL_QUEUE fresh media recovery",item.render_job_id,created.status,JSON.stringify(created.data));
+     if(created.status<200||created.status>=300||!created.data?.render_job_id)throw new Error("fresh media recovery render failed HTTP "+created.status);
+     state[recoveryKey]=created.data.render_job_id;
+     state.approval_queue.push({render_job_id:created.data.render_job_id,post_id:Number(item.post_id),due_at:Date.now()+10*60*1000,status:"queued",created_at:Date.now(),recovered_from:item.render_job_id});
+     void pump();
+     await telegramNotify("♻️ Fuoconero Social\nIl vecchio file temporaneo non esiste più. Sto rigenerando Reel + Story e li ho rimessi automaticamente in coda: "+publication.title);
+    }
+    await saveAutoState(state);
    }else{
     item.status="queued";item.publishing_at=0;
     const rateLimited=/HTTP 429|rate.?limit/i.test(String(e.message||""));
