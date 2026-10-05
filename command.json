@@ -1,20 +1,5 @@
 {
   "version": 1,
-  "id": "cooldown-instagram-and-recover-naturalmente-20261005",
-  "action": "set_instagram_cooldown",
-  "hours": 3,
-  "reason": "Meta 2207042: User is performing too many actions",
-  "items": [
-    {
-      "id": "recover-naturalmente-20261005",
-      "render_job_id": "bbd9db02-0063-48a7-937f-9bee76bf7b28",
-      "publish_at": "2026-10-05T15:00:00Z",
-      "title": "NATURAL...MENTE – L’IA ha aperto gli occhi. Adesso le hanno dato anche le mani",
-      "caption": "NATURAL...MENTE – L’IA ha aperto gli occhi. Adesso le hanno dato anche le mani",
-      "facebook_caption": "NATURAL...MENTE – L’IA ha aperto gli occhi. Adesso le hanno dato anche le mani",
-      "youtube_privacy": "public",
-      "made_for_kids": "no",
-      "synthetic_media": "no"
-    }
-  ]
+  "id": "noop-after-instagram-cooldown-20261005",
+  "action": "noop"
 }
