@@ -1,6 +1,7 @@
 {
   "version": 1,
-  "id": "inspect-pruriti-tiktok-20261003-v1",
-  "action": "inspect_render_output",
-  "render_job_id": "042fbd98-dc48-4644-93ba-4dcabf19e384"
+  "id": "resend-7782-20261005-v1",
+  "action": "resend_render_ready",
+  "render_job_id": "bbd9db02-0063-48a7-937f-9bee76bf7b28",
+  "post_id": 7782
 }
