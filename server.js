@@ -208,6 +208,18 @@ async function cleanupPublishedJob(jobId,storageId,meta={}){
    if(hasQueued&&attempt%2===0)void safePublishWorkerTick("cleanup-"+jobId);
    continue;
   }
+  // Keep successful media alive briefly: another confirmed attempt may still
+  // be finishing against the same storage reference. Cleanup is allowed only
+  // after a second success check at the end of the stabilization window.
+  const cleanupGraceMs=Math.max(60000,Number(process.env.FNS_CLEANUP_GRACE_MS)||5*60*1000);
+  console.log("CLEANUP success confirmed; holding media before cleanup",jobId,cleanupGraceMs);
+  await sleep(cleanupGraceMs);
+  const stable=await wp("GET","/jobs/"+encodeURIComponent(jobId));
+  if(stable.status!==200||!allDestinationsSucceeded(stable.data)){
+   console.warn("CLEANUP cancelled after stabilization recheck",jobId,stable.status,JSON.stringify(stable.data?.destinations||[]));
+   if(meta.notify!==false)await telegramNotify("⚠️ Fuoconero Social\\nPubblicazione non ancora stabile per "+(meta.title||jobId)+". Il file resta su Drive.");
+   return false;
+  }
   if(meta.notify!==false)await telegramNotify("✅ Fuoconero Social\\n"+(meta.kind==="story"?"Story":"Reel")+" pubblicat"+(meta.kind==="story"?"a":"o")+" correttamente: "+(meta.title||"Fuoconero")+".");
   if(meta.kind==="reel"){
    const arc=await wp("POST","/storage/archive-tiktok",{request_id:"archive-tiktok-"+jobId,storage_id:storageId});
