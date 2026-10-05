@@ -144,11 +144,31 @@ async function ensureFreshSocialConnections(targets=[]){
  }
  return snapshot;
 }
+let publishWorkerTickBusy=false;
+let lastPublishWorkerTickAt=0;
+async function safePublishWorkerTick(label=""){
+ if(publishWorkerTickBusy){
+  console.log("PUBLISH tick deferred busy",label);
+  return {status:202,data:{deferred:true,reason:"busy"}};
+ }
+ publishWorkerTickBusy=true;
+ try{
+  const minGap=15000;
+  const wait=Math.max(0,minGap-(Date.now()-lastPublishWorkerTickAt));
+  if(wait)await sleep(wait);
+  const tick=await wp("POST","/publish-worker/tick",{});
+  lastPublishWorkerTickAt=Date.now();
+  console.log("PUBLISH tick safe",label,tick.status,JSON.stringify(tick.data));
+  if(tick.status===429)console.warn("PUBLISH tick rate limited; leaving approved jobs for backoff",label);
+  return tick;
+ }finally{publishWorkerTickBusy=false;}
+}
 async function cleanupPublishedJob(jobId,storageId,meta={}){
  if(!jobId||!storageId)return false;
- for(let attempt=0;attempt<80;attempt++){
-  await sleep(attempt===0?5000:15000);
+ for(let attempt=0;attempt<40;attempt++){
+  await sleep(attempt===0?15000:30000);
   const job=await wp("GET","/jobs/"+encodeURIComponent(jobId));
+  if(job.status===429){console.warn("CLEANUP status rate limited",jobId);continue;}
   if(job.status!==200){console.warn("CLEANUP status unavailable",jobId,job.status);continue;}
   const destinations=Array.isArray(job.data?.destinations)?job.data.destinations:[];
   if(destinations.some(x=>x?.status==='error')){
@@ -156,7 +176,12 @@ async function cleanupPublishedJob(jobId,storageId,meta={}){
    if(meta.notify!==false)await telegramNotify("⚠️ Fuoconero Social\\nPubblicazione incompleta: "+(meta.title||jobId)+" ("+(meta.kind||"media")+").\\nIl file resta su Drive.");
    return false;
   }
-  if(!allDestinationsSucceeded(job.data))continue;
+  if(!allDestinationsSucceeded(job.data)){
+   const destinations=Array.isArray(job.data?.destinations)?job.data.destinations:[];
+   const hasQueued=destinations.length===0||destinations.some(x=>x?.status==="queued");
+   if(hasQueued&&attempt%2===0)void safePublishWorkerTick("cleanup-"+jobId);
+   continue;
+  }
   if(meta.notify!==false)await telegramNotify("✅ Fuoconero Social\\n"+(meta.kind==="story"?"Story":"Reel")+" pubblicat"+(meta.kind==="story"?"a":"o")+" correttamente: "+(meta.title||"Fuoconero")+".");
   if(meta.kind==="reel"){
    const arc=await wp("POST","/storage/archive-tiktok",{request_id:"archive-tiktok-"+jobId,storage_id:storageId});
@@ -214,21 +239,19 @@ async function prepareAndConfirmScheduled(spec,driveFileId,suffix){
  const conf=await wp("POST","/jobs/"+encodeURIComponent(prep.data.job_id)+"/confirm",{confirmed:true,digest:prep.data.digest});
  console.log("SCHEDULE confirm",id,conf.status,JSON.stringify(conf.data));
  if(conf.status<200||conf.status>=300)throw new Error("confirm failed "+id);
- let tick=null;
- for(let attempt=0;attempt<4;attempt++){
-  tick=await wp("POST","/publish-worker/tick",{});
-  console.log("SCHEDULE publish tick",id,"attempt",attempt+1,tick.status,JSON.stringify(tick.data));
-  if(tick.status<200||tick.status>=300)throw new Error("publish tick failed "+id+" HTTP "+tick.status);
-  const status=await wp("GET","/jobs/"+encodeURIComponent(prep.data.job_id));
-  if(status.status===200&&allDestinationsSucceeded(status.data))break;
-  if(status.status===200&&Array.isArray(status.data?.destinations)&&status.data.destinations.some(x=>x?.status==="error")){
-   throw new Error("publication failed "+id+": "+JSON.stringify(status.data.destinations));
-  }
-  if(attempt<3)await sleep(2500);
+ const tick=await safePublishWorkerTick(id);
+ if(tick.status<200||tick.status>=300){
+  // The publication job is already confirmed at this point. Never rebuild the
+  // whole Reel/Story package because a worker kick was rate-limited: doing so
+  // can duplicate the destinations that have already succeeded.
+  console.warn("SCHEDULE publish kick deferred after confirm",id,tick.status);
  }
+ await sleep(3000);
  const postTick=await wp("GET","/jobs/"+encodeURIComponent(prep.data.job_id));
- if(postTick.status!==200||!allDestinationsSucceeded(postTick.data)){
-  console.warn("SCHEDULE publication still queued",id,postTick.status,JSON.stringify(postTick.data?.destinations||[]));
+ if(postTick.status===429){
+  console.warn("SCHEDULE status rate limited after confirm",id);
+ }else if(postTick.status!==200||!allDestinationsSucceeded(postTick.data)){
+  console.warn("SCHEDULE publication pending after confirm",id,postTick.status,JSON.stringify(postTick.data?.destinations||[]));
  }
  const storageId=conf.data?.payload?.storage_id||prep.data?.payload?.storage_id||st.data.storage_id;
  if(storageId)void cleanupPublishedJob(prep.data.job_id,storageId,{title:spec.title,kind:suffix,notify:true});
@@ -569,7 +592,23 @@ async function approvalQueueTick(){
  if(approvalQueueBusy)return;approvalQueueBusy=true;
  try{
   const state=await autoState(),queue=Array.isArray(state.approval_queue)?state.approval_queue:[];
-  const mixed=queue.filter(x=>x.status==="queued"&&isMixedPublicationError(x.last_error));
+  const stalePostConfirm=queue.filter(x=>x.status==="queued"&&/(?:publish tick failed|publication failed)/i.test(String(x.last_error||"")));
+  if(stalePostConfirm.length){
+   const ids=new Set(stalePostConfirm.map(x=>x.render_job_id));
+   state.approval_queue=queue.filter(x=>!ids.has(x.render_job_id));
+   await saveAutoState(state);
+   for(const x of stalePostConfirm)await telegramNotify("🛑 Fuoconero Social\nBloccato un vecchio retry completo dopo una pubblicazione già confermata. Non ripubblico Reel/Story per evitare doppioni. Render: "+x.render_job_id+".");
+   return;
+  }
+  const orphaned=queue.filter(x=>x.status==="publishing"&&Number(x.publishing_at)>0&&Date.now()-Number(x.publishing_at)>20*60*1000);
+  if(orphaned.length){
+   const ids=new Set(orphaned.map(x=>x.render_job_id));
+   state.approval_queue=queue.filter(x=>!ids.has(x.render_job_id));
+   await saveAutoState(state);
+   for(const x of orphaned)await telegramNotify("🛑 Fuoconero Social\nTrovata una pubblicazione rimasta in stato incerto dopo un riavvio. Non la ritento automaticamente per evitare doppioni. Render: "+x.render_job_id+".");
+   return;
+  }
+  const mixed=(state.approval_queue||[]).filter(x=>x.status==="queued"&&isMixedPublicationError(x.last_error));
   if(mixed.length){
    const mixedIds=new Set(mixed.map(x=>x.render_job_id));
    state.approval_queue=queue.filter(x=>!mixedIds.has(x.render_job_id));
@@ -579,7 +618,7 @@ async function approvalQueueTick(){
   }
   const item=queue.filter(x=>x.status==="queued"&&Number(x.due_at)<=Date.now()).sort((a,b)=>a.due_at-b.due_at)[0];
   if(!item)return;
-  item.status="publishing";await saveAutoState(state);
+  item.status="publishing";item.publishing_at=Date.now();await saveAutoState(state);
   try{
    const post=await publishedPostById(item.post_id);if(!post)throw new Error("articolo pubblicato non disponibile su WordPress");
    const category=publicationCategory(post);
@@ -598,8 +637,10 @@ async function approvalQueueTick(){
     await saveAutoState(state);
     await telegramNotify("⚠️ Fuoconero Social\nPubblicazione parziale: almeno un canale è riuscito e almeno uno ha fallito. Non riprovo l'intero pacchetto per evitare duplicati.\n"+e.message);
    }else{
-    item.status="queued";item.due_at=Date.now()+10*60*1000;item.last_error=e.message;await saveAutoState(state);
-    await telegramNotify("⚠️ Fuoconero Social\nPubblicazione dalla coda non riuscita: "+e.message+"\nRiprovo automaticamente tra 10 minuti.");
+    item.status="queued";item.publishing_at=0;
+    const rateLimited=/HTTP 429|rate.?limit/i.test(String(e.message||""));
+    item.due_at=Date.now()+(rateLimited?30:10)*60*1000;item.last_error=e.message;await saveAutoState(state);
+    await telegramNotify("⚠️ Fuoconero Social\nPubblicazione dalla coda non riuscita: "+e.message+"\n"+(rateLimited?"Rate limit rilevato: riprovo tra 30 minuti.":"Riprovo automaticamente tra 10 minuti."));
    }
   }
  }catch(e){console.warn("APPROVAL_QUEUE tick failed",e.message);}
