@@ -112,6 +112,31 @@ function allDestinationsSucceeded(job){
  const d=Array.isArray(job?.destinations)?job.destinations:[];
  return d.length>0 && d.every(x=>x?.status==='success');
 }
+async function noteInstagramCooldownFromJob(jobData){
+ const destinations=Array.isArray(jobData?.destinations)?jobData.destinations:[];
+ const hit=destinations.find(x=>/^ig_/.test(String(x?.target||""))&&x?.status==="error"&&/2207042|performing too many actions/i.test(String(x?.detail||"")));
+ if(!hit)return false;
+ const state=await autoState();
+ const now=Date.now(),until=now+3*60*60*1000;
+ const previous=Number(state.instagram_cooldown_until)||0;
+ state.instagram_cooldown_until=Math.max(previous,until);
+ state.instagram_cooldown_reason="Meta 2207042: User is performing too many actions";
+ const shouldNotify=previous<=now;
+ await saveAutoState(state);
+ console.warn("INSTAGRAM cooldown active until",new Date(state.instagram_cooldown_until).toISOString(),hit.detail);
+ if(shouldNotify)await telegramNotify("⏸️ Fuoconero Social\nInstagram messo automaticamente in pausa per 3 ore: Meta sta rispondendo 2207042 (troppe azioni). Facebook e YouTube continueranno normalmente.");
+ return true;
+}
+async function targetsRespectingInstagramCooldown(targets=[]){
+ const original=Array.isArray(targets)?targets.filter(Boolean):[];
+ if(!original.some(t=>/^ig_/.test(t)))return original;
+ const state=await autoState();
+ const until=Number(state.instagram_cooldown_until)||0;
+ if(until<=Date.now())return original;
+ const filtered=original.filter(t=>!/^ig_/.test(t));
+ console.log("INSTAGRAM cooldown skip",new Date(until).toISOString(),"targets",JSON.stringify(original),"->",JSON.stringify(filtered));
+ return filtered;
+}
 function verifiedAccountsForTargets(prepData,targets=[]){
  const snapshot=prepData?.payload?.accounts;
  const accounts=snapshot?.accounts;
@@ -172,6 +197,7 @@ async function cleanupPublishedJob(jobId,storageId,meta={}){
   if(job.status!==200){console.warn("CLEANUP status unavailable",jobId,job.status);continue;}
   const destinations=Array.isArray(job.data?.destinations)?job.data.destinations:[];
   if(destinations.some(x=>x?.status==='error')){
+   await noteInstagramCooldownFromJob(job.data);
    console.warn("CLEANUP retained after publication error",jobId);
    if(meta.notify!==false)await telegramNotify("⚠️ Fuoconero Social\\nPubblicazione incompleta: "+(meta.title||jobId)+" ("+(meta.kind||"media")+").\\nIl file resta su Drive.");
    return false;
@@ -217,16 +243,36 @@ function findDriveFileId(output,kind){
  }
  return null;
 }
-async function prepareAndConfirmScheduled(spec,driveFileId,suffix){
+function findStorageId(output,kind){
+ const roots=[output?.[kind],output?.outputs?.[kind],output?.data?.[kind],output?.data?.outputs?.[kind]];
+ for(const x of roots){
+  const id=x?.storage_id;
+  if(typeof id==="string"&&id)return id;
+ }
+ return null;
+}
+async function prepareAndConfirmScheduled(spec,driveFileId,suffix,existingStorageId=""){
  const id=spec.id+"-"+suffix;
- await ensureFreshSocialConnections(spec.targets||[]);
- const st=await wp("POST","/storage/drive",{request_id:"drive-"+id,drive_file_id:driveFileId});
- console.log("SCHEDULE storage",id,st.status,JSON.stringify(st.data));
- if(st.status<200||st.status>=300||!st.data?.storage_id)throw new Error("storage import failed "+id);
+ const targets=await targetsRespectingInstagramCooldown(spec.targets||[]);
+ if(!targets.length){
+  console.log("SCHEDULE skipped: all requested targets are in cooldown",id);
+  await telegramNotify("⏸️ Fuoconero Social\n"+(suffix==="story"?"Story":"Reel")+" non inviato: Instagram è ancora in pausa temporanea. "+(spec.title||""));
+  return null;
+ }
+ await ensureFreshSocialConnections(targets);
+ let storageId=String(existingStorageId||"");
+ if(storageId){
+  console.log("SCHEDULE using render storage",id,storageId);
+ }else{
+  const st=await wp("POST","/storage/drive",{request_id:"drive-"+id,drive_file_id:driveFileId});
+  console.log("SCHEDULE storage",id,st.status,JSON.stringify(st.data));
+  if(st.status<200||st.status>=300||!st.data?.storage_id)throw new Error("storage import failed "+id+" HTTP "+st.status+" "+JSON.stringify(st.data));
+  storageId=st.data.storage_id;
+ }
  const prep=await wp("POST","/prepare",{
-  request_id:"prepare-"+id,storage_id:st.data.storage_id,title:String(spec.title||"Fuoconero").slice(0,100),
+  request_id:"prepare-"+id,storage_id:storageId,title:String(spec.title||"Fuoconero").slice(0,100),
   caption:spec.caption||"",facebook_caption:spec.facebook_caption||spec.caption||"",
-  targets:spec.targets,youtube_privacy:spec.youtube_privacy||"public",
+  targets,youtube_privacy:spec.youtube_privacy||"public",
   made_for_kids:yesNo(spec.made_for_kids),synthetic_media:yesNo(spec.synthetic_media)
  });
  console.log("SCHEDULE prepare",id,prep.status,JSON.stringify(prep.data));
@@ -253,8 +299,8 @@ async function prepareAndConfirmScheduled(spec,driveFileId,suffix){
  }else if(postTick.status!==200||!allDestinationsSucceeded(postTick.data)){
   console.warn("SCHEDULE publication pending after confirm",id,postTick.status,JSON.stringify(postTick.data?.destinations||[]));
  }
- const storageId=conf.data?.payload?.storage_id||prep.data?.payload?.storage_id||st.data.storage_id;
- if(storageId)void cleanupPublishedJob(prep.data.job_id,storageId,{title:spec.title,kind:suffix,notify:true});
+ const finalStorageId=conf.data?.payload?.storage_id||prep.data?.payload?.storage_id||storageId;
+ if(finalStorageId)void cleanupPublishedJob(prep.data.job_id,finalStorageId,{title:spec.title,kind:suffix,notify:true});
  return prep.data.job_id;
 }
 async function executeScheduledPublication(item){
@@ -263,14 +309,15 @@ async function executeScheduledPublication(item){
  const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(item.render_job_id)+"/output");
  if(out.status!==200)throw new Error("render output unavailable "+item.id);
  const reelId=findDriveFileId(out.data,"reel"),storyId=findDriveFileId(out.data,"story");
+ const reelStorageId=findStorageId(out.data,"reel"),storyStorageId=findStorageId(out.data,"story");
  const explicitKinds=Object.prototype.hasOwnProperty.call(item,"reel")||Object.prototype.hasOwnProperty.call(item,"story");
- const wantsReel=explicitKinds?!!item.reel:!!reelId;
- const wantsStory=explicitKinds?!!item.story:!!storyId;
- if(wantsReel&&!reelId)throw new Error("approved Reel Drive ID unavailable "+item.id);
- if(wantsStory&&!storyId)throw new Error("approved Story Drive ID unavailable "+item.id);
- if(!wantsReel&&!wantsStory)throw new Error("approved Drive media unavailable "+item.id);
- if(wantsReel)await prepareAndConfirmScheduled({...item,...item.reel,id:attemptId,targets:item.reel?.targets||["ig_reel","fb_reel","youtube_short"]},reelId,"reel");
- if(wantsStory)await prepareAndConfirmScheduled({...item,...item.story,id:attemptId,targets:item.story?.targets||["ig_story","fb_story"]},storyId,"story");
+ const wantsReel=explicitKinds?!!item.reel:!!(reelId||reelStorageId);
+ const wantsStory=explicitKinds?!!item.story:!!(storyId||storyStorageId);
+ if(wantsReel&&!reelId&&!reelStorageId)throw new Error("approved Reel media unavailable "+item.id);
+ if(wantsStory&&!storyId&&!storyStorageId)throw new Error("approved Story media unavailable "+item.id);
+ if(!wantsReel&&!wantsStory)throw new Error("approved media unavailable "+item.id);
+ if(wantsReel)await prepareAndConfirmScheduled({...item,...item.reel,id:attemptId,targets:item.reel?.targets||["ig_reel","fb_reel","youtube_short"]},reelId,"reel",reelStorageId);
+ if(wantsStory)await prepareAndConfirmScheduled({...item,...item.story,id:attemptId,targets:item.story?.targets||["ig_story","fb_story"]},storyId,"story",storyStorageId);
  console.log("SCHEDULE complete",item.id);
 }
 function schedulePublicationItem(item){
