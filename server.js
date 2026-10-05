@@ -368,12 +368,13 @@ async function archivePublishedPage(page=1){
  return (Array.isArray(a)?a:[]).map(p=>({...p,title:decodeHtml(p?.title?.rendered||p?.title||""),excerpt:decodeHtml(p?.excerpt?.rendered||p?.excerpt||"")}));
 }
 
-async function recentPublishedPoems(){
+async function recentPublishedPoems(page=1){
  const u=new URL(BASE+"/wp-json/wp/v2/posts");
  u.searchParams.set("status","publish");u.searchParams.set("categories","14831");
- u.searchParams.set("per_page","50");u.searchParams.set("orderby","date");u.searchParams.set("order","desc");
+ u.searchParams.set("per_page","50");u.searchParams.set("page",String(Math.max(1,Number(page)||1)));u.searchParams.set("orderby","date");u.searchParams.set("order","desc");
  u.searchParams.set("_fields","id,date,date_gmt,link,title,excerpt,categories");
- const r=await fetch(u,{headers:{"user-agent":"FuoconeroSocialBridge/0.4.24"},signal:AbortSignal.timeout(30000)});
+ const r=await fetch(u,{headers:{"user-agent":"FuoconeroSocialBridge/0.4.29"},signal:AbortSignal.timeout(30000)});
+ if(r.status===400)return [];
  if(!r.ok)throw new Error("WordPress poetry feed HTTP "+r.status);
  const a=await r.json();
  return (Array.isArray(a)?a:[]).map(p=>({
@@ -752,13 +753,21 @@ async function autoPoetryBranch(state){
   await saveAutoState(state);
   console.log("AUTO_POETRY extractor migration v2 applied");
  }
+ if(Number(state.poetry_pagination_version||0)<1){
+  state.poetry_pagination_version=1;
+  state.poetry_archive_page=2;
+  state.poetry_archive_exhausted=false;
+  state.poetry_last_scan=0;
+  await saveAutoState(state);
+  console.log("AUTO_POETRY pagination migration applied");
+ }
  const now=Date.now();
  const lastScan=Number(state.poetry_last_scan||0);
  if(now-lastScan<15*60*1000){console.log("AUTO_POETRY throttled",Math.round((15*60*1000-(now-lastScan))/1000),"s");return;}
  state.poetry_last_scan=now;
 
  let poems;
- try{poems=await recentPublishedPoems();}
+ try{poems=await recentPublishedPoems(1);}
  catch(e){
   if(/HTTP 429/.test(String(e.message||""))){
    console.warn("AUTO_POETRY WordPress rate limited — retry next scheduled scan");
@@ -772,7 +781,7 @@ async function autoPoetryBranch(state){
  if(waitingEntry){
   const [id,rec]=waitingEntry;
   if(rec.status==="approved"&&/^https:\/\//i.test(String(rec.selected_audio_url||""))){
-   const post=poems.find(p=>Number(p.id)===Number(id));
+   const post=await publishedPostById(Number(id)).catch(()=>null);
    if(post){
     const scenes=autoScenes(post),publication=autoPublicationMeta(post,"poesie");
     const payload={
@@ -796,7 +805,7 @@ async function autoPoetryBranch(state){
   }else if(rec.status==="generated"){
    const audio=await poetryAudioStatus(Number(id));
    if(audio.status==="approved"&&/^https:\/\//i.test(audio.audio_url)){
-    const post=poems.find(p=>Number(p.id)===Number(id));
+    const post=await publishedPostById(Number(id)).catch(()=>null);
     if(post){
      const scenes=autoScenes(post),publication=autoPublicationMeta(post,"poesie");
      const payload={
@@ -826,23 +835,54 @@ async function autoPoetryBranch(state){
 
  // Process exactly one new poem per scan to avoid hammering WordPress and the audio API.
  // Multi-source duplicate guard: durable history + previous manual spoken commands + current pipeline.
- let post=null;
- for(const candidate of poems){
-  const candidateId=String(candidate.id);
-  if(rendered.has(candidateId)||AUTO_POETRY_MANUAL_DONE.has(Number(candidate.id))||pipeline[candidateId])continue;
-  const evidence=poetryHistoryEvidence(state,candidate);
-  if(evidence){
-   rendered.add(candidateId);
-   rememberPoetryHistory(state,candidate.id,candidate.title,"manual_done",{dedupe_source:evidence.source,dedupe_status:evidence.status});
-   console.log("AUTO_POETRY duplicate guard skip",candidate.id,evidence.source,evidence.status,candidate.title);
-   continue;
+ const pickCandidate=(batch)=>{
+  for(const candidate of batch||[]){
+   const candidateId=String(candidate.id);
+   if(rendered.has(candidateId)||AUTO_POETRY_MANUAL_DONE.has(Number(candidate.id))||pipeline[candidateId])continue;
+   const evidence=poetryHistoryEvidence(state,candidate);
+   if(evidence){
+    rendered.add(candidateId);
+    rememberPoetryHistory(state,candidate.id,candidate.title,"manual_done",{dedupe_source:evidence.source,dedupe_status:evidence.status});
+    console.log("AUTO_POETRY duplicate guard skip",candidate.id,evidence.source,evidence.status,candidate.title);
+    continue;
+   }
+   return candidate;
   }
-  post=candidate;
-  break;
+  return null;
+ };
+
+ let post=pickCandidate(poems);
+ if(!post&&!state.poetry_archive_exhausted){
+  let page=Math.max(2,Number(state.poetry_archive_page)||2);
+  const maxPages=Math.max(1,Math.min(10,Number(process.env.FNS_AUTO_POETRY_PAGES_PER_SCAN)||5));
+  for(let scanned=0;scanned<maxPages&&!post;scanned++,page++){
+   let batch;
+   try{batch=await recentPublishedPoems(page);}
+   catch(e){
+    if(/HTTP 429/.test(String(e.message||""))){
+     console.warn("AUTO_POETRY WordPress archive rate limited — retry next scheduled scan");
+     break;
+    }
+    throw e;
+   }
+   console.log("AUTO_POETRY archive page",page,"items",batch.length);
+   post=pickCandidate(batch);
+   if(post){
+    state.poetry_archive_page=page;
+    break;
+   }
+   if(batch.length<50){
+    state.poetry_archive_exhausted=true;
+    state.poetry_archive_page=page;
+    console.log("AUTO_POETRY archive exhausted",page);
+    break;
+   }
+   state.poetry_archive_page=page+1;
+  }
  }
  if(!post){
   state.poetry_pipeline=pipeline;state.poetry_rendered=[...rendered].slice(-1000);await saveAutoState(state);
-  console.log("AUTO_POETRY no candidate");
+  console.log("AUTO_POETRY no candidate",state.poetry_archive_exhausted?"archive-exhausted":"archive-page="+String(state.poetry_archive_page||2));
   return;
  }
 
