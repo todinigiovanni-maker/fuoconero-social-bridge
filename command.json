@@ -1,5 +1,6 @@
 {
   "version": 1,
-  "id": "noop-after-instagram-inspect-20261005",
-  "action": "noop"
+  "id": "inspect-natural-render-20261005",
+  "action": "inspect_render_output",
+  "render_job_id": "bbd9db02-0063-48a7-937f-9bee76bf7b28"
 }
