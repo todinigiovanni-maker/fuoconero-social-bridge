@@ -125,6 +125,25 @@ function verifiedAccountsForTargets(prepData,targets=[]){
  const missing=[...required].filter(name=>accounts?.[name]?.ok!==true);
  return {ok:missing.length===0,missing,checked_at:Number(snapshot.checked_at)||0};
 }
+async function ensureFreshSocialConnections(targets=[]){
+ const now=Math.floor(Date.now()/1000);
+ const diag=await wp("GET","/reel-maker/diagnostics");
+ let snapshot=diag.status===200?diag.data?.connections:null;
+ let verified=verifiedAccountsForTargets({payload:{accounts:snapshot}},targets);
+ const age=verified.checked_at?Math.max(0,now-verified.checked_at):Infinity;
+ if(verified.ok&&age<20*60*60)return snapshot;
+ const refreshed=await wp("POST","/connections/check",{});
+ console.log("CONNECTIONS refresh",refreshed.status,JSON.stringify(refreshed.data));
+ if(refreshed.status<200||refreshed.status>=300){
+  throw new Error("social verification refresh failed HTTP "+refreshed.status);
+ }
+ snapshot=refreshed.data;
+ verified=verifiedAccountsForTargets({payload:{accounts:snapshot}},targets);
+ if(!verified.ok){
+  throw new Error("social verification failed: "+(verified.missing.join(",")||"verification"));
+ }
+ return snapshot;
+}
 async function cleanupPublishedJob(jobId,storageId,meta={}){
  if(!jobId||!storageId)return false;
  for(let attempt=0;attempt<80;attempt++){
@@ -175,6 +194,7 @@ function findDriveFileId(output,kind){
 }
 async function prepareAndConfirmScheduled(spec,driveFileId,suffix){
  const id=spec.id+"-"+suffix;
+ await ensureFreshSocialConnections(spec.targets||[]);
  const st=await wp("POST","/storage/drive",{request_id:"drive-"+id,drive_file_id:driveFileId});
  console.log("SCHEDULE storage",id,st.status,JSON.stringify(st.data));
  if(st.status<200||st.status>=300||!st.data?.storage_id)throw new Error("storage import failed "+id);
@@ -2190,7 +2210,7 @@ function previewDrive(v){const m=v.match(/\\/file\\/d\\/([^/]+)/)||v.match(/[?&]
     return html(res,500,"Controllo stato TikTok non riuscito",String(e.message).replace(/</g,"&lt;"));
    }
   }
-  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.28",mode:"authenticated-remote-render"});}
+  if(req.method==="GET"&&u.pathname==="/health"){void pump();return json(res,200,{ok:true,service:"fuoconero-social-bridge",version:"0.4.29",mode:"authenticated-remote-render"});}
   if(u.search) return json(res,400,{error:"query_not_allowed"});
   const renderPath=/^\/reel-maker\/(?:render-jobs(?:\/[a-f0-9-]{36}(?:\/output)?)?|presets|article\/[0-9]+)$/.test(u.pathname);
   if(renderPath && ((req.method==="POST"&&u.pathname==="/reel-maker/render-jobs")||(req.method==="GET"&&u.pathname!=="/reel-maker/render-jobs"))){
