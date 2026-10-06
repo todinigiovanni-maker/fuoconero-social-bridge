@@ -624,6 +624,64 @@ function autoScenes(post){
   story:[title,middle,"Continua su fuoconero.com"]
  };
 }
+
+// Conservative Italian spell-check for automatically generated Reel/Story overlays.
+// Only typo/misspelling rules are applied: grammar/style suggestions are ignored,
+// and the render continues unchanged if LanguageTool is unavailable or rate-limited.
+const SPELLCHECK_CACHE=new Map();
+const SPELLCHECK_SKIP=/^(?:https?:\/\/|www\.|#)|fuoconero|ani…?male|fisica…?mente|natural…?mente|tiktok|instagram|youtube/i;
+async function spellcheckItalianText(text){
+ const original=String(text||"");
+ if(!original.trim()||process.env.FNS_SPELLCHECK==="0")return original;
+ const cached=SPELLCHECK_CACHE.get(original);if(cached)return cached;
+ try{
+  const form=new URLSearchParams({text:original,language:"it"});
+  const r=await fetch("https://api.languagetool.org/v2/check",{
+   method:"POST",
+   headers:{"content-type":"application/x-www-form-urlencoded","user-agent":"Fuoconero-Social/0.4"},
+   body:form,
+   signal:AbortSignal.timeout(5000)
+  });
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  const data=await r.json();
+  const matches=(Array.isArray(data?.matches)?data.matches:[])
+   .filter(m=>{
+    const issue=String(m?.rule?.issueType||"").toLowerCase();
+    const cat=String(m?.rule?.category?.id||"").toUpperCase();
+    if(issue!=="misspelling"&&issue!=="typographical"&&cat!=="TYPOS")return false;
+    if(!Array.isArray(m?.replacements)||!m.replacements[0]?.value)return false;
+    const bad=original.slice(Number(m.offset)||0,(Number(m.offset)||0)+(Number(m.length)||0);
+    if(!bad||SPELLCHECK_SKIP.test(bad))return false;
+    return true;
+   })
+   .sort((a,b)=>(Number(b.offset)||0)-(Number(a.offset)||0));
+  let corrected=original;
+  for(const m of matches){
+   const off=Number(m.offset)||0,len=Number(m.length)||0,repl=String(m.replacements[0].value||"");
+   corrected=corrected.slice(0,off)+repl+corrected.slice(off+len);
+  }
+  if(corrected!==original)console.log("ORTHOGRAPHY corrected",JSON.stringify(original),"->",JSON.stringify(corrected));
+  SPELLCHECK_CACHE.set(original,corrected);
+  if(SPELLCHECK_CACHE.size>500)SPELLCHECK_CACHE.delete(SPELLCHECK_CACHE.keys().next().value);
+  return corrected;
+ }catch(e){
+  console.warn("ORTHOGRAPHY check skipped",e.message);
+  return original;
+ }
+}
+async function checkedAutoPackage(post,category){
+ const {scenes,publication}=await checkedAutoPackage(post,category);
+ const all=[...scenes.reel,...scenes.story],unique=[...new Set(all)];
+ const corrected=new Map();
+ for(const s of unique){
+  // Fixed CTAs and URLs do not need an external check.
+  if(/fuoconero\.com/i.test(s)){corrected.set(s,s);continue;}
+  corrected.set(s,await spellcheckItalianText(s));
+ }
+ scenes.reel=scenes.reel.map(s=>corrected.get(s)||s);
+ scenes.story=scenes.story.map(s=>corrected.get(s)||s);
+ return {scenes,publication};
+}
 const STATE_REDIS_KEY="fuoconero:social:state:v1";
 let stateRedis=null;
 function redisState(){
@@ -726,7 +784,7 @@ async function approvalQueueTick(){
     if(!state[recoveryKey]){
      const post=await publishedPostById(item.post_id);
      if(!post)throw new Error("media source expired and article unavailable");
-     const category=publicationCategory(post),scenes=autoScenes(post),publication=autoPublicationMeta(post,category);
+     const category=publicationCategory(post),{scenes,publication}=await checkedAutoPackage(post,category);
      const songTitle=category==="canzoni"?cleanAutoTitle(post.title):null;
      const musicTitleOverride=autoMusicTitleOverride(post.id),musicIdOverride=autoMusicIdOverride(post.id);
      const payload={
@@ -933,7 +991,7 @@ async function autoPoetryBranch(state){
   if(rec.status==="approved"&&/^https:\/\//i.test(String(rec.selected_audio_url||""))){
    const post=await publishedPostById(Number(id)).catch(()=>null);
    if(post){
-    const scenes=autoScenes(post),publication=autoPublicationMeta(post,"poesie");
+    const {scenes,publication}=await checkedAutoPackage(post,"poesie");
     const payload={
      request_id:"fuoconero-auto-poetry-v2-post-"+post.id+"-reel-story",
      post_id:Number(post.id),category:"poesie",
@@ -957,7 +1015,7 @@ async function autoPoetryBranch(state){
    if(audio.status==="approved"&&/^https:\/\//i.test(audio.audio_url)){
     const post=await publishedPostById(Number(id)).catch(()=>null);
     if(post){
-     const scenes=autoScenes(post),publication=autoPublicationMeta(post,"poesie");
+     const {scenes,publication}=await checkedAutoPackage(post,"poesie");
      const payload={
       request_id:"fuoconero-auto-poetry-v1-post-"+post.id+"-reel-story",
       post_id:Number(post.id),category:"poesie",
@@ -1041,7 +1099,7 @@ async function autoPoetryBranch(state){
  const id=String(post.id);
  const audio=await poetryAudioStatus(post.id);
  if(audio.status==="approved"&&/^https:\/\//i.test(audio.audio_url)){
-  const scenes=autoScenes(post),publication=autoPublicationMeta(post,"poesie");
+  const {scenes,publication}=await checkedAutoPackage(post,"poesie");
   const payload={
    request_id:"fuoconero-auto-poetry-v1-post-"+post.id+"-reel-story",
    post_id:Number(post.id),category:"poesie",
@@ -1113,7 +1171,7 @@ async function autoReelTick(){
    if(!category){console.log("AUTO_REEL skip category",post.id,cats,post.title);seen.add(String(post.id));continue;}
    if(category==="poesie"){console.log("AUTO_REEL poetry delegated",post.id,post.title);continue;}
    console.log("AUTO_REEL eligible",post.id,category,Math.round(age/60000),post.title);
-   const scenes=autoScenes(post),publication=autoPublicationMeta(post,category);
+   const {scenes,publication}=await checkedAutoPackage(post,category);
    const songTitle=category==="canzoni"?cleanAutoTitle(post.title):null;
    const musicTitleOverride=autoMusicTitleOverride(post.id);
    const musicIdOverride=autoMusicIdOverride(post.id);
@@ -1303,7 +1361,7 @@ async function telegramArchiveRender(post,mode,chatId){
    return;
   }
  }
- const scenes=autoScenes(post),publication=autoPublicationMeta(post,category);
+ const {scenes,publication}=await checkedAutoPackage(post,category);
  const outputs=mode==="reel"?{reel:{preset:category==="poesie"?"poesia":"articolo",scene_texts:scenes.reel}}:{reel:{preset:category==="poesie"?"poesia":"articolo",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}};
  const musicTitleOverride=autoMusicTitleOverride(post.id),musicIdOverride=autoMusicIdOverride(post.id);
  const payload={
@@ -1562,7 +1620,7 @@ async function telegramApprovalTick(){
       await telegramAnswerCallback(token,q.id,"Versione "+choice+" approvata. Audio salvato nel blog; creo Reel + Story.");
       const post=await publishedPostById(postId);
       if(!post)throw new Error("poesia pubblicata non disponibile");
-      const scenes=autoScenes(post),publication=autoPublicationMeta(post,"poesie");
+      const {scenes,publication}=await checkedAutoPackage(post,"poesie");
       const payload={
        request_id:"fuoconero-auto-poetry-v3-post-"+post.id+"-reel-story",
        post_id:Number(post.id),category:"poesie",
