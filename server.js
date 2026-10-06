@@ -1595,6 +1595,34 @@ async function telegramApprovalTick(){
     continue;
    }
 
+   if(q)console.log("TELEGRAM callback received",data||"(empty)");
+   const correction=data.match(/^correct:([a-f0-9-]{36}):(\d+)$/);
+   if(correction){
+    telegramHandled.add(data); const renderJobId=correction[1],postId=Number(correction[2]);
+    await telegramAnswerCallback(token,q.id,"Correzione.");
+    await telegramSend(chat,"✏️ CORREGGI — cosa vuoi modificare?",[
+     [{text:"SPAZI / FORMATTAZIONE",callback_data:"correctnormalize:"+renderJobId+":"+postId}],
+     [{text:"TESTO DI UNA SCENA",callback_data:"correctscene:"+renderJobId+":"+postId}],
+     [{text:"RIFAI TUTTI I TESTI",callback_data:"correctregen:"+renderJobId+":"+postId}],
+     [{text:"ANNULLA",callback_data:"correctcancel:"+renderJobId+":"+postId}]
+    ]); continue;
+   }
+   const correctionAction=data.match(/^correct(normalize|scene|regen|cancel):([a-f0-9-]{36}):(\d+)$/);
+   if(correctionAction){
+    telegramHandled.add(data); const mode=correctionAction[1],renderJobId=correctionAction[2],postId=Number(correctionAction[3]);
+    if(mode==="cancel"){await telegramAnswerCallback(token,q.id,"Annullato.");await telegramSend(chat,"↩️ Correzione annullata.");continue;}
+    if(mode==="scene"){await setTelegramCorrectionPending(chat,{chat_id:chat,post_id:postId,render_job_id:renderJobId});await telegramAnswerCallback(token,q.id,"Scrivi la correzione.");await telegramSend(chat,"Scrivimi il numero della scena e il nuovo testo così:\n2: Questo è il nuovo testo\n\nScene disponibili: 1–4.");continue;}
+    try{await telegramAnswerCallback(token,q.id,"Rigenero.");await telegramCorrectionRender(postId,renderJobId,chat,mode==="normalize"?"normalize":"regen");}
+    catch(e){telegramHandled.delete(data);console.warn("TELEGRAM correction failed",e.message);await telegramSend(chat,"⚠️ Correzione non riuscita: "+e.message);} continue;
+   }
+   const rejectAction=data.match(/^reject(final|regen):([a-f0-9-]{36}):(\d+)$/);
+   if(rejectAction){
+    telegramHandled.add(data); const mode=rejectAction[1],renderJobId=rejectAction[2],postId=Number(rejectAction[3]);
+    if(mode==="final"){await telegramAnswerCallback(token,q.id,"Scartato.");await telegramSend(chat,"🗑️ Anteprima scartata. Nessuna pubblicazione autorizzata.");continue;}
+    try{await telegramAnswerCallback(token,q.id,"Rigenero.");await telegramCorrectionRender(postId,renderJobId,chat,"regen");}
+    catch(e){telegramHandled.delete(data);await telegramSend(chat,"⚠️ Rigenerazione non riuscita: "+e.message);} continue;
+   }
+
    const m=data.match(/^(approve|queue|reject):([a-f0-9-]{36}):(\d+)$/);if(!m)continue;
    const [,action,renderJobId,postIdRaw]=m,postId=Number(postIdRaw);
    telegramHandled.add(data);
