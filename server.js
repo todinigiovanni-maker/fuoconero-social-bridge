@@ -1599,8 +1599,11 @@ async function telegramApprovalTick(){
    const [,action,renderJobId,postIdRaw]=m,postId=Number(postIdRaw);
    telegramHandled.add(data);
    if(action==="reject"){
-    await telegramAnswerCallback(token,q.id,"Rifiutato: nessuna pubblicazione.");
-    await telegramNotify("❌ Fuoconero Social\\nRender rifiutato. Nessuna pubblicazione eseguita; i file restano su Drive.");
+    await telegramAnswerCallback(token,q.id,"Scegli cosa fare.");
+    await telegramSend(chat,"Anteprima rifiutata. Cosa vuoi fare?",[
+     [{text:"SCARTA DEFINITIVAMENTE",callback_data:"rejectfinal:"+renderJobId+":"+postId}],
+     [{text:"RIGENERA CON IL SISTEMA NUOVO",callback_data:"rejectregen:"+renderJobId+":"+postId}]
+    ]);
     continue;
    }
    if(action==="queue"){
