@@ -1705,7 +1705,7 @@ async function telegramApprovalTick(){
      const queued=await enqueueApprovedPublication(renderJobId,postId);
      const when=new Date(queued.due_at).toLocaleString("it-IT",{timeZone:"Europe/Rome",hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"});
      await telegramAnswerCallback(token,q.id,queued.existing?"Era già in coda.":"Approvato e accodato.");
-     await telegramNotify("🕒 Fuoconero Social\\n"+(queued.existing?"Era già":"Approvato e inserito")+" in coda.\\nPosizione: "+queued.position+"\\nPubblicazione prevista: "+when+".");
+     await telegramNotify("🕒 Fuoconero Social\n"+(queued.existing?"Era già":"Approvato e inserito")+" in coda.\nPosizione: "+queued.position+"\nPubblicazione prevista: "+when+".");
     }catch(e){telegramHandled.delete(data);await telegramNotify("⚠️ Fuoconero Social\\nNon sono riuscito ad accodarlo: "+e.message);}
     continue;
    }
@@ -1883,7 +1883,7 @@ async function runCommand(){
   const title=post?.title||c.title||("Articolo "+c.post_id);
   const reelLink="https://drive.google.com/file/d/"+encodeURIComponent(reelId)+"/preview";
   const storyLink="https://drive.google.com/file/d/"+encodeURIComponent(storyId)+"/preview";
-  const message="✅ Fuoconero Social\\nReel + Story pronti su Drive.\\n\\n"+title+"\\n\\nApri le anteprime dai pulsanti qui sotto, poi approva o rifiuta.";
+  const message="✅ Fuoconero Social\nReel + Story pronti su Drive.\n\n"+title+"\n\nApri le anteprime dai pulsanti qui sotto, poi approva o rifiuta.";
   const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:message,disable_web_page_preview:true,reply_markup:{inline_keyboard:[[{text:"🎬 APRI REEL",url:reelLink},{text:"📱 APRI STORY",url:storyLink}],[{text:"✏️ CORREGGI",callback_data:"correct:"+c.render_job_id+":"+c.post_id}],[{text:"🕒 APPROVA E ACCODA",callback_data:"queue:"+c.render_job_id+":"+c.post_id}],[{text:"🚀 PUBBLICA ORA",callback_data:"approve:"+c.render_job_id+":"+c.post_id},{text:"❌ RIFIUTA",callback_data:"reject:"+c.render_job_id+":"+c.post_id}]]}}),signal:AbortSignal.timeout(15000)});
   console.log(r.ok?"COMMAND resend_render_ready sent":"COMMAND resend_render_ready failed "+r.status,c.render_job_id);
   return;
