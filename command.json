@@ -1,5 +1,8 @@
 {
   "version": 1,
-  "id": "noop-after-instagram-cooldown-20261005",
-  "action": "noop"
+  "id": "test-new-telegram-ui-20261006-1",
+  "action": "resend_render_ready",
+  "render_job_id": "e4db5d13-9db8-455d-a7ab-99db7882af95",
+  "post_id": 4647,
+  "title": "TEST nuovo flusso Telegram"
 }
