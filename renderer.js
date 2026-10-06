@@ -76,7 +76,7 @@ export async function render(plan,dir,fetchAsset=download,shared={},outputKind='
  let brandBackground=null;if(p.render.background_source==='brand_background'){
   if(!plan.brand.assets.background?.url)throw new Error('Sfondo brand non configurato.');brandBackground=join(dir,'brand-background');await fetchAsset(plan.brand.assets.background.url,brandBackground);
  }
- console.log('RENDER phase scene-build start',sceneCards.length);const renderFps=outputKind==='story'?24:2;const sceneParts=[];const threads=Math.max(1,Number(process.env.FNS_FFMPEG_THREADS||1));for(let i=0;i<sceneCards.length;i++){
+ console.log('RENDER phase scene-build start',sceneCards.length);const renderFps=30;const sceneParts=[];const threads=Math.max(1,Number(process.env.FNS_FFMPEG_THREADS||1));for(let i=0;i<sceneCards.length;i++){
   const c=sceneCards[i],source=assets[c.image_index%assets.length],bg=join(dir,`bg-${i}.png`),vis=join(dir,`vis-${i}.png`),overlay=join(dir,`text-${i}.png`);
   const canvas=createCanvas(1080,1920),ctx=canvas.getContext('2d');ctx.fillStyle=p.style.background_color;ctx.fillRect(0,0,1080,1920);
   if(p.render.background_source!=='solid'){
@@ -103,6 +103,7 @@ export async function render(plan,dir,fetchAsset=download,shared={},outputKind='
  await run(ffmpeg,audioArgs);
  console.log('RENDER phase ffmpeg-audio end');const size=(await stat(output)).size;if(size>33554432)throw new Error('MP4 superiore al limite storage di 32 MiB. Nessun upload eseguito.');
  console.log('RENDER phase verify start');const info=JSON.parse(await run(probe.path,['-v','error','-show_streams','-show_format','-of','json',output],30000));const video=info.streams.find(s=>s.codec_type==='video'),audio=info.streams.find(s=>s.codec_type==='audio');
- if(video?.codec_name!=='h264'||audio?.codec_name!=='aac'||video.width!==1080||video.height!==1920||video.pix_fmt!=='yuv420p')throw new Error('Verifica codec o dimensioni non superata.');
- console.log('RENDER phase verify end',size);return {path:output,sha256:createHash('sha256').update(await readFile(output)).digest('hex'),size,duration:Number(info.format.duration),video_codec:'h264',audio_codec:'aac',width:1080,height:1920,pixel_format:'yuv420p',scene_count:sceneCards.length,font_used:font};
+ const fpsRaw=String(video?.avg_frame_rate||video?.r_frame_rate||'0/1').split('/').map(Number);const fps=fpsRaw[1]?fpsRaw[0]/fpsRaw[1]:0;
+ if(video?.codec_name!=='h264'||audio?.codec_name!=='aac'||video.width!==1080||video.height!==1920||video.pix_fmt!=='yuv420p'||fps<23||fps>60)throw new Error('Verifica codec, dimensioni o frame rate non superata.');
+ console.log('RENDER phase verify end',size,'fps',fps);return {path:output,sha256:createHash('sha256').update(await readFile(output)).digest('hex'),size,duration:Number(info.format.duration),video_codec:'h264',audio_codec:'aac',width:1080,height:1920,pixel_format:'yuv420p',fps,scene_count:sceneCards.length,font_used:font};
 }
