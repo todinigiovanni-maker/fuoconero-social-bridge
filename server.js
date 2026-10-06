@@ -670,7 +670,7 @@ async function spellcheckItalianText(text){
  }
 }
 async function checkedAutoPackage(post,category){
- const {scenes,publication}=await checkedAutoPackage(post,category);
+ const scenes=autoScenes(post),publication=autoPublicationMeta(post,category);
  const all=[...scenes.reel,...scenes.story],unique=[...new Set(all)];
  const corrected=new Map();
  for(const s of unique){
