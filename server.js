@@ -650,7 +650,7 @@ async function spellcheckItalianText(text){
     const cat=String(m?.rule?.category?.id||"").toUpperCase();
     if(issue!=="misspelling"&&issue!=="typographical"&&cat!=="TYPOS")return false;
     if(!Array.isArray(m?.replacements)||!m.replacements[0]?.value)return false;
-    const bad=original.slice(Number(m.offset)||0,(Number(m.offset)||0)+(Number(m.length)||0);
+    const bad=original.slice(Number(m.offset)||0,(Number(m.offset)||0)+(Number(m.length)||0));
     if(!bad||SPELLCHECK_SKIP.test(bad))return false;
     return true;
    })
