@@ -1041,6 +1041,23 @@ async function autoPoetryBranch(state){
   return;
  }
 
+ // Human-friendly pacing: new poetry proposals are at most hourly and sleep overnight.
+ // Existing approvals/renders can still be processed immediately; this gate only affects NEW poems.
+ const poetryMinIntervalMs=Math.max(30,Number(process.env.FNS_AUTO_POETRY_MIN_INTERVAL_MINUTES)||60)*60*1000;
+ const romeHour=Number(new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/Rome",hour:"2-digit",hour12:false}).format(new Date()));
+ const quietStart=Math.max(0,Math.min(23,Number(process.env.FNS_AUTO_POETRY_QUIET_START_HOUR)||23));
+ const quietEnd=Math.max(0,Math.min(23,Number(process.env.FNS_AUTO_POETRY_QUIET_END_HOUR)||8));
+ const inQuietHours=quietStart>quietEnd?(romeHour>=quietStart||romeHour<quietEnd):(romeHour>=quietStart&&romeHour<quietEnd);
+ if(inQuietHours){
+  console.log("AUTO_POETRY quiet hours",romeHour,"Europe/Rome — no new poetry proposal");
+  return;
+ }
+ const lastProposal=Number(state.poetry_last_proposal_at||0);
+ if(lastProposal&&now-lastProposal<poetryMinIntervalMs){
+  console.log("AUTO_POETRY proposal cooldown",Math.ceil((poetryMinIntervalMs-(now-lastProposal))/60000),"min");
+  return;
+ }
+
  // Process exactly one new poem per scan to avoid hammering WordPress and the audio API.
  // Multi-source duplicate guard: durable history + previous manual spoken commands + current pipeline.
  const pickCandidate=(batch)=>{
@@ -1097,6 +1114,8 @@ async function autoPoetryBranch(state){
  }
 
  const id=String(post.id);
+ // Reserve this hourly slot as soon as a candidate is selected, even if it is later skipped.
+ state.poetry_last_proposal_at=now;
  const audio=await poetryAudioStatus(post.id);
  if(audio.status==="approved"&&/^https:\/\//i.test(audio.audio_url)){
   const {scenes,publication}=await checkedAutoPackage(post,"poesie");
