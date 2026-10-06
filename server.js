@@ -1321,16 +1321,25 @@ async function telegramArchiveRender(post,mode,chatId){
  void pump();
 }
 async function telegramCorrectionRender(postId,renderJobId,chatId,mode="normalize",sceneIndex=null,replacement=""){
- const post=await publishedPostById(Number(postId));
- if(!post)throw new Error("articolo non disponibile");
- const category=publicationCategory(post),scenes=autoScenes(post),publication=autoPublicationMeta(post,category);
+ const post=await publishedPostById(Number(postId)); if(!post)throw new Error("articolo non disponibile");
+ const category=publicationCategory(post),publication=autoPublicationMeta(post,category);
+ let scenes=autoScenes(post);
+ // Corrections must preserve the exact original render text whenever possible.
+ // Read the source job first; only fall back to freshly generated article scenes for legacy jobs.
+ try{
+  const source=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(renderJobId));
+  const src=source?.data||{};
+  const reel=src?.outputs?.reel?.scene_texts||src?.request?.outputs?.reel?.scene_texts||src?.payload?.outputs?.reel?.scene_texts;
+  const story=src?.outputs?.story?.scene_texts||src?.request?.outputs?.story?.scene_texts||src?.payload?.outputs?.story?.scene_texts;
+  if(Array.isArray(reel)&&reel.length)scenes.reel=[...reel];
+  if(Array.isArray(story)&&story.length)scenes.story=[...story];
+ }catch(e){console.warn("TELEGRAM correction source fallback",renderJobId,e.message);}
  if(mode==="scene"&&Number.isInteger(sceneIndex)){
-  const clean=String(replacement||"").replace(/\s+/g," ").trim();
-  if(!clean)throw new Error("testo correzione vuoto");
+  const clean=String(replacement||"").replace(/\s+/g," ").trim(); if(!clean)throw new Error("testo correzione vuoto");
   if(sceneIndex<0||sceneIndex>=scenes.reel.length)throw new Error("numero scena non valido");
-  scenes.reel[sceneIndex]=clean;
-  if(sceneIndex<scenes.story.length)scenes.story[sceneIndex]=clean;
+  scenes.reel[sceneIndex]=clean; if(sceneIndex<scenes.story.length)scenes.story[sceneIndex]=clean;
  }
+ // normalize intentionally keeps wording and scene order unchanged; the renderer fixes display spacing.
  const outputs={reel:{preset:category==="poesie"?"poesia":"articolo",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}};
  const musicTitleOverride=autoMusicTitleOverride(post.id),musicIdOverride=autoMusicIdOverride(post.id);
  const payload={request_id:"fuoconero-telegram-correction-"+post.id+"-"+Date.now(),post_id:Number(post.id),category,
@@ -1338,9 +1347,8 @@ async function telegramCorrectionRender(postId,renderJobId,chatId,mode="normaliz
   outputs,publication,publication_authorized:false};
  const created=await wp("POST","/reel-maker/render-jobs",payload);
  if(!(created.status>=200&&created.status<300)&&!isExistingRender(created))throw new Error(String(created?.data?.message||created?.data?.error||"render corretto non creato"));
- await telegramSend(chatId,"🔧 Correzione ricevuta. Rigenero Reel + Story e ti mando una nuova anteprima appena pronta.");
- void pump();
- return created?.data?.render_job_id||null;
+ await telegramSend(chatId,"🔧 Correzione ricevuta. Mantengo testi e scene originali, applico solo la modifica richiesta e ti mando la nuova anteprima.");
+ void pump(); return created?.data?.render_job_id||null;
 }
 async function setTelegramCorrectionPending(chatId,value){
  const state=await autoState();
