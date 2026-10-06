@@ -1320,6 +1320,37 @@ async function telegramArchiveRender(post,mode,chatId){
  await telegramSend(chatId,"⚙️ Reel Maker archivio\n\n"+post.title+"\n\n"+(mode==="reel"?"Creo il Reel.":"Creo Reel + Story.")+" Ti mando l’anteprima su Telegram appena il render è pronto.");
  void pump();
 }
+async function telegramCorrectionRender(postId,renderJobId,chatId,mode="normalize",sceneIndex=null,replacement=""){
+ const post=await publishedPostById(Number(postId));
+ if(!post)throw new Error("articolo non disponibile");
+ const category=publicationCategory(post),scenes=autoScenes(post),publication=autoPublicationMeta(post,category);
+ if(mode==="scene"&&Number.isInteger(sceneIndex)){
+  const clean=String(replacement||"").replace(/\s+/g," ").trim();
+  if(!clean)throw new Error("testo correzione vuoto");
+  if(sceneIndex<0||sceneIndex>=scenes.reel.length)throw new Error("numero scena non valido");
+  scenes.reel[sceneIndex]=clean;
+  if(sceneIndex<scenes.story.length)scenes.story[sceneIndex]=clean;
+ }
+ const outputs={reel:{preset:category==="poesie"?"poesia":"articolo",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}};
+ const musicTitleOverride=autoMusicTitleOverride(post.id),musicIdOverride=autoMusicIdOverride(post.id);
+ const payload={request_id:"fuoconero-telegram-correction-"+post.id+"-"+Date.now(),post_id:Number(post.id),category,
+  ...(musicIdOverride?{music_id:musicIdOverride}:musicTitleOverride?{music_title:musicTitleOverride}:category==="canzoni"?{music_title:cleanAutoTitle(post.title)}:{music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}),
+  outputs,publication,publication_authorized:false};
+ const created=await wp("POST","/reel-maker/render-jobs",payload);
+ if(!(created.status>=200&&created.status<300)&&!isExistingRender(created))throw new Error(String(created?.data?.message||created?.data?.error||"render corretto non creato"));
+ await telegramSend(chatId,"🔧 Correzione ricevuta. Rigenero Reel + Story e ti mando una nuova anteprima appena pronta.");
+ void pump();
+ return created?.data?.render_job_id||null;
+}
+async function setTelegramCorrectionPending(chatId,value){
+ const state=await autoState();
+ state.telegram_correction_pending=value||null;
+ await saveAutoState(state);
+}
+async function getTelegramCorrectionPending(chatId){
+ const state=await autoState(),p=state?.telegram_correction_pending;
+ return p&&String(p.chat_id)===String(chatId)?p:null;
+}
 let telegramOffset=null,telegramApprovalBusy=false,telegramKnownChatId=process.env.FNS_TELEGRAM_CHAT_ID||null;
 let telegramOffsetLoaded=false,telegramPollFailures=0;
 const telegramHandled=new Set();
@@ -1735,7 +1766,7 @@ async function runCommand(){
    if(reelId)buttons.push({text:"APRI REEL",url:"https://drive.google.com/file/d/"+encodeURIComponent(reelId)+"/preview"});
    if(storyId)buttons.push({text:"APRI STORY",url:"https://drive.google.com/file/d/"+encodeURIComponent(storyId)+"/preview"});
    const label=reelId&&storyId?"Reel + Story pronti":reelId?"Reel pronto":"Story pronta";
-   const keyboard=[buttons,[{text:"APPROVA E ACCODA",callback_data:"queue:"+item.render_job_id+":"+item.post_id}],[{text:"PUBBLICA ORA",callback_data:"approve:"+item.render_job_id+":"+item.post_id},{text:"RIFIUTA",callback_data:"reject:"+item.render_job_id+":"+item.post_id}]];
+   const keyboard=[buttons,[{text:"✏️ CORREGGI",callback_data:"correct:"+item.render_job_id+":"+item.post_id}],[{text:"APPROVA E ACCODA",callback_data:"queue:"+item.render_job_id+":"+item.post_id}],[{text:"PUBBLICA ORA",callback_data:"approve:"+item.render_job_id+":"+item.post_id},{text:"RIFIUTA",callback_data:"reject:"+item.render_job_id+":"+item.post_id}]];
    const tr=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:"Fuoconero Social\n"+label+" su Drive.\n\n"+title+"\n\nApri l'anteprima, poi scegli se accodare, pubblicare subito o rifiutare.",disable_web_page_preview:true,reply_markup:{inline_keyboard:keyboard}}),signal:AbortSignal.timeout(15000)});
    console.log(tr.ok?"COMMAND resend_render_ready_batch sent":"COMMAND resend_render_ready_batch failed "+tr.status,item.render_job_id);
   }
@@ -1756,7 +1787,7 @@ async function runCommand(){
   const reelLink="https://drive.google.com/file/d/"+encodeURIComponent(reelId)+"/preview";
   const storyLink="https://drive.google.com/file/d/"+encodeURIComponent(storyId)+"/preview";
   const message="✅ Fuoconero Social\\nReel + Story pronti su Drive.\\n\\n"+title+"\\n\\nApri le anteprime dai pulsanti qui sotto, poi approva o rifiuta.";
-  const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:message,disable_web_page_preview:true,reply_markup:{inline_keyboard:[[{text:"🎬 APRI REEL",url:reelLink},{text:"📱 APRI STORY",url:storyLink}],[{text:"🕒 APPROVA E ACCODA",callback_data:"queue:"+c.render_job_id+":"+c.post_id}],[{text:"🚀 PUBBLICA ORA",callback_data:"approve:"+c.render_job_id+":"+c.post_id},{text:"❌ RIFIUTA",callback_data:"reject:"+c.render_job_id+":"+c.post_id}]]}}),signal:AbortSignal.timeout(15000)});
+  const r=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:message,disable_web_page_preview:true,reply_markup:{inline_keyboard:[[{text:"🎬 APRI REEL",url:reelLink},{text:"📱 APRI STORY",url:storyLink}],[{text:"✏️ CORREGGI",callback_data:"correct:"+c.render_job_id+":"+c.post_id}],[{text:"🕒 APPROVA E ACCODA",callback_data:"queue:"+c.render_job_id+":"+c.post_id}],[{text:"🚀 PUBBLICA ORA",callback_data:"approve:"+c.render_job_id+":"+c.post_id},{text:"❌ RIFIUTA",callback_data:"reject:"+c.render_job_id+":"+c.post_id}]]}}),signal:AbortSignal.timeout(15000)});
   console.log(r.ok?"COMMAND resend_render_ready sent":"COMMAND resend_render_ready failed "+r.status,c.render_job_id);
   return;
  }
