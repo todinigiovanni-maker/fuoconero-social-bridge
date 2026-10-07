@@ -1038,7 +1038,10 @@ async function autoPoetryBranch(state){
   }
   state.poetry_pipeline=pipeline;state.poetry_rendered=[...rendered].slice(-1000);
   console.log("AUTO_POETRY waiting",id,rec.status,rec.title||"");
-  return;
+  // A generated poem is only waiting for Gianni's choice on Telegram.
+  // It must not block the next hourly proposal; dedupe guards prevent repeats.
+  if(rec.status!=="generated")return;
+  console.log("AUTO_POETRY generated pending choice — allowing next hourly proposal");
  }
 
  // Human-friendly pacing: new poetry proposals are at most hourly and sleep overnight.
