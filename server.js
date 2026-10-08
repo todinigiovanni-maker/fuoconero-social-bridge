@@ -1874,6 +1874,14 @@ async function runCommand(){
   catch(e){console.error("COMMAND metricool_watch failed",c.id,e.message);}
   return;
  }
+ if(c.action==="buffer_backlog_load"){
+  const r=redisState();if(!r)throw new Error("Redis required for backlog");if(r.status==="wait")await r.connect();
+  const marker="fuoconero:buffer:backlog:import:"+c.id;
+  const items=Array.isArray(c.items)?c.items:[];
+  const result=await r.eval("if redis.call('exists',KEYS[1]) == 1 then return 0 end; for i=1,#ARGV do redis.call('rpush',KEYS[2],ARGV[i]) end; redis.call('set',KEYS[1],'1'); return #ARGV",2,marker,"fuoconero:buffer:backlog:queue:v1",...items.map(x=>JSON.stringify(x)));
+  console.log("BUFFER BACKLOG imported",result);
+  await bufferBacklogTick();return;
+ }
  if(c.action==="buffer_backlog_inspect"){
   const rows=[];
   for(const item of (c.items||[]).slice(0,200)){
@@ -2634,3 +2642,44 @@ server.listen(PORT,()=>{
  runCommand().catch(e=>console.error("COMMAND error",e.message));
 });
 
+
+let bufferBacklogBusy=false;
+async function bufferBacklogTick(){
+ if(!bufferPublisher.configured||bufferBacklogBusy)return;
+ bufferBacklogBusy=true;let r,lock;
+ const listKey="fuoconero:buffer:backlog:queue:v1",lockKey="fuoconero:buffer:backlog:lock:v1";
+ try{
+  r=redisState();if(!r)return;if(r.status==="wait")await r.connect();
+  if(!(await r.llen(listKey)))return;
+  lock=crypto.randomUUID();if(!(await r.set(lockKey,lock,"NX","EX",600)))return;
+  const queued=await bufferPublisher.queueInfo();
+  const capacity=Math.max(0,8-queued.length);
+  const step=12*3600000,offset=6*3600000;
+  let due=Math.max(Math.ceil((Date.now()+3600000-offset)/step)*step+offset,Number(await r.get("fuoconero:buffer:backlog:next_due:v1"))||0,...queued.map(x=>(Date.parse(x.dueAt)||0)+step));
+  let submitted=0;
+  for(let n=0;n<capacity;n++){
+   const raw=await r.lindex(listKey,0);if(!raw)break;const item=JSON.parse(raw);
+   try{
+    const result=await bufferPublisher.publish({renderJobId:item.render,videoUrl:"https://drive.usercontent.google.com/download?id="+encodeURIComponent(item.file)+"&export=download&confirm=t",text:item.caption,mode:"customScheduled",dueAt:new Date(due).toISOString(),aiGenerated:item.aiGenerated===true});
+    if(result.existing&&["uncertain","submitting"].includes(result.status)){
+     await r.rpush("fuoconero:buffer:backlog:review:v1",raw);
+     console.warn("BUFFER BACKLOG requires manual review",item.render,result.status);
+    }else if(!result.existing){
+     due+=step;await r.set("fuoconero:buffer:backlog:next_due:v1",String(due));submitted++;
+     console.log("BUFFER BACKLOG scheduled",JSON.stringify({render:item.render,title:item.title,postId:result.postId,dueAt:result.dueAt,status:result.status}));
+    }
+    await r.lpop(listKey);
+   }catch(e){
+    await r.rpush("fuoconero:buffer:backlog:review:v1",raw);await r.lpop(listKey);
+    console.warn("BUFFER BACKLOG stopped",item.render,e.message);break;
+   }
+  }
+  console.log("BUFFER BACKLOG queue",JSON.stringify({submitted,remaining:await r.llen(listKey),review:await r.llen("fuoconero:buffer:backlog:review:v1")}));
+ }catch(e){console.warn("BUFFER BACKLOG feeder failed",e.message);}
+ finally{
+  if(r&&lock)try{await r.eval("if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end",1,lockKey,lock);}catch{}
+  bufferBacklogBusy=false;
+ }
+}
+setInterval(()=>void bufferBacklogTick(),60*60*1000).unref();
+setTimeout(()=>void bufferBacklogTick(),45000);
