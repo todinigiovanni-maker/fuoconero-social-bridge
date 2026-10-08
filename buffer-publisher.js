@@ -1,6 +1,6 @@
 // Buffer is used only after the existing Telegram publication approval.
 // A durable claim is never removed after an uncertain HTTP response.
-export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetch}){
+export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetch,service="tiktok"}){
  const channel=env.BUFFER_TIKTOK_CHANNEL_ID,key=env.BUFFER_API_KEY;
  const configured=!!(channel&&key);
  const pending='fuoconero:buffer:pending:v1';
@@ -15,7 +15,7 @@ export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetc
  async function check(){
   if(!configured)return {configured:false};
   const data=await api('query($id: ChannelId!){channel(input:{id:$id}){id service}}',{id:channel});
-  if(data.channel?.id!==channel||String(data.channel?.service).toLowerCase()!=='tiktok')throw new Error('Il canale Buffer configurato non è TikTok');
+  if(data.channel?.id!==channel||String(data.channel?.service).toLowerCase()!==service)throw new Error('Il canale Buffer configurato non è TikTok');
   await db();return {configured:true,connected:true,channelId:channel};
  }
  async function publish({renderJobId,videoUrl,text='',aiGenerated=false,mode='shareNow',dueAt=null}){
@@ -28,7 +28,7 @@ export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetc
   const claimed=await r.set(rk,JSON.stringify(record),'NX');
   if(!claimed){const prior=JSON.parse(await r.get(rk)||'{}');return {...prior,existing:true};}
   try{
-   const data=await api('mutation($input: CreatePostInput!){createPost(input:$input){... on PostActionSuccess{post{id status}} ... on MutationError{message}}}',{input:{channelId:channel,text:String(text).slice(0,2200),schedulingType:'automatic',mode,...(dueAt?{dueAt}:{}),assets:[{video:{url:videoUrl}}],metadata:{tiktok:{isAiGenerated:!!aiGenerated}}}});
+   const data=await api('mutation($input: CreatePostInput!){createPost(input:$input){... on PostActionSuccess{post{id status}} ... on MutationError{message}}}',{input:{channelId:channel,text:String(text).slice(0,service==='threads'?500:2200),schedulingType:'automatic',mode,...(dueAt?{dueAt}:{}),assets:[{video:{url:videoUrl}}],...(service==='tiktok'?{metadata:{tiktok:{isAiGenerated:!!aiGenerated}}}:{})}});
    const result=data.createPost;if(!result?.post?.id)throw new Error(result?.message||'Buffer non ha restituito un ID del post');
    Object.assign(record,{postId:result.post.id,status:result.post.status,updatedAt:Date.now()});
    await r.set(rk,JSON.stringify(record));
