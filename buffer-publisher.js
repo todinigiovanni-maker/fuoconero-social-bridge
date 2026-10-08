@@ -46,12 +46,12 @@ export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetc
  async function poll(){
   if(!configured||polling)return;polling=true;
   try{
-   const r=await db(),keys=(await r.smembers(pending)).slice(0,20);if(!keys.length)return;
+   const r=await db(),keys=await r.smembers(pending);if(!keys.length)return;
    const rows=[];
    for(const rk of keys){const rec=JSON.parse(await r.get(rk)||'{}');if(!rec.postId){await r.srem(pending,rk);continue;}rows.push({rk,rec});}
    const now=Date.now();
    const dueRows=rows.filter(({rec})=>now>=(Date.parse(rec.dueAt)||rec.createdAt)+180000&&now-(rec.lastCheckedAt||0)>=3600000);
-   rows.splice(0,rows.length,...dueRows);
+   rows.splice(0,rows.length,...dueRows.slice(0,20));
    if(!rows.length)return;
    const query='query{'+rows.map(({rec},i)=>'p'+i+':post(input:{id:'+JSON.stringify(rec.postId)+'}){id status}').join(' ')+'}';
    const data=await api(query);
