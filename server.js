@@ -221,7 +221,11 @@ async function cleanupPublishedJob(jobId,storageId,meta={}){
    if(meta.notify!==false)await telegramNotify("⚠️ Fuoconero Social\\nPubblicazione non ancora stabile per "+(meta.title||jobId)+". Il file resta su Drive.");
    return false;
   }
-  if(meta.notify!==false)await telegramNotify("✅ Fuoconero Social\\n"+(meta.kind==="story"?"Story":"Reel")+" pubblicat"+(meta.kind==="story"?"a":"o")+" correttamente: "+(meta.title||"Fuoconero")+".");
+  if(meta.notify!==false){
+   const channelNames={ig_reel:"Instagram",ig_story:"Instagram",fb_reel:"Facebook",fb_story:"Facebook",youtube_short:"YouTube"};
+   const channels=[...new Set((stable.data.destinations||[]).filter(x=>x.status==="success").map(x=>channelNames[x.target]||x.target).filter(Boolean))];
+   await telegramNotify("✅ Fuoconero Social\n"+(meta.kind==="story"?"Story":"Reel")+" pubblicat"+(meta.kind==="story"?"a":"o")+": "+(meta.title||"Fuoconero")+"\n"+channels.join(", "));
+  }
   if(meta.kind==="reel"){
    const arc=await wp("POST","/storage/archive-tiktok",{request_id:"archive-tiktok-"+jobId,storage_id:storageId});
    console.log("CLEANUP TikTok archive",jobId,arc.status,JSON.stringify(arc.data));
