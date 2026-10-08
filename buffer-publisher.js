@@ -24,7 +24,7 @@ export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetc
   const r=await db(),rk=recordKey(renderJobId);
   if(!['shareNow','customScheduled'].includes(mode))throw new Error('Invalid Buffer scheduling mode');
   if(mode==='customScheduled'&&(!dueAt||Date.parse(dueAt)<=Date.now()))throw new Error('Invalid Buffer publication date');
-  const record={renderJobId,status:'submitting',createdAt:Date.now(),dueAt};
+  const record={renderJobId,status:'submitting',createdAt:Date.now(),dueAt,service,caption:String(text).split('\n')[0].slice(0,140)};
   const claimed=await r.set(rk,JSON.stringify(record),'NX');
   if(!claimed){const prior=JSON.parse(await r.get(rk)||'{}');return {...prior,existing:true};}
   try{
@@ -49,15 +49,19 @@ export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetc
    const r=await db(),keys=(await r.smembers(pending)).slice(0,20);if(!keys.length)return;
    const rows=[];
    for(const rk of keys){const rec=JSON.parse(await r.get(rk)||'{}');if(!rec.postId){await r.srem(pending,rk);continue;}rows.push({rk,rec});}
+   const now=Date.now();
+   const dueRows=rows.filter(({rec})=>now>=(Date.parse(rec.dueAt)||rec.createdAt)+180000&&now-(rec.lastCheckedAt||0)>=3600000);
+   rows.splice(0,rows.length,...dueRows);
    if(!rows.length)return;
    const query='query{'+rows.map(({rec},i)=>'p'+i+':post(input:{id:'+JSON.stringify(rec.postId)+'}){id status}').join(' ')+'}';
    const data=await api(query);
    for(let i=0;i<rows.length;i++){
     const {rk,rec}=rows[i],post=data['p'+i];if(!post)continue;
-    rec.status=post.status;rec.updatedAt=Date.now();await r.set(rk,JSON.stringify(rec));
+    rec.status=post.status;rec.updatedAt=Date.now();rec.lastCheckedAt=Date.now();await r.set(rk,JSON.stringify(rec));
     if(['sent','error'].includes(rec.status)){
      await r.srem(pending,rk);
-     await notify(rec.status==='sent'?'✅ TikTok: Buffer conferma il video pubblicato.':'⚠️ TikTok: Buffer segnala un errore di pubblicazione. Il video resta su Drive e non viene reinviato.');
+     const label=(rec.service==='threads'||rk.includes(':6900bdcc669affb4c98cc170:'))?'Threads':'TikTok';
+     await notify((rec.status==='sent'?'✅ '+label+': video pubblicato.':'⚠️ '+label+': pubblicazione fallita; il video resta su Drive.')+(rec.caption?'\n'+rec.caption:''));
     }else if(Date.now()-Math.max(rec.createdAt,Date.parse(rec.dueAt)||0)>86400000){
      await r.srem(pending,rk);await notify('⚠️ TikTok: Buffer non ha confermato la pubblicazione entro 24 ore. Controllare il post in Buffer; nessun reinvio automatico.');
     }
