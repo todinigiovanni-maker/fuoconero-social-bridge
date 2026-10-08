@@ -1874,6 +1874,15 @@ async function runCommand(){
   catch(e){console.error("COMMAND metricool_watch failed",c.id,e.message);}
   return;
  }
+ if(c.action==="buffer_backlog_inspect"){
+  for(const item of (c.items||[]).slice(0,100)){
+   const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(item.render_job_id)+"/output");
+   const job=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(item.render_job_id));
+   console.log("BUFFER BACKLOG INSPECT",JSON.stringify({file:item.drive_file_id,render:item.render_job_id,out_status:out.status,output:out.data,job_status:job.status,job:job.data}));
+   await sleep(1000);
+  }
+  return;
+ }
  if(c.action==="inspect_render_output"){
   if(!c.render_job_id){console.error("COMMAND invalid inspect_render_output");return;}
   const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(c.render_job_id)+"/output");
