@@ -1875,12 +1875,15 @@ async function runCommand(){
   return;
  }
  if(c.action==="buffer_backlog_inspect"){
-  for(const item of (c.items||[]).slice(0,100)){
-   const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(item.render_job_id)+"/output");
+  const rows=[];
+  for(const item of (c.items||[]).slice(0,200)){
    const job=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(item.render_job_id));
-   console.log("BUFFER BACKLOG INSPECT",JSON.stringify({file:item.drive_file_id,render:item.render_job_id,out_status:out.status,output:out.data,job_status:job.status,job:job.data}));
-   await sleep(1000);
+   const j=job.data,media=j?.outputs?.reel;
+   const row={file:item.drive_file_id,render:item.render_job_id,status:job.status,post_id:j?.post_id||0,hash:media?.sha256||"",duration:media?.duration||0,created_at:item.created_at||0};
+   rows.push(row);console.log("BUFFER BACKLOG ROW",JSON.stringify(row));await sleep(500);
   }
+  const r=redisState();if(r){if(r.status==="wait")await r.connect();await r.set("fuoconero:buffer:backlog:manifest:v1",JSON.stringify(rows));}
+  console.log("BUFFER BACKLOG INSPECTION COMPLETE",rows.length);
   return;
  }
  if(c.action==="inspect_render_output"){
