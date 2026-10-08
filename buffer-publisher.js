@@ -18,15 +18,17 @@ export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetc
   if(data.channel?.id!==channel||String(data.channel?.service).toLowerCase()!=='tiktok')throw new Error('Il canale Buffer configurato non è TikTok');
   await db();return {configured:true,connected:true,channelId:channel};
  }
- async function publish({renderJobId,videoUrl,text='',aiGenerated=false}){
+ async function publish({renderJobId,videoUrl,text='',aiGenerated=false,mode='shareNow',dueAt=null}){
   if(!configured)return {disabled:true};
   const u=new URL(videoUrl);if(u.protocol!=='https:')throw new Error('Buffer richiede un video HTTPS pubblico');
   const r=await db(),rk=recordKey(renderJobId);
-  const record={renderJobId,status:'submitting',createdAt:Date.now()};
+  if(!['shareNow','customScheduled'].includes(mode))throw new Error('Invalid Buffer scheduling mode');
+  if(mode==='customScheduled'&&(!dueAt||Date.parse(dueAt)<=Date.now()))throw new Error('Invalid Buffer publication date');
+  const record={renderJobId,status:'submitting',createdAt:Date.now(),dueAt};
   const claimed=await r.set(rk,JSON.stringify(record),'NX');
   if(!claimed){const prior=JSON.parse(await r.get(rk)||'{}');return {...prior,existing:true};}
   try{
-   const data=await api('mutation($input: CreatePostInput!){createPost(input:$input){... on PostActionSuccess{post{id status}} ... on MutationError{message}}}',{input:{channelId:channel,text:String(text).slice(0,2200),schedulingType:'automatic',mode:'shareNow',assets:[{video:{url:videoUrl}}],metadata:{tiktok:{isAiGenerated:!!aiGenerated}}}});
+   const data=await api('mutation($input: CreatePostInput!){createPost(input:$input){... on PostActionSuccess{post{id status}} ... on MutationError{message}}}',{input:{channelId:channel,text:String(text).slice(0,2200),schedulingType:'automatic',mode,...(dueAt?{dueAt}:{}),assets:[{video:{url:videoUrl}}],metadata:{tiktok:{isAiGenerated:!!aiGenerated}}}});
    const result=data.createPost;if(!result?.post?.id)throw new Error(result?.message||'Buffer non ha restituito un ID del post');
    Object.assign(record,{postId:result.post.id,status:result.post.status,updatedAt:Date.now()});
    await r.set(rk,JSON.stringify(record));
@@ -56,11 +58,17 @@ export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetc
     if(['sent','error'].includes(rec.status)){
      await r.srem(pending,rk);
      await notify(rec.status==='sent'?'✅ TikTok: Buffer conferma il video pubblicato.':'⚠️ TikTok: Buffer segnala un errore di pubblicazione. Il video resta su Drive e non viene reinviato.');
-    }else if(Date.now()-rec.createdAt>86400000){
+    }else if(Date.now()-Math.max(rec.createdAt,Date.parse(rec.dueAt)||0)>86400000){
      await r.srem(pending,rk);await notify('⚠️ TikTok: Buffer non ha confermato la pubblicazione entro 24 ore. Controllare il post in Buffer; nessun reinvio automatico.');
     }
    }
   }finally{polling=false;}
  }
- return {configured,check,publish,poll};
+ async function queueInfo(){
+  const a=await api('query{account{organizations{id}}}');
+  const org=a.account.organizations[0]?.id;if(!org)throw new Error('Buffer organization missing');
+  const d=await api('query($org:OrganizationId!,$channel:ChannelId!){posts(first:100,input:{organizationId:$org,filter:{channelIds:[$channel],status:[scheduled,sending]}}){edges{node{id dueAt}}}}',{org,channel});
+  return d.posts.edges.map(x=>x.node);
+ }
+ return {configured,check,publish,poll,queueInfo};
 }
