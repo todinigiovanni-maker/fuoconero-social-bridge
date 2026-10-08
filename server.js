@@ -719,6 +719,7 @@ async function saveAutoState(state){
  try{await writeFile(AUTO_STATE_URL,raw);}catch(e){console.warn("AUTO_REEL state write failed",e.message);}
 }
 const bufferPublisher=createBufferPublisher({redis:redisState,notify:telegramNotify});
+const threadsPublisher=createBufferPublisher({redis:redisState,notify:async msg=>telegramNotify(msg.replace(/TikTok/g,"Threads")),env:{...process.env,BUFFER_TIKTOK_CHANNEL_ID:"6900bdcc669affb4c98cc170"},service:"threads"});
 setTimeout(()=>{void bufferPublisher.check().then(s=>console.log("BUFFER connection",JSON.stringify(s))).catch(e=>console.warn("BUFFER connection failed",e.message));},12000);
 setInterval(()=>{void bufferPublisher.poll().catch(e=>console.warn("BUFFER status failed",e.message));},15*60*1000).unref();
 setTimeout(()=>{void bufferPublisher.poll().catch(e=>console.warn("BUFFER status failed",e.message));},30000);
@@ -1880,7 +1881,16 @@ async function runCommand(){
   const items=Array.isArray(c.items)?c.items:[];
   const result=await r.eval("if redis.call('exists',KEYS[1]) == 1 then return 0 end; for i=1,#ARGV do redis.call('rpush',KEYS[2],ARGV[i]) end; redis.call('set',KEYS[1],'1'); return #ARGV",2,marker,"fuoconero:buffer:backlog:queue:v1",...items.map(x=>JSON.stringify(x)));
   console.log("BUFFER BACKLOG imported",result);
-  await bufferBacklogTick();return;
+  if(await r.set("fuoconero:buffer:hourly-config:"+c.id,"1","NX")){
+   if(c.nextDue)await r.set("fuoconero:buffer:backlog:next_due:v1",String(Date.parse(c.nextDue)));
+   for(const update of c.rescheduled||[]){const key="fuoconero:buffer:render:v1:"+process.env.BUFFER_TIKTOK_CHANNEL_ID+":"+update.render;const raw=await r.get(key);if(raw){const rec=JSON.parse(raw);rec.dueAt=update.dueAt;await r.set(key,JSON.stringify(rec));}}
+  }
+  if(c.threadsItems?.length){
+   const added=await r.eval("if redis.call('exists',KEYS[1]) == 1 then return 0 end; for i=1,#ARGV do redis.call('rpush',KEYS[2],ARGV[i]) end; redis.call('set',KEYS[1],'1'); return #ARGV",2,"fuoconero:buffer:threads:backlog:import:"+c.id,"fuoconero:buffer:threads:backlog:queue:v1",...c.threadsItems.map(x=>JSON.stringify(x)));
+   console.log("THREADS BACKLOG imported",added);
+   await r.set("fuoconero:buffer:threads:backlog:next_due:v1",String(Date.parse("2026-10-08T12:00:00Z")),"NX");
+  }
+  await bufferBacklogTick();await threadsBacklogTick();return;
  }
  if(c.action==="buffer_backlog_inspect"){
   const rows=[];
@@ -2654,8 +2664,8 @@ async function bufferBacklogTick(){
   lock=crypto.randomUUID();if(!(await r.set(lockKey,lock,"NX","EX",600)))return;
   const queued=await bufferPublisher.queueInfo();
   const capacity=Math.max(0,8-queued.length);
-  const step=12*3600000,offset=6*3600000;
-  let due=Math.max(Math.ceil((Date.now()+3600000-offset)/step)*step+offset,Number(await r.get("fuoconero:buffer:backlog:next_due:v1"))||0,...queued.map(x=>(Date.parse(x.dueAt)||0)+step));
+  const step=3600000,offset=0;
+  let due=Math.max(Math.ceil((Date.now()+5*60000-offset)/step)*step+offset,Number(await r.get("fuoconero:buffer:backlog:next_due:v1"))||0,...queued.map(x=>(Date.parse(x.dueAt)||0)+step));
   let submitted=0;
   for(let n=0;n<capacity;n++){
    const raw=await r.lindex(listKey,0);if(!raw)break;const item=JSON.parse(raw);
@@ -2681,5 +2691,46 @@ async function bufferBacklogTick(){
   bufferBacklogBusy=false;
  }
 }
-setInterval(()=>void bufferBacklogTick(),60*60*1000).unref();
+setInterval(()=>void bufferBacklogTick(),5*60*1000).unref();
 setTimeout(()=>void bufferBacklogTick(),45000);
+
+let threadsBacklogBusy=false;
+async function threadsBacklogTick(){
+ if(!threadsPublisher.configured||threadsBacklogBusy)return;
+ threadsBacklogBusy=true;let r,lock;
+ const listKey="fuoconero:buffer:threads:backlog:queue:v1",lockKey="fuoconero:buffer:threads:backlog:lock:v1";
+ try{
+  r=redisState();if(!r)return;if(r.status==="wait")await r.connect();
+  if(!(await r.llen(listKey)))return;
+  lock=crypto.randomUUID();if(!(await r.set(lockKey,lock,"NX","EX",600)))return;
+  const queued=await threadsPublisher.queueInfo();
+  const capacity=Math.max(0,8-queued.length);
+  const step=3600000,offset=0;
+  let due=Math.max(Math.ceil((Date.now()+5*60000-offset)/step)*step+offset,Number(await r.get("fuoconero:buffer:threads:backlog:next_due:v1"))||0,...queued.map(x=>(Date.parse(x.dueAt)||0)+step));
+  let submitted=0;
+  for(let n=0;n<capacity;n++){
+   const raw=await r.lindex(listKey,0);if(!raw)break;const item=JSON.parse(raw);
+   try{
+    const result=await threadsPublisher.publish({renderJobId:item.render,videoUrl:"https://drive.usercontent.google.com/download?id="+encodeURIComponent(item.file)+"&export=download&confirm=t",text:item.caption,mode:"customScheduled",dueAt:new Date(due).toISOString(),aiGenerated:item.aiGenerated===true});
+    if(result.existing&&["uncertain","submitting"].includes(result.status)){
+     await r.rpush("fuoconero:buffer:threads:backlog:review:v1",raw);
+     console.warn("THREADS BACKLOG requires manual review",item.render,result.status);
+    }else if(!result.existing){
+     due+=step;await r.set("fuoconero:buffer:threads:backlog:next_due:v1",String(due));submitted++;
+     console.log("THREADS BACKLOG scheduled",JSON.stringify({render:item.render,title:item.title,postId:result.postId,dueAt:result.dueAt,status:result.status}));
+    }
+    await r.lpop(listKey);
+   }catch(e){
+    await r.rpush("fuoconero:buffer:threads:backlog:review:v1",raw);await r.lpop(listKey);
+    console.warn("THREADS BACKLOG stopped",item.render,e.message);break;
+   }
+  }
+  console.log("THREADS BACKLOG queue",JSON.stringify({submitted,remaining:await r.llen(listKey),review:await r.llen("fuoconero:buffer:threads:backlog:review:v1")}));
+ }catch(e){console.warn("THREADS BACKLOG feeder failed",e.message);}
+ finally{
+  if(r&&lock)try{await r.eval("if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end",1,lockKey,lock);}catch{}
+  threadsBacklogBusy=false;
+ }
+}
+setInterval(()=>void threadsBacklogTick(),5*60*1000).unref();
+setTimeout(()=>void threadsBacklogTick(),45000);
