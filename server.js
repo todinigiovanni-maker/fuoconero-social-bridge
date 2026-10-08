@@ -2747,3 +2747,45 @@ async function threadsBacklogTick(){
 }
 setInterval(()=>void threadsBacklogTick(),5*60*1000).unref();
 setTimeout(()=>void threadsBacklogTick(),45000);
+
+let bufferCleanupBusy=false;
+async function bufferCleanupTick(){
+ if(bufferCleanupBusy)return;bufferCleanupBusy=true;
+ let r,lock;const lockKey="fuoconero:buffer:cleanup:lock:v1";
+ try{
+  r=redisState();if(!r)return;if(r.status==="wait")await r.connect();
+  lock=crypto.randomUUID();if(!await r.set(lockKey,lock,"NX","EX",300))return;
+  await bufferPublisher.poll();await threadsPublisher.poll();
+  const manifest=JSON.parse(await r.get("fuoconero:buffer:backlog:manifest:v1")||"[]");
+  const waiting=new Set();
+  for(const key of ["fuoconero:buffer:backlog:queue:v1","fuoconero:buffer:threads:backlog:queue:v1"]){
+   for(const raw of await r.lrange(key,0,-1)){try{waiting.add(JSON.parse(raw).render);}catch{}}
+  }
+  const knownRejected=new Set(["b97ff8d5-1124-4bb9-a9f8-82d740667e4c","3658af16-0a3f-44d5-8dd5-e630794ac8e8"]);
+  let removed=0;
+  for(const row of manifest){
+   if(!row.file||!row.render||waiting.has(row.render))continue;
+   const doneKey="fuoconero:buffer:cleanup:done:v1:"+row.file;
+   if(await r.get(doneKey))continue;
+   const channels=[process.env.BUFFER_TIKTOK_CHANNEL_ID,process.env.BUFFER_THREADS_CHANNEL_ID||"6900bdcc669affb4c98cc170"];
+   const records=await Promise.all(channels.map(async channel=>JSON.parse(await r.get("fuoconero:buffer:render:v1:"+channel+":"+row.render)||"null")));
+   const safe=records.every((rec,i)=>rec&&(["sent","error"].includes(rec.status)||(i===1&&knownRejected.has(row.render)&&rec.status==="uncertain"&&!rec.postId)));
+   if(!safe)continue;
+   const success=records.some(rec=>rec.status==="sent");
+   if(!success&&!records.every(rec=>rec.status==="error"))continue;
+   try{
+    await deleteMetricoolWatchFile({id:"buffer-cleanup-"+row.render,drive_file_id:row.file});
+    await r.set(doneKey,JSON.stringify({render:row.render,deletedAt:new Date().toISOString(),statuses:records.map(rec=>rec.status)}));
+    removed++;console.log("BUFFER CLEANUP deleted",JSON.stringify({file:row.file,render:row.render,statuses:records.map(rec=>rec.status)}));
+   }catch(e){console.warn("BUFFER CLEANUP failed",row.render,e.message);}
+  }
+  console.log("BUFFER CLEANUP complete",JSON.stringify({removed,manifest:manifest.length}));
+  if(removed)await telegramNotify("🧹 Rimossi da Drive "+removed+" video già pubblicati o falliti, senza pubblicazioni ancora in attesa.");
+ }catch(e){console.warn("BUFFER CLEANUP tick failed",e.message);}
+ finally{
+  if(r&&lock)try{await r.eval("if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end",1,lockKey,lock);}catch{}
+  bufferCleanupBusy=false;
+ }
+}
+setInterval(()=>void bufferCleanupTick(),5*60*1000).unref();
+setTimeout(()=>void bufferCleanupTick(),60000);
