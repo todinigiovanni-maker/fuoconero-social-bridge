@@ -1,0 +1,16 @@
+name: Publication confirmations
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: publication-confirmations
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Wake bot and check due publication confirmations
+        run: curl --fail --silent --show-error --retry 2 --max-time 90 https://fuoconero-social-bridge.onrender.com/health
