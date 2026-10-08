@@ -721,7 +721,7 @@ async function saveAutoState(state){
 const bufferPublisher=createBufferPublisher({redis:redisState,notify:telegramNotify});
 const threadsPublisher=createBufferPublisher({redis:redisState,notify:async msg=>telegramNotify(msg.replace(/TikTok/g,"Threads")),env:{...process.env,BUFFER_TIKTOK_CHANNEL_ID:"6900bdcc669affb4c98cc170"},service:"threads"});
 setTimeout(()=>{void bufferPublisher.check().then(s=>console.log("BUFFER connection",JSON.stringify(s))).catch(e=>console.warn("BUFFER connection failed",e.message));},12000);
-setInterval(()=>{void bufferPublisher.poll().catch(e=>console.warn("BUFFER status failed",e.message));},15*60*1000).unref();
+setInterval(()=>{void bufferPublisher.poll().catch(e=>console.warn("BUFFER status failed",e.message));},60*60*1000).unref();
 setTimeout(()=>{void bufferPublisher.poll().catch(e=>console.warn("BUFFER status failed",e.message));},30000);
 async function enqueueApprovedPublication(renderJobId,postId){
  const state=await autoState(),queue=Array.isArray(state.approval_queue)?state.approval_queue:[];
@@ -2662,6 +2662,7 @@ async function bufferBacklogTick(){
   r=redisState();if(!r)return;if(r.status==="wait")await r.connect();
   if(!(await r.llen(listKey)))return;
   lock=crypto.randomUUID();if(!(await r.set(lockKey,lock,"NX","EX",600)))return;
+  const next=Number(await r.get("fuoconero:buffer:backlog:next_due:v1"))||0;if(next>Date.now()+8*3600000)return;
   const queued=await bufferPublisher.queueInfo();
   const capacity=Math.max(0,8-queued.length);
   const step=3600000,offset=0;
@@ -2703,6 +2704,7 @@ async function threadsBacklogTick(){
   r=redisState();if(!r)return;if(r.status==="wait")await r.connect();
   if(!(await r.llen(listKey)))return;
   lock=crypto.randomUUID();if(!(await r.set(lockKey,lock,"NX","EX",600)))return;
+  const next=Number(await r.get("fuoconero:buffer:threads:backlog:next_due:v1"))||0;if(next>Date.now()+8*3600000)return;
   const queued=await threadsPublisher.queueInfo();
   const capacity=Math.max(0,8-queued.length);
   const step=3600000,offset=0;
