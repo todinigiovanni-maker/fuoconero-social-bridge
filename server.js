@@ -1,5 +1,6 @@
 import http from "node:http";
 import {worker} from "./worker.js";
+import {createBufferPublisher} from "./buffer-publisher.js";
 import crypto from "node:crypto";
 import {readFile,writeFile,mkdtemp,rm,stat} from "node:fs/promises";
 import {createReadStream,createWriteStream} from "node:fs";
@@ -350,6 +351,13 @@ async function executeScheduledPublication(item){
  if(wantsReel&&!reelId&&!reelStorageId)throw new Error("approved Reel media unavailable "+item.id);
  if(wantsStory&&!storyId&&!storyStorageId)throw new Error("approved Story media unavailable "+item.id);
  if(!wantsReel&&!wantsStory)throw new Error("approved media unavailable "+item.id);
+ if(wantsReel&&bufferPublisher.configured&&item.buffer_tiktok!==false){
+  try{
+   if(!reelId)throw new Error("Buffer: manca il file pubblico Drive del Reel");
+   const bufferResult=await bufferPublisher.publish({renderJobId:item.render_job_id,videoUrl:"https://drive.usercontent.google.com/download?id="+encodeURIComponent(reelId)+"&export=download&confirm=t",text:item.reel?.caption||item.caption||item.title||"Fuoconero",aiGenerated:item.synthetic_media==="yes"});
+   console.log("BUFFER TikTok result",item.render_job_id,bufferResult.status||"disabled",bufferResult.postId||"",bufferResult.existing?"existing":"new");
+  }catch(e){console.warn("BUFFER TikTok failed; other destinations continue",item.render_job_id,e.message);}
+ }
  if(wantsReel)await prepareAndConfirmScheduled({...item,...item.reel,id:attemptId,targets:item.reel?.targets||["ig_reel","fb_reel","youtube_short"]},reelId,"reel",reelStorageId);
  if(wantsStory)await prepareAndConfirmScheduled({...item,...item.story,id:attemptId,targets:item.story?.targets||["ig_story","fb_story"]},storyId,"story",storyStorageId);
  console.log("SCHEDULE complete",item.id);
@@ -710,6 +718,10 @@ async function saveAutoState(state){
  }catch(e){console.warn("STATE Redis write failed; using local fallback",e.message);}
  try{await writeFile(AUTO_STATE_URL,raw);}catch(e){console.warn("AUTO_REEL state write failed",e.message);}
 }
+const bufferPublisher=createBufferPublisher({redis:redisState,notify:telegramNotify});
+setTimeout(()=>{void bufferPublisher.check().then(s=>console.log("BUFFER connection",JSON.stringify(s))).catch(e=>console.warn("BUFFER connection failed",e.message));},12000);
+setInterval(()=>{void bufferPublisher.poll().catch(e=>console.warn("BUFFER status failed",e.message));},15*60*1000).unref();
+setTimeout(()=>{void bufferPublisher.poll().catch(e=>console.warn("BUFFER status failed",e.message));},30000);
 async function enqueueApprovedPublication(renderJobId,postId){
  const state=await autoState(),queue=Array.isArray(state.approval_queue)?state.approval_queue:[];
  const existing=queue.find(x=>x.render_job_id===renderJobId&&x.status!=="done");
