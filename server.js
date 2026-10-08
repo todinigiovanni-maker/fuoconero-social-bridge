@@ -358,6 +358,13 @@ async function executeScheduledPublication(item){
    console.log("BUFFER TikTok result",item.render_job_id,bufferResult.status||"disabled",bufferResult.postId||"",bufferResult.existing?"existing":"new");
   }catch(e){console.warn("BUFFER TikTok failed; other destinations continue",item.render_job_id,e.message);}
  }
+ if(wantsReel&&threadsPublisher.configured&&item.buffer_threads!==false){
+  try{
+   if(!reelId)throw new Error("Buffer: manca il file pubblico Drive del Reel");
+   const threadsResult=await threadsPublisher.publish({renderJobId:item.render_job_id,videoUrl:"https://drive.usercontent.google.com/download?id="+encodeURIComponent(reelId)+"&export=download&confirm=t",text:item.reel?.caption||item.caption||item.title||"Fuoconero",aiGenerated:item.synthetic_media==="yes"});
+   console.log("BUFFER Threads result",item.render_job_id,threadsResult.status||"disabled",threadsResult.postId||"",threadsResult.existing?"existing":"new");
+  }catch(e){console.warn("BUFFER Threads failed; other destinations continue",item.render_job_id,e.message);}
+ }
  if(wantsReel)await prepareAndConfirmScheduled({...item,...item.reel,id:attemptId,targets:item.reel?.targets||["ig_reel","fb_reel","youtube_short"]},reelId,"reel",reelStorageId);
  if(wantsStory)await prepareAndConfirmScheduled({...item,...item.story,id:attemptId,targets:item.story?.targets||["ig_story","fb_story"]},storyId,"story",storyStorageId);
  console.log("SCHEDULE complete",item.id);
