@@ -39,7 +39,14 @@ export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetc
    // Keep the claim even if Buffer may have accepted a timed-out request.
    Object.assign(record,{status:'uncertain',updatedAt:Date.now()});
    try{await r.set(rk,JSON.stringify(record));}catch{}
-   await notify('⚠️ TikTok/Buffer: invio non confermato. Non riprovo automaticamente per evitare doppioni. Gli altri social proseguono.');
+   // Avoid flooding Telegram when multiple queued renders fail on the same channel.
+   // Redis NX makes this suppression durable across restarts and instances.
+   try{
+    const warningKey='fuoconero:buffer:uncertain:alert:v1:'+service+':'+channel;
+    if(await r.set(warningKey,String(Date.now()),'NX','EX',86400)){
+     await notify('⚠️ '+(service==='threads'?'Threads':'TikTok')+'/Buffer: invio non confermato. Salto il contenuto senza reinviarlo; gli altri social proseguono. Ulteriori avvisi identici saranno silenziati per 24 ore.');
+    }
+   }catch(notifyError){console.warn('BUFFER uncertain notification failed',notifyError.message);}
    throw e;
   }
  }
