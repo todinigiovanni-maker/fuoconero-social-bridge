@@ -1281,7 +1281,8 @@ setInterval(()=>void autoReelTick(),300000).unref();
 let archiveSuggestionBusy=false;
 function archiveAlreadyWorkedIds(state){
  const ids=new Set();
- for(const x of Array.isArray(state?.seen)?state.seen:[])ids.add(String(x));
+ // 'seen' only means the new-post scanner examined the article, not that a reel was made.
+ // Archive suggestions must rely on actual render/approval history instead.
  for(const x of Array.isArray(state?.poetry_rendered)?state.poetry_rendered:[])ids.add(String(x));
  for(const item of Array.isArray(state?.approval_queue)?state.approval_queue:[]){
   if(item?.post_id)ids.add(String(item.post_id));
@@ -1300,7 +1301,14 @@ async function nextArchiveSuggestion(chatId,{force=false,excludeId=null}={}){
  try{
   const state=await autoState(),now=Date.now();
   const pending=state.archive_pending_suggestion;
-  if(!force&&pending?.post_id)return false;
+  if(!force&&pending?.post_id){
+   const age=now-Number(pending.created_at||0);
+   if(age>=0&&age<12*60*60*1000)return false;
+   // A stale Telegram proposal must not block archive discovery indefinitely.
+   state.archive_pending_suggestion=null;
+   await saveAutoState(state);
+   console.log("ARCHIVE stale pending suggestion cleared",pending.post_id);
+  }
   const last=Number(state.archive_last_suggestion_at||0);
   if(!force&&last&&now-last<6*60*60*1000)return false;
 
