@@ -1,8 +1,8 @@
 {
-  "id": "live-fuoconero-20261010-1700-render",
+  "id": "live-fuoconero-20261010-1700-poster-render",
   "action": "render",
   "payload": {
-    "request_id": "live-fuoconero-20261010-1700",
+    "request_id": "live-fuoconero-20261010-1700-poster",
     "post_id": 7993,
     "category": "dossier-fuoconero",
     "outputs": {
@@ -16,7 +16,10 @@
           "DOMANDE • TEORIE • E MAGARI QUALCHE SPOILER",
           "LIVE SU TIKTOK @fuoconero78 — OGGI ORE 17:00"
         ],
-        "allow_extended_duration": false
+        "allow_extended_duration": false,
+        "image_ids": [
+          9729
+        ]
       }
     },
     "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"
