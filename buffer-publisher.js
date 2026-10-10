@@ -3,6 +3,7 @@
 export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetch,service="tiktok"}){
  const channel=service==='twitter'?env.BUFFER_X_CHANNEL_ID:env.BUFFER_TIKTOK_CHANNEL_ID,key=env.BUFFER_API_KEY;
  const configured=!!(channel&&key);
+ const serviceName=service==='twitter'?'X (Twitter)':service==='threads'?'Threads':'TikTok';
  const pending='fuoconero:buffer:pending:v1';
  const recordKey=id=>'fuoconero:buffer:render:v1:'+channel+':'+id;
  let polling=false;
@@ -36,7 +37,7 @@ export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetc
    Object.assign(record,{postId:result.post.id,status:result.post.status,updatedAt:Date.now()});
    await r.set(rk,JSON.stringify(record));
    if(record.status!=='sent')await r.sadd(pending,rk);
-   await notify(record.status==='sent'?'✅ '+(service==='threads'?'Threads':'TikTok')+': Buffer conferma la pubblicazione.':'📤 '+(service==='threads'?'Threads: testo':'TikTok: video')+' inviato a Buffer; pubblicazione in elaborazione.');
+   await notify((record.status==='sent'?'✅ '+serviceName+': pubblicato.':'📤 '+serviceName+': inviato a Buffer, in attesa di conferma.')+(record.caption?'\n'+record.caption:''));
    return record;
   }catch(e){
    // Keep the claim even if Buffer may have accepted a timed-out request.
@@ -47,7 +48,7 @@ export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetc
    try{
     const warningKey='fuoconero:buffer:uncertain:alert:v1:'+service+':'+channel;
     if(await r.set(warningKey,String(Date.now()),'NX','EX',86400)){
-     await notify('⚠️ '+(service==='threads'?'Threads':'TikTok')+'/Buffer: invio non confermato. Salto il contenuto senza reinviarlo; gli altri social proseguono. Ulteriori avvisi identici saranno silenziati per 24 ore.');
+     await notify('⚠️ '+serviceName+'/Buffer: invio non confermato. Salto il contenuto senza reinviarlo; gli altri social proseguono. Ulteriori avvisi identici saranno silenziati per 24 ore.');
     }
    }catch(notifyError){console.warn('BUFFER uncertain notification failed',notifyError.message);}
    throw e;
@@ -70,10 +71,10 @@ export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetc
     rec.status=post.status;rec.updatedAt=Date.now();rec.lastCheckedAt=Date.now();await r.set(rk,JSON.stringify(rec));
     if(['sent','error'].includes(rec.status)){
      await r.srem(pending,rk);
-     const label=(rec.service==='threads'||rk.includes(':6900bdcc669affb4c98cc170:'))?'Threads':'TikTok';
-     await notify((rec.status==='sent'?'✅ '+label+': '+(label==='Threads'?'post pubblicato.':'video pubblicato.'):'⚠️ '+label+': pubblicazione fallita; '+(label==='Threads'?'testo non pubblicato.':'il video resta su Drive.'))+(rec.caption?'\n'+rec.caption:''));
+     const label=rec.service==='twitter'?'X (Twitter)':(rec.service==='threads'||rk.includes(':6900bdcc669affb4c98cc170:'))?'Threads':'TikTok';
+     await notify((rec.status==='sent'?'✅ '+label+': '+(label==='TikTok'?'video pubblicato.':'post pubblicato.'):'⚠️ '+label+': pubblicazione fallita; '+(label==='TikTok'?'il video resta su Drive.':'testo non pubblicato.'))+(rec.caption?'\n'+rec.caption:''));
     }else if(Date.now()-Math.max(rec.createdAt,Date.parse(rec.dueAt)||0)>86400000){
-     await r.srem(pending,rk);await notify('⚠️ TikTok: Buffer non ha confermato la pubblicazione entro 24 ore. Controllare il post in Buffer; nessun reinvio automatico.');
+     await r.srem(pending,rk);await notify('⚠️ '+(rec.service==='twitter'?'X (Twitter)':rec.service==='threads'?'Threads':'TikTok')+': Buffer non ha confermato la pubblicazione entro 24 ore. Controllare il post in Buffer; nessun reinvio automatico.');
     }
    }
   }finally{polling=false;}
