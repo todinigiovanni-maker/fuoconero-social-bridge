@@ -405,16 +405,6 @@ async function executeScheduledPublication(item){
    }
   }catch(e){console.warn("BUFFER Threads failed; other destinations continue",item.render_job_id,e.message);}
  }
- if(wantsReel&&xPublisher.configured&&item.buffer_x!==false){
-  try{
-   const articleText=reelTextForX(item);
-   if(!articleText){console.warn("BUFFER X article link missing, skipping post",item.render_job_id);}
-   else{
-    const xResult=await xPublisher.publish({renderJobId:item.render_job_id,text:articleText});
-    console.log("BUFFER X result",item.render_job_id,xResult.status||"disabled",xResult.postId||"",xResult.existing?"existing":"new");
-   }
-  }catch(e){console.warn("BUFFER X failed; other destinations continue",item.render_job_id,e.message);}
- }
  if(wantsReel)await prepareAndConfirmScheduled({...item,...item.reel,id:attemptId,targets:item.reel?.targets||["ig_reel","fb_reel","youtube_short"]},reelId,"reel",reelStorageId);
  if(wantsStory)await prepareAndConfirmScheduled({...item,...item.story,id:attemptId,targets:item.story?.targets||["ig_story","fb_story"]},storyId,"story",storyStorageId);
  console.log("SCHEDULE complete",item.id);
