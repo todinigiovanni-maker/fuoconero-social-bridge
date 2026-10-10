@@ -1,24 +1,24 @@
 {
-  "id": "publish-ratti-7829-20261008",
-  "action": "scheduled_publish_batch",
-  "items": [
-    {
-      "id": "publish-ratti-7829-20261008",
-      "render_job_id": "0a6a2ece-4a4f-47a9-b9d0-8ba7284caa47",
-      "publish_at": "2026-10-08T19:40:00Z",
-      "title": "ANI…MALE — Usiamo i ratti per capire noi stessi da un secolo. E non avevamo ancora letto tutto il loro DNA",
-      "caption": "ANI…MALE — Usiamo i ratti per capire noi stessi da un secolo. E non avevamo ancora letto tutto il loro DNA\n\nLeggi su Fuoconero: https://fuoconero.com/2026/10/08/ratto-pangenoma-dna-genoma-completo/\n\n#Fuoconero #AniMale #Scienza #DNA",
+  "id": "live-fuoconero-20261010-1630-render",
+  "action": "render",
+  "payload": {
+    "request_id": "live-fuoconero-20261010-1630",
+    "post_id": 7993,
+    "category": "articoli",
+    "music_title": "Fuoconero (rock)",
+    "outputs": {
       "reel": {
-        "targets": [
-          "ig_reel",
-          "fb_reel",
-          "youtube_short"
-        ]
-      },
-      "story": false,
-      "youtube_privacy": "public",
-      "made_for_kids": "no",
-      "synthetic_media": "no"
+        "preset": "articolo",
+        "scene_texts": [
+          "OGGI ORE 16:30 — LIVE SU TIKTOK",
+          "ENTRIAMO NEL MONDO DI FUOCONERO",
+          "LIBRI • SAGA • MUSICA • POESIE",
+          "DOSSIER • STELLA NERA • IL MISTERO DEL 95%",
+          "DOMANDE • TEORIE • E MAGARI QUALCHE SPOILER",
+          "LIVE SU TIKTOK @fuoconero78 — OGGI ORE 16:30"
+        ],
+        "allow_extended_duration": false
+      }
     }
-  ]
+  }
 }
