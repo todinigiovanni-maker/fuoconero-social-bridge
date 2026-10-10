@@ -765,33 +765,41 @@ setTimeout(()=>{void bufferPublisher.poll().catch(e=>console.warn("BUFFER status
 setTimeout(()=>{void xPublisher.check().then(v=>console.log("BUFFER X connection",JSON.stringify(v))).catch(e=>console.warn("BUFFER X check failed",e.message));},16000);
 setInterval(()=>{void xPublisher.poll().catch(e=>console.warn("BUFFER X status failed",e.message));},5*60*1000).unref();
 
-/* Independent published-article feed for X and Threads.
-   Start at the newest existing post on first activation; do not repost the archive.
-   A per-post/per-channel Redis claim and Buffer's own durable claim prevent duplicates. */
+/* Published article feed for X and Threads.
+   Use each post's UTC publication time, not its WordPress ID: a previously
+   scheduled draft can be published after posts with higher IDs.
+   Record a separate acceptance per article/channel, only after Buffer
+   returns a post ID. Buffer's existing durable claim also prevents
+   duplicate submissions after an ambiguous response. */
+const articleFeedBootAt=Date.now();
+function articlePublishedAtMs(post){
+ const utc=String(post?.date_gmt||"").trim();
+ if(!utc)return NaN;
+ return Date.parse(/(?:Z|[+-]\d\d:\d\d)$/.test(utc)?utc:utc+"Z");
+}
 let articleSocialPollBusy=false;
 async function publishNewArticlesToTextSocials(){
  if(articleSocialPollBusy||(!xPublisher.configured&&!threadsPublisher.configured))return;
  articleSocialPollBusy=true;
  let r,lock;
  const lockKey="fuoconero:buffer:articles:poll:lock:v1";
- const watermarkKey="fuoconero:buffer:articles:watermark:v1";
+ const startKey="fuoconero:buffer:articles:started_at:v2";
  try{
   r=redisState();if(!r)return;if(r.status==="wait")await r.connect();
   lock=crypto.randomUUID();
   if(!(await r.set(lockKey,lock,"NX","EX",180)))return;
+  // Initialize a new date-based feed without reposting the historical archive.
+  // Keep the start time in Redis across process restarts.
+  const initialized=await r.set(startKey,String(articleFeedBootAt),"NX");
+  const startedAt=Number(await r.get(startKey))||articleFeedBootAt;
+  if(initialized)console.log("BUFFER ARTICLES v2 initialized, no historical backfill",new Date(startedAt).toISOString());
   const posts=await recentPublishedPosts();
-  if(!posts.length)return;
-  const latest=Math.max(...posts.map(p=>Number(p.id)||0));
-  const prior=await r.get(watermarkKey);
-  if(prior===null){
-   await r.set(watermarkKey,String(latest),"NX");
-   console.log("BUFFER ARTICLES initialized at",latest,"without backfill");
-   return;
-  }
-  const watermark=Number(prior)||0;
-  const fresh=posts.filter(p=>Number(p.id)>watermark).sort((a,b)=>Number(a.id)-Number(b.id));
+  const now=Date.now();
+  const fresh=posts
+   .map(p=>({...p,articlePublishedAt:articlePublishedAtMs(p)}))
+   .filter(p=>p.id&&p.link&&Number.isFinite(p.articlePublishedAt)&&p.articlePublishedAt>=startedAt&&p.articlePublishedAt<=now)
+   .sort((a,b)=>a.articlePublishedAt-b.articlePublishedAt||Number(a.id)-Number(b.id));
   for(const p of fresh){
-   if(!p.link||!p.id)continue;
    const source={title:p.title,excerpt:p.excerpt,article_url:p.link};
    const id="article-"+p.id;
    const intro=String(p.excerpt||"").slice(0,240).trim();
@@ -799,12 +807,30 @@ async function publishNewArticlesToTextSocials(){
    const xText=reelTextForX(source);
    for(const [service,publisher,text] of [["threads",threadsPublisher,threadsText],["twitter",xPublisher,xText]]){
     if(!publisher.configured||!text)continue;
+    const acceptedKey="fuoconero:buffer:articles:accepted:v2:"+service+":"+p.id;
+    if(await r.get(acceptedKey))continue;
     try{
      const result=await publisher.publish({renderJobId:id,text});
-     console.log("BUFFER ARTICLE",service,p.id,result.status||"unknown",result.existing?"existing":"new");
-    }catch(e){console.warn("BUFFER ARTICLE",service,p.id,e.message);}
+     const status=String(result?.status||"").toLowerCase();
+     if(result?.postId&&!["uncertain","submitting","error","failed"].includes(status)){
+      // A successful Buffer acceptance is not necessarily a published post.
+      // Buffer's poller will separately confirm sent/error status.
+      await r.set(acceptedKey,String(result.postId),"NX");
+      console.log("BUFFER ARTICLE accepted",service,p.id,status,result.existing?"existing":"new");
+     }else{
+      // An unknown outcome must be reconciled, never blindly resubmitted:
+      // createBufferPublisher retains its durable claim for this article.
+      const noticeKey="fuoconero:buffer:articles:review:v2:"+service+":"+p.id;
+      if(await r.set(noticeKey,status||"no_post_id","NX","EX",21600)){
+       console.warn("BUFFER ARTICLE requires review",service,p.id,status||"no_post_id",result?.existing?"existing":"new");
+      }
+     }
+    }catch(e){
+     // Do not advance a global watermark: other channels and future polls
+     // must still be able to process this article independently.
+     console.warn("BUFFER ARTICLE submission failed",service,p.id,e.message);
+    }
    }
-   await r.set(watermarkKey,String(p.id));
   }
  }catch(e){console.warn("BUFFER ARTICLES poll failed",e.message);}
  finally{
