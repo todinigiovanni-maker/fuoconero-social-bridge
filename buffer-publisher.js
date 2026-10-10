@@ -15,12 +15,15 @@ export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetc
  async function check(){
   if(!configured)return {configured:false};
   const data=await api('query($id: ChannelId!){channel(input:{id:$id}){id service}}',{id:channel});
-  if(data.channel?.id!==channel||String(data.channel?.service).toLowerCase()!==service)throw new Error('Il canale Buffer configurato non è TikTok');
+  if(data.channel?.id!==channel||String(data.channel?.service).toLowerCase()!==service)throw new Error('Il canale Buffer configurato non è '+service);
   await db();return {configured:true,connected:true,channelId:channel};
  }
  async function publish({renderJobId,videoUrl,text='',aiGenerated=false,mode='shareNow',dueAt=null}){
   if(!configured)return {disabled:true};
-  const u=new URL(videoUrl);if(u.protocol!=='https:')throw new Error('Buffer richiede un video HTTPS pubblico');
+  // Threads publishes text-only; TikTok continues to require a public HTTPS video.
+  if(service==='tiktok'){
+   const u=new URL(videoUrl);if(u.protocol!=='https:')throw new Error('Buffer richiede un video HTTPS pubblico');
+  }
   const r=await db(),rk=recordKey(renderJobId);
   if(!['shareNow','customScheduled'].includes(mode))throw new Error('Invalid Buffer scheduling mode');
   if(mode==='customScheduled'&&(!dueAt||Date.parse(dueAt)<=Date.now()))throw new Error('Invalid Buffer publication date');
@@ -28,12 +31,12 @@ export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetc
   const claimed=await r.set(rk,JSON.stringify(record),'NX');
   if(!claimed){const prior=JSON.parse(await r.get(rk)||'{}');return {...prior,existing:true};}
   try{
-   const data=await api('mutation($input: CreatePostInput!){createPost(input:$input){... on PostActionSuccess{post{id status}} ... on MutationError{message}}}',{input:{channelId:channel,text:String(text).slice(0,service==='threads'?500:2200),schedulingType:'automatic',mode,...(dueAt?{dueAt}:{}),assets:[{video:{url:videoUrl}}],...(service==='tiktok'?{metadata:{tiktok:{isAiGenerated:!!aiGenerated}}}:{})}});
+   const data=await api('mutation($input: CreatePostInput!){createPost(input:$input){... on PostActionSuccess{post{id status}} ... on MutationError{message}}}',{input:{channelId:channel,text:String(text).slice(0,service==='threads'?500:2200),schedulingType:'automatic',mode,...(dueAt?{dueAt}:{}),assets:service==='threads'?[]:[{video:{url:videoUrl}}],...(service==='tiktok'?{metadata:{tiktok:{isAiGenerated:!!aiGenerated}}}:{})}});
    const result=data.createPost;if(!result?.post?.id)throw new Error(result?.message||'Buffer non ha restituito un ID del post');
    Object.assign(record,{postId:result.post.id,status:result.post.status,updatedAt:Date.now()});
    await r.set(rk,JSON.stringify(record));
    if(record.status!=='sent')await r.sadd(pending,rk);
-   await notify(record.status==='sent'?'✅ TikTok: Buffer conferma la pubblicazione.':'📤 TikTok: video inviato a Buffer; pubblicazione in elaborazione.');
+   await notify(record.status==='sent'?'✅ '+(service==='threads'?'Threads':'TikTok')+': Buffer conferma la pubblicazione.':'📤 '+(service==='threads'?'Threads: testo':'TikTok: video')+' inviato a Buffer; pubblicazione in elaborazione.');
    return record;
   }catch(e){
    // Keep the claim even if Buffer may have accepted a timed-out request.
@@ -68,7 +71,7 @@ export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetc
     if(['sent','error'].includes(rec.status)){
      await r.srem(pending,rk);
      const label=(rec.service==='threads'||rk.includes(':6900bdcc669affb4c98cc170:'))?'Threads':'TikTok';
-     await notify((rec.status==='sent'?'✅ '+label+': video pubblicato.':'⚠️ '+label+': pubblicazione fallita; il video resta su Drive.')+(rec.caption?'\n'+rec.caption:''));
+     await notify((rec.status==='sent'?'✅ '+label+': '+(label==='Threads'?'post pubblicato.':'video pubblicato.'):'⚠️ '+label+': pubblicazione fallita; '+(label==='Threads'?'testo non pubblicato.':'il video resta su Drive.'))+(rec.caption?'\n'+rec.caption:''));
     }else if(Date.now()-Math.max(rec.createdAt,Date.parse(rec.dueAt)||0)>86400000){
      await r.srem(pending,rk);await notify('⚠️ TikTok: Buffer non ha confermato la pubblicazione entro 24 ore. Controllare il post in Buffer; nessun reinvio automatico.');
     }
