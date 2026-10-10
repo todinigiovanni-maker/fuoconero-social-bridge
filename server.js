@@ -396,25 +396,6 @@ async function executeScheduledPublication(item){
    console.log("BUFFER TikTok result",item.render_job_id,bufferResult.status||"disabled",bufferResult.postId||"",bufferResult.existing?"existing":"new");
   }catch(e){console.warn("BUFFER TikTok failed; other destinations continue",item.render_job_id,e.message);}
  }
- if(wantsReel&&xPublisher.configured&&item.buffer_x!==false){
-  try{
-   const postText=reelTextForX(item);
-   if(postText){
-    const xResult=await xPublisher.publish({renderJobId:item.render_job_id,text:postText});
-    console.log("BUFFER X result",item.render_job_id,xResult.status||"disabled",xResult.postId||"",xResult.existing?"existing":"new");
-   }else console.warn("BUFFER X article link missing; skip",item.render_job_id);
-  }catch(e){console.warn("BUFFER X failed; other destinations continue",item.render_job_id,e.message);}
- }
- if(wantsReel&&threadsPublisher.configured&&item.buffer_threads!==false){
-  try{
-   const articleText=reelTextForArticle(item);
-   if(!articleText){console.warn("THREADS article link missing, skipping text post",item.render_job_id);}
-   else {
-   const threadsResult=await threadsPublisher.publish({renderJobId:item.render_job_id,text:articleText});
-   console.log("BUFFER Threads result",item.render_job_id,threadsResult.status||"disabled",threadsResult.postId||"",threadsResult.existing?"existing":"new");
-   }
-  }catch(e){console.warn("BUFFER Threads failed; other destinations continue",item.render_job_id,e.message);}
- }
  if(wantsReel)await prepareAndConfirmScheduled({...item,...item.reel,id:attemptId,targets:item.reel?.targets||["ig_reel","fb_reel","youtube_short"]},reelId,"reel",reelStorageId);
  if(wantsStory)await prepareAndConfirmScheduled({...item,...item.story,id:attemptId,targets:item.story?.targets||["ig_story","fb_story"]},storyId,"story",storyStorageId);
  console.log("SCHEDULE complete",item.id);
@@ -783,6 +764,56 @@ setInterval(()=>{void bufferPublisher.poll().catch(e=>console.warn("BUFFER statu
 setTimeout(()=>{void bufferPublisher.poll().catch(e=>console.warn("BUFFER status failed",e.message));},30000);
 setTimeout(()=>{void xPublisher.check().then(v=>console.log("BUFFER X connection",JSON.stringify(v))).catch(e=>console.warn("BUFFER X check failed",e.message));},16000);
 setInterval(()=>{void xPublisher.poll().catch(e=>console.warn("BUFFER X status failed",e.message));},5*60*1000).unref();
+
+/* Independent published-article feed for X and Threads.
+   Start at the newest existing post on first activation; do not repost the archive.
+   A per-post/per-channel Redis claim and Buffer's own durable claim prevent duplicates. */
+let articleSocialPollBusy=false;
+async function publishNewArticlesToTextSocials(){
+ if(articleSocialPollBusy||(!xPublisher.configured&&!threadsPublisher.configured))return;
+ articleSocialPollBusy=true;
+ let r,lock;
+ const lockKey="fuoconero:buffer:articles:poll:lock:v1";
+ const watermarkKey="fuoconero:buffer:articles:watermark:v1";
+ try{
+  r=redisState();if(!r)return;if(r.status==="wait")await r.connect();
+  lock=crypto.randomUUID();
+  if(!(await r.set(lockKey,lock,"NX","EX",180)))return;
+  const posts=await recentPublishedPosts();
+  if(!posts.length)return;
+  const latest=Math.max(...posts.map(p=>Number(p.id)||0));
+  const prior=await r.get(watermarkKey);
+  if(prior===null){
+   await r.set(watermarkKey,String(latest),"NX");
+   console.log("BUFFER ARTICLES initialized at",latest,"without backfill");
+   return;
+  }
+  const watermark=Number(prior)||0;
+  const fresh=posts.filter(p=>Number(p.id)>watermark).sort((a,b)=>Number(a.id)-Number(b.id));
+  for(const p of fresh){
+   if(!p.link||!p.id)continue;
+   const source={title:p.title,excerpt:p.excerpt,article_url:p.link};
+   const id="article-"+p.id;
+   const intro=String(p.excerpt||"").slice(0,240).trim();
+   const threadsText=(String(p.title||"Nuovo articolo").trim()+"\n\n"+(intro?intro+"\n\n":"")+"🔥 Leggi qui: "+p.link).slice(0,500);
+   const xText=reelTextForX(source);
+   for(const [service,publisher,text] of [["threads",threadsPublisher,threadsText],["twitter",xPublisher,xText]]){
+    if(!publisher.configured||!text)continue;
+    try{
+     const result=await publisher.publish({renderJobId:id,text});
+     console.log("BUFFER ARTICLE",service,p.id,result.status||"unknown",result.existing?"existing":"new");
+    }catch(e){console.warn("BUFFER ARTICLE",service,p.id,e.message);}
+   }
+   await r.set(watermarkKey,String(p.id));
+  }
+ }catch(e){console.warn("BUFFER ARTICLES poll failed",e.message);}
+ finally{
+  if(r&&lock)try{await r.eval("if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end",1,lockKey,lock);}catch{}
+  articleSocialPollBusy=false;
+ }
+}
+setInterval(()=>void publishNewArticlesToTextSocials(),2*60*1000).unref();
+setTimeout(()=>void publishNewArticlesToTextSocials(),30000);
 async function enqueueApprovedPublication(renderJobId,postId){
  const state=await autoState(),queue=Array.isArray(state.approval_queue)?state.approval_queue:[];
  const existing=queue.find(x=>x.render_job_id===renderJobId&&x.status!=="done");
