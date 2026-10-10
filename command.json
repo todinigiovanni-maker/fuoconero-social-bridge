@@ -1,11 +1,10 @@
 {
-  "id": "live-fuoconero-20261010-1630-render",
+  "id": "live-fuoconero-20261010-1630-render-retry",
   "action": "render",
   "payload": {
-    "request_id": "live-fuoconero-20261010-1630",
+    "request_id": "live-fuoconero-20261010-1630-retry",
     "post_id": 7993,
     "category": "articoli",
-    "music_title": "Fuoconero (rock)",
     "outputs": {
       "reel": {
         "preset": "articolo",
@@ -19,6 +18,7 @@
         ],
         "allow_extended_duration": false
       }
-    }
+    },
+    "music_id": "1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"
   }
 }
