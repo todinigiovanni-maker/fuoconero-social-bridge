@@ -346,7 +346,7 @@ function reelSourceArticleUrl(item){
  const candidates=[item?.article_url,item?.articleUrl,item?.post_url,item?.postUrl,item?.permalink,item?.url,item?.link,item?.reel?.article_url,item?.reel?.post_url,item?.reel?.permalink,item?.reel?.url,item?.reel?.link];
  for(const value of candidates){
   if(typeof value!=="string")continue;
-  try{const u=new URL(value);if(u.protocol==="https:"&&/(^|\\.)fuoconero\\.com$/i.test(u.hostname)&&u.pathname!=="/")return u.toString();}catch{}
+  try{const u=new URL(value);if(u.protocol==="https:"&&/(^|\.)fuoconero\.com$/i.test(u.hostname)&&u.pathname!=="/")return u.toString();}catch{}
  }
  return null;
 }
@@ -354,9 +354,9 @@ function reelTextForArticle(item){
  const url=reelSourceArticleUrl(item);
  if(!url)return null; // Never publish a home-page URL as though it were the article.
  const title=String(item?.title||item?.reel?.title||"Nuovo articolo su Fuoconero").trim();
- const caption=String(item?.reel?.caption||item?.caption||"").replace(/https?:\\/\\/\\S+/g,"").trim();
+ const caption=String(item?.reel?.caption||item?.caption||"").replace(/https?:\/\/\S+/g,"").trim();
  const intro=caption?caption.slice(0,Math.max(0,490-url.length-title.length-12)):title;
- const text=(intro||title)+"\\n\\n🔥 Leggi l’articolo completo: "+url;
+ const text=(intro||title)+"\n\n🔥 Leggi l’articolo completo: "+url;
  return text.slice(0,500);
 }
 function reelTextForX(item){
