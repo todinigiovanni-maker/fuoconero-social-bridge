@@ -2716,6 +2716,8 @@ setTimeout(()=>void bufferBacklogTick(),45000);
 
 let threadsBacklogBusy=false;
 async function threadsBacklogTick(){
+ // Legacy backlog consists of video reels. Keep it in Redis without posting it to the text-only Threads channel.
+ if(true)return;
  if(!threadsPublisher.configured||threadsBacklogBusy)return;
  threadsBacklogBusy=true;let r,lock;
  const listKey="fuoconero:buffer:threads:backlog:queue:v1",lockKey="fuoconero:buffer:threads:backlog:lock:v1";
