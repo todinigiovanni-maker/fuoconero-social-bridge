@@ -405,6 +405,16 @@ async function executeScheduledPublication(item){
    }
   }catch(e){console.warn("BUFFER Threads failed; other destinations continue",item.render_job_id,e.message);}
  }
+ if(wantsReel&&xPublisher.configured&&item.buffer_x!==false){
+  try{
+   const articleText=reelTextForX(item);
+   if(!articleText){console.warn("BUFFER X article link missing, skipping post",item.render_job_id);}
+   else{
+    const xResult=await xPublisher.publish({renderJobId:item.render_job_id,text:articleText});
+    console.log("BUFFER X result",item.render_job_id,xResult.status||"disabled",xResult.postId||"",xResult.existing?"existing":"new");
+   }
+  }catch(e){console.warn("BUFFER X failed; other destinations continue",item.render_job_id,e.message);}
+ }
  if(wantsReel)await prepareAndConfirmScheduled({...item,...item.reel,id:attemptId,targets:item.reel?.targets||["ig_reel","fb_reel","youtube_short"]},reelId,"reel",reelStorageId);
  if(wantsStory)await prepareAndConfirmScheduled({...item,...item.story,id:attemptId,targets:item.story?.targets||["ig_story","fb_story"]},storyId,"story",storyStorageId);
  console.log("SCHEDULE complete",item.id);
@@ -771,6 +781,8 @@ const xPublisher=createBufferPublisher({redis:redisState,notify:telegramNotify,s
 setTimeout(()=>{void bufferPublisher.check().then(s=>console.log("BUFFER connection",JSON.stringify(s))).catch(e=>console.warn("BUFFER connection failed",e.message));},12000);
 setInterval(()=>{void bufferPublisher.poll().catch(e=>console.warn("BUFFER status failed",e.message));},5*60*1000).unref();
 setTimeout(()=>{void bufferPublisher.poll().catch(e=>console.warn("BUFFER status failed",e.message));},30000);
+setTimeout(()=>{void xPublisher.check().then(v=>console.log("BUFFER X connection",JSON.stringify(v))).catch(e=>console.warn("BUFFER X check failed",e.message));},16000);
+setInterval(()=>{void xPublisher.poll().catch(e=>console.warn("BUFFER X status failed",e.message));},5*60*1000).unref();
 async function enqueueApprovedPublication(renderJobId,postId){
  const state=await autoState(),queue=Array.isArray(state.approval_queue)?state.approval_queue:[];
  const existing=queue.find(x=>x.render_job_id===renderJobId&&x.status!=="done");
