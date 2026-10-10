@@ -1,20 +1,20 @@
 {
-  "id": "live-fuoconero-20261010-1630-render-retry",
+  "id": "live-fuoconero-20261010-1700-render",
   "action": "render",
   "payload": {
-    "request_id": "live-fuoconero-20261010-1630-retry",
+    "request_id": "live-fuoconero-20261010-1700",
     "post_id": 7993,
-    "category": "articoli",
+    "category": "dossier-fuoconero",
     "outputs": {
       "reel": {
         "preset": "articolo",
         "scene_texts": [
-          "OGGI ORE 16:30 — LIVE SU TIKTOK",
+          "OGGI ORE 17:00 — LIVE SU TIKTOK",
           "ENTRIAMO NEL MONDO DI FUOCONERO",
           "LIBRI • SAGA • MUSICA • POESIE",
           "DOSSIER • STELLA NERA • IL MISTERO DEL 95%",
           "DOMANDE • TEORIE • E MAGARI QUALCHE SPOILER",
-          "LIVE SU TIKTOK @fuoconero78 — OGGI ORE 16:30"
+          "LIVE SU TIKTOK @fuoconero78 — OGGI ORE 17:00"
         ],
         "allow_extended_duration": false
       }
