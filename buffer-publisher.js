@@ -1,7 +1,7 @@
 // Buffer is used only after the existing Telegram publication approval.
 // A durable claim is never removed after an uncertain HTTP response.
 export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetch,service="tiktok"}){
- const channel=env.BUFFER_TIKTOK_CHANNEL_ID,key=env.BUFFER_API_KEY;
+ const channel=service==='twitter'?env.BUFFER_X_CHANNEL_ID:env.BUFFER_TIKTOK_CHANNEL_ID,key=env.BUFFER_API_KEY;
  const configured=!!(channel&&key);
  const pending='fuoconero:buffer:pending:v1';
  const recordKey=id=>'fuoconero:buffer:render:v1:'+channel+':'+id;
@@ -31,7 +31,7 @@ export function createBufferPublisher({redis,notify,env=process.env,fetchFn=fetc
   const claimed=await r.set(rk,JSON.stringify(record),'NX');
   if(!claimed){const prior=JSON.parse(await r.get(rk)||'{}');return {...prior,existing:true};}
   try{
-   const data=await api('mutation($input: CreatePostInput!){createPost(input:$input){... on PostActionSuccess{post{id status}} ... on MutationError{message}}}',{input:{channelId:channel,text:String(text).slice(0,service==='threads'?500:2200),schedulingType:'automatic',mode,...(dueAt?{dueAt}:{}),assets:service==='threads'?[]:[{video:{url:videoUrl}}],...(service==='tiktok'?{metadata:{tiktok:{isAiGenerated:!!aiGenerated}}}:{})}});
+   const data=await api('mutation($input: CreatePostInput!){createPost(input:$input){... on PostActionSuccess{post{id status}} ... on MutationError{message}}}',{input:{channelId:channel,text:String(text).slice(0,service==='tiktok'?2200:service==='twitter'?280:500),schedulingType:'automatic',mode,...(dueAt?{dueAt}:{}),assets:service==='tiktok'?[{video:{url:videoUrl}}]:[],...(service==='tiktok'?{metadata:{tiktok:{isAiGenerated:!!aiGenerated}}}:{})}});
    const result=data.createPost;if(!result?.post?.id)throw new Error(result?.message||'Buffer non ha restituito un ID del post');
    Object.assign(record,{postId:result.post.id,status:result.post.status,updatedAt:Date.now()});
    await r.set(rk,JSON.stringify(record));
