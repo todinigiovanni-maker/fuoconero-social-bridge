@@ -376,6 +376,16 @@ async function executeScheduledPublication(item){
  const explicitKinds=Object.prototype.hasOwnProperty.call(item,"reel")||Object.prototype.hasOwnProperty.call(item,"story");
  const wantsReel=explicitKinds?!!item.reel:!!(reelId||reelStorageId);
  const wantsStory=explicitKinds?!!item.story:!!(storyId||storyStorageId);
+ // Resolve the published WordPress permalink when a scheduled render omits it.
+ if(!reelSourceArticleUrl(item)){
+  const postId=Number(item.post_id||item.postId||item.reel?.post_id||out.data?.post_id||out.data?.postId);
+  if(Number.isInteger(postId)&&postId>0){
+   try{
+    const post=await publishedPostById(postId);
+    if(post?.link)item={...item,article_url:post.link};
+   }catch(e){console.warn("BUFFER article lookup failed",postId,e.message);}
+  }
+ }
  if(wantsReel&&!reelId&&!reelStorageId)throw new Error("approved Reel media unavailable "+item.id);
  if(wantsStory&&!storyId&&!storyStorageId)throw new Error("approved Story media unavailable "+item.id);
  if(!wantsReel&&!wantsStory)throw new Error("approved media unavailable "+item.id);
