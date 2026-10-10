@@ -359,6 +359,13 @@ function reelTextForArticle(item){
  const text=(intro||title)+"\\n\\n🔥 Leggi l’articolo completo: "+url;
  return text.slice(0,500);
 }
+function reelTextForX(item){
+ const url=reelSourceArticleUrl(item);
+ if(!url)return null;
+ const title=String(item?.title||item?.reel?.title||"Nuovo articolo su Fuoconero").trim();
+ const budget=Math.max(0,270-url.length);
+ return title.slice(0,budget)+"\n🔥 "+url;
+}
 async function executeScheduledPublication(item){
  console.log("SCHEDULE execute",item.id,item.render_job_id);
  const attemptId=item.attempt_id||item.id;
@@ -378,6 +385,15 @@ async function executeScheduledPublication(item){
    const bufferResult=await bufferPublisher.publish({renderJobId:item.render_job_id,videoUrl:"https://drive.usercontent.google.com/download?id="+encodeURIComponent(reelId)+"&export=download&confirm=t",text:item.reel?.caption||item.caption||item.title||"Fuoconero",aiGenerated:item.synthetic_media==="yes"});
    console.log("BUFFER TikTok result",item.render_job_id,bufferResult.status||"disabled",bufferResult.postId||"",bufferResult.existing?"existing":"new");
   }catch(e){console.warn("BUFFER TikTok failed; other destinations continue",item.render_job_id,e.message);}
+ }
+ if(wantsReel&&xPublisher.configured&&item.buffer_x!==false){
+  try{
+   const postText=reelTextForX(item);
+   if(postText){
+    const xResult=await xPublisher.publish({renderJobId:item.render_job_id,text:postText});
+    console.log("BUFFER X result",item.render_job_id,xResult.status||"disabled",xResult.postId||"",xResult.existing?"existing":"new");
+   }else console.warn("BUFFER X article link missing; skip",item.render_job_id);
+  }catch(e){console.warn("BUFFER X failed; other destinations continue",item.render_job_id,e.message);}
  }
  if(wantsReel&&threadsPublisher.configured&&item.buffer_threads!==false){
   try{
@@ -751,6 +767,7 @@ async function saveAutoState(state){
 }
 const bufferPublisher=createBufferPublisher({redis:redisState,notify:telegramNotify});
 const threadsPublisher=createBufferPublisher({redis:redisState,notify:async msg=>telegramNotify(msg.replace(/TikTok/g,"Threads")),env:{...process.env,BUFFER_TIKTOK_CHANNEL_ID:"6900bdcc669affb4c98cc170"},service:"threads"});
+const xPublisher=createBufferPublisher({redis:redisState,notify:telegramNotify,service:"twitter"});
 setTimeout(()=>{void bufferPublisher.check().then(s=>console.log("BUFFER connection",JSON.stringify(s))).catch(e=>console.warn("BUFFER connection failed",e.message));},12000);
 setInterval(()=>{void bufferPublisher.poll().catch(e=>console.warn("BUFFER status failed",e.message));},5*60*1000).unref();
 setTimeout(()=>{void bufferPublisher.poll().catch(e=>console.warn("BUFFER status failed",e.message));},30000);
