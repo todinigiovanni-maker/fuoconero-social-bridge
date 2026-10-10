@@ -342,6 +342,23 @@ async function prepareAndConfirmScheduled(spec,driveFileId,suffix,existingStorag
  if(finalStorageId)void cleanupPublishedJob(prep.data.job_id,finalStorageId,{title:spec.title,kind:suffix,notify:true});
  return prep.data.job_id;
 }
+function reelSourceArticleUrl(item){
+ const candidates=[item?.article_url,item?.articleUrl,item?.post_url,item?.postUrl,item?.permalink,item?.url,item?.link,item?.reel?.article_url,item?.reel?.post_url,item?.reel?.permalink,item?.reel?.url,item?.reel?.link];
+ for(const value of candidates){
+  if(typeof value!=="string")continue;
+  try{const u=new URL(value);if(u.protocol==="https:"&&/(^|\\.)fuoconero\\.com$/i.test(u.hostname)&&u.pathname!=="/")return u.toString();}catch{}
+ }
+ return null;
+}
+function reelTextForArticle(item){
+ const url=reelSourceArticleUrl(item);
+ if(!url)return null; // Never publish a home-page URL as though it were the article.
+ const title=String(item?.title||item?.reel?.title||"Nuovo articolo su Fuoconero").trim();
+ const caption=String(item?.reel?.caption||item?.caption||"").replace(/https?:\\/\\/\\S+/g,"").trim();
+ const intro=caption?caption.slice(0,Math.max(0,490-url.length-title.length-12)):title;
+ const text=(intro||title)+"\\n\\n🔥 Leggi l’articolo completo: "+url;
+ return text.slice(0,500);
+}
 async function executeScheduledPublication(item){
  console.log("SCHEDULE execute",item.id,item.render_job_id);
  const attemptId=item.attempt_id||item.id;
@@ -364,9 +381,12 @@ async function executeScheduledPublication(item){
  }
  if(wantsReel&&threadsPublisher.configured&&item.buffer_threads!==false){
   try{
-   if(!reelId)throw new Error("Buffer: manca il file pubblico Drive del Reel");
-   const threadsResult=await threadsPublisher.publish({renderJobId:item.render_job_id,videoUrl:"https://drive.usercontent.google.com/download?id="+encodeURIComponent(reelId)+"&export=download&confirm=t",text:item.reel?.caption||item.caption||item.title||"Fuoconero",aiGenerated:item.synthetic_media==="yes"});
+   const articleText=reelTextForArticle(item);
+   if(!articleText){console.warn("THREADS article link missing, skipping text post",item.render_job_id);}
+   else {
+   const threadsResult=await threadsPublisher.publish({renderJobId:item.render_job_id,text:articleText});
    console.log("BUFFER Threads result",item.render_job_id,threadsResult.status||"disabled",threadsResult.postId||"",threadsResult.existing?"existing":"new");
+   }
   }catch(e){console.warn("BUFFER Threads failed; other destinations continue",item.render_job_id,e.message);}
  }
  if(wantsReel)await prepareAndConfirmScheduled({...item,...item.reel,id:attemptId,targets:item.reel?.targets||["ig_reel","fb_reel","youtube_short"]},reelId,"reel",reelStorageId);
