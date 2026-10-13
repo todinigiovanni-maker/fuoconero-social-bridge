@@ -1377,7 +1377,8 @@ async function autoReelTick(){
     }
    }
   }
-  await autoPoetryBranch(state);
+  // Poetry audio generation is opt-in, to prevent repeated AI Music API calls when credits are exhausted.
+  if(process.env.FNS_AUTO_POETRY_ENABLED==="1") await autoPoetryBranch(state);
   state.initialized=true;state.seen=[...seen].slice(-1000);await saveAutoState(state);
  }catch(e){console.warn("AUTO_REEL tick failed",e.message);await telegramNotify("⚠️ Fuoconero Social\nControllo nuovi articoli/poesie fallito: "+e.message);}
  finally{autoReelBusy=false;}
