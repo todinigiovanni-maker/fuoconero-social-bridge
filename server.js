@@ -1299,8 +1299,13 @@ async function autoReelTick(){
   // request id creates a fresh durable job; anti-duplicate protection then
   // resumes normally instead of re-enqueuing the zombie every scan.
   const recoverNonce=String(process.env.FNS_RECOVER_NONCE||"default");
-  const recoverPostIds=String(process.env.FNS_RECOVER_POST_IDS||process.env.FNS_RECOVER_POST_ID||"")
+  const recoverExtraPostIds=String(process.env.FNS_RECOVER_EXTRA_POST_IDS||"")
    .split(",").map(x=>Number(x.trim())).filter(Boolean);
+  const recoverPostIds=[...new Set([
+   ...String(process.env.FNS_RECOVER_POST_IDS||process.env.FNS_RECOVER_POST_ID||"")
+    .split(",").map(x=>Number(x.trim())).filter(Boolean),
+   ...recoverExtraPostIds
+  ])];
   const recoveryFor=postId=>{
    const id=Number(postId),key="recovered_"+id+"_"+recoverNonce;
    return recoverPostIds.includes(id)&&!state[key]?{id,key}:null;
@@ -1331,7 +1336,7 @@ async function autoReelTick(){
       ?{reel:{preset:"articolo",scene_texts:scenes.reel}}
       :{reel:{preset:"articolo",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}}),
     publication,
-    publication_authorized:!!(recovery&&process.env.FNS_RECOVER_AUTO_PUBLISH==="1")
+    publication_authorized:!!(recovery&&!recoverExtraPostIds.includes(Number(post.id))&&process.env.FNS_RECOVER_AUTO_PUBLISH==="1")
    };
    const created=await wp("POST","/reel-maker/render-jobs",payload);
    console.log("AUTO_REEL enqueue",post.id,created.status,JSON.stringify(created.data));
