@@ -11,6 +11,7 @@ import {join} from "node:path";
 import {spawn} from "node:child_process";
 import ffmpegPath from "ffmpeg-static";
 import Redis from "ioredis";
+import {isExistingRender} from "./render-status.js";
 
 const PORT=process.env.PORT||10000;
 const BASE=(process.env.FNS_BASE_URL||"https://fuoconero.com").replace(/\/$/,"");
@@ -947,10 +948,6 @@ setInterval(()=>void approvalQueueTick(),30000).unref();
 setTimeout(()=>void approvalQueueTick(),5000);
 function isArticleNotReady(created){
  return created?.status===400 && /articolo pubblicato e non protetto/i.test(String(created?.data?.message||""));
-}
-function isExistingRender(created){
- const msg=String(created?.data?.message||created?.data?.error||"");
- return created?.status===409 || /(?:already|gi[aà]\s+(?:esiste|render)|duplicate|duplicat|request[_ -]?id.*(?:used|esiste))/i.test(msg);
 }
 function scheduleAutoRetry(post){
  const key=String(post.id);
