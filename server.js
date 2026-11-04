@@ -1333,9 +1333,10 @@ async function autoReelTick(){
    const songTitle=category==="canzoni"?cleanAutoTitle(post.title):null;
    const musicTitleOverride=autoMusicTitleOverride(post.id);
    const musicIdOverride=autoMusicIdOverride(post.id);
+   const renderCategory=category==="sala-stampa"?"dossier":category; // WP post mantiene Sala stampa; Reel Maker richiede una sua categoria supportata
    const payload={
-    request_id:(recovery&&Number(post.id)===10531?"fuoconero-auto-livorno-sala-stampa-v1-post-10531-reel-story":recovery?"fuoconero-auto-v6-recovery-"+recoverNonce+"-post-"+post.id+"-reel-story":"fuoconero-auto-v5-post-"+post.id+"-reel-story"),post_id:Number(post.id),category,
-    ...(musicIdOverride?{music_id:musicIdOverride}:musicTitleOverride?{music_title:musicTitleOverride}:category==="canzoni"?{music_title:songTitle}:{music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}),
+    request_id:(recovery&&Number(post.id)===10531?"fuoconero-auto-livorno-rock-v2-post-10531-reel-story":recovery?"fuoconero-auto-v6-recovery-"+recoverNonce+"-post-"+post.id+"-reel-story":"fuoconero-auto-v5-post-"+post.id+"-reel-story"),post_id:Number(post.id),category:renderCategory,
+    ...(Number(post.id)===10531?{music_title:"Fuoconero (rock)"}:musicIdOverride?{music_id:musicIdOverride}:musicTitleOverride?{music_title:musicTitleOverride}:category==="canzoni"?{music_title:songTitle}:{music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}),
     outputs:(recovery&&process.env.FNS_RECOVER_REEL_ONLY==="1"
       ?{reel:{preset:"articolo",scene_texts:scenes.reel}}
       :{reel:{preset:"articolo",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}}),
