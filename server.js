@@ -619,7 +619,8 @@ const AUTO_POETRY_MANUAL_DONE=new Set([2293,4796,4820,5261,6800,6816,6990,7053,7
 
 const AUTO_REEL_CATEGORY_IDS={
  "789517870":"animale","577762893":"fisicamente","790278878":"naturalmente",
- "790278776":"mondo","14831":"poesie","11817":"canzoni","790178670":"dossier"
+ "790278776":"mondo","14831":"poesie","11817":"canzoni","790178670":"dossier",
+ "425887":"fuoconero" // Sala stampa: autoreel consentito anche se Home in evidenza e presente
 };
 function publicationCategory(post){
  const cats=(post?.categories||[]).map(String);
@@ -1301,6 +1302,9 @@ async function autoReelTick(){
   const recoverNonce=String(process.env.FNS_RECOVER_NONCE||"default");
   const recoverExtraPostIds=String(process.env.FNS_RECOVER_EXTRA_POST_IDS||"")
    .split(",").map(x=>Number(x.trim())).filter(Boolean);
+  // Recovery isolato del post Livorno 10531, in seguito al vecchio filtro categorie.
+  // Questa strada è non pubblicante e resta una tantum grazie alla chiave Redis recovered_*.
+  if(!recoverExtraPostIds.includes(10531))recoverExtraPostIds.push(10531);
   const recoverPostIds=[...new Set([
    ...String(process.env.FNS_RECOVER_POST_IDS||process.env.FNS_RECOVER_POST_ID||"")
     .split(",").map(x=>Number(x.trim())).filter(Boolean),
