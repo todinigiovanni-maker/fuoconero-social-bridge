@@ -1334,7 +1334,7 @@ async function autoReelTick(){
    const musicTitleOverride=autoMusicTitleOverride(post.id);
    const musicIdOverride=autoMusicIdOverride(post.id);
    const payload={
-    request_id:(recovery?"fuoconero-auto-v6-recovery-"+recoverNonce+"-post-"+post.id+"-reel-story":"fuoconero-auto-v5-post-"+post.id+"-reel-story"),post_id:Number(post.id),category,
+    request_id:(recovery&&Number(post.id)===10531?"fuoconero-auto-livorno-sala-stampa-v1-post-10531-reel-story":recovery?"fuoconero-auto-v6-recovery-"+recoverNonce+"-post-"+post.id+"-reel-story":"fuoconero-auto-v5-post-"+post.id+"-reel-story"),post_id:Number(post.id),category,
     ...(musicIdOverride?{music_id:musicIdOverride}:musicTitleOverride?{music_title:musicTitleOverride}:category==="canzoni"?{music_title:songTitle}:{music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}),
     outputs:(recovery&&process.env.FNS_RECOVER_REEL_ONLY==="1"
       ?{reel:{preset:"articolo",scene_texts:scenes.reel}}
