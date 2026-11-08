@@ -1305,14 +1305,17 @@ async function autoReelTick(){
   // Recovery isolato del post Livorno 10531, in seguito al vecchio filtro categorie.
   // Questa strada è non pubblicante e resta una tantum grazie alla chiave Redis recovered_*.
   if(!recoverExtraPostIds.includes(10531))recoverExtraPostIds.push(10531);
+  // One-shot, non-publishing recovery for the 2026-11-08 Reel Worker wp_tempnam() upload failure.
+  if(!recoverExtraPostIds.includes(8720))recoverExtraPostIds.push(8720);
   const recoverPostIds=[...new Set([
    ...String(process.env.FNS_RECOVER_POST_IDS||process.env.FNS_RECOVER_POST_ID||"")
     .split(",").map(x=>Number(x.trim())).filter(Boolean),
    ...recoverExtraPostIds
   ])];
   const recoveryFor=postId=>{
-   const id=Number(postId),key="recovered_"+id+"_"+recoverNonce;
-   return recoverPostIds.includes(id)&&!state[key]?{id,key}:null;
+   const id=Number(postId),nonce=id===8720?"wp-tempnam-repair-20261108":recoverNonce;
+   const key="recovered_"+id+"_"+nonce;
+   return recoverPostIds.includes(id)&&!state[key]?{id,key,nonce}:null;
   };
   const now=Date.now(),firstRun=!state.initialized;
   for(const post of posts){
@@ -1335,7 +1338,7 @@ async function autoReelTick(){
    const musicIdOverride=autoMusicIdOverride(post.id);
    const renderCategory=category==="sala-stampa"?"dossier":category; // WP post mantiene Sala stampa; Reel Maker richiede una sua categoria supportata
    const payload={
-    request_id:(recovery&&Number(post.id)===10531?"fuoconero-auto-livorno-rock-v3-post-10531-reel-story":recovery?"fuoconero-auto-v6-recovery-"+recoverNonce+"-post-"+post.id+"-reel-story":"fuoconero-auto-v5-post-"+post.id+"-reel-story"),post_id:Number(post.id),category:renderCategory,
+    request_id:(recovery&&Number(post.id)===10531?"fuoconero-auto-livorno-rock-v3-post-10531-reel-story":recovery?"fuoconero-auto-v6-recovery-"+(recovery.nonce||recoverNonce)+"-post-"+post.id+"-reel-story":"fuoconero-auto-v5-post-"+post.id+"-reel-story"),post_id:Number(post.id),category:renderCategory,
     ...(Number(post.id)===10531?{music_id:"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}:musicIdOverride?{music_id:musicIdOverride}:musicTitleOverride?{music_title:musicTitleOverride}:category==="canzoni"?{music_title:songTitle}:{music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}),
     outputs:(recovery&&process.env.FNS_RECOVER_REEL_ONLY==="1"
       ?{reel:{preset:"articolo",scene_texts:scenes.reel}}
