@@ -38,7 +38,7 @@ async function telegramReady(job,output){
 }
 
 
-async function telegramPartialFailure(job,output,error){
+async function telegramPartialFailure(job,output,error,options={}){
  const reelId=driveFileId(output,"reel"),storyId=driveFileId(output,"story");
  if(!reelId&&!storyId)return;
  const token=process.env.FNS_TELEGRAM_BOT_TOKEN;
@@ -235,7 +235,7 @@ export function worker(wp,options={}){
     try{await call('/'+job.render_job_id+'/fail',{lease:job.lease,error:e.message.replace(/https?:\/\/\S+/g,'[url]')});}catch{/* Durable lease expiry handles recovery; no upload retry. */}
     try{
      const partial=await wp('GET','/reel-maker/render-jobs/'+encodeURIComponent(job.render_job_id)+'/output');
-     if(partial.status===200)await telegramPartialFailure(job,partial.data,e.message.replace(/https?:\/\/\S+/g,'[url]'));
+     if(partial.status===200)await telegramPartialFailure(job,partial.data,e.message.replace(/https?:\/\/\S+/g,'[url]'),options);
     }catch(notificationError){console.warn('RENDER partial status check failed',notificationError.message);}
    }
   }finally{if(dir)await rm(dir,{recursive:true,force:true});busy=false;}
