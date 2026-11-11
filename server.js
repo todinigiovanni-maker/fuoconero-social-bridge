@@ -1509,8 +1509,8 @@ async function telegramArchiveRender(post,mode,chatId,selectedCategory=null){
   return;
  }
  if(!["animale","fisicamente","naturalmente","mondo","poesie","canzoni","dossier"].includes(category)){
-  await telegramSend(chatId,"📂 Reel Maker archivio\\n\\n"+post.title+
-   "\\n\\nQuesto articolo non ha una categoria Reel Maker valida. Scegli esplicitamente quale usare:",[
+  await telegramSend(chatId,"📂 Reel Maker archivio\n\n"+post.title+
+   "\n\nQuesto articolo non ha una categoria Reel Maker valida. Scegli esplicitamente quale usare:",[
    [{text:"🐾 ANI…MALE",callback_data:"archivecat:"+post.id+":"+mode+":animale"},
     {text:"⚛️ FISICA…MENTE",callback_data:"archivecat:"+post.id+":"+mode+":fisicamente"}],
    [{text:"🌱 NATURAL…MENTE",callback_data:"archivecat:"+post.id+":"+mode+":naturalmente"},
@@ -1743,7 +1743,7 @@ async function telegramApprovalTick(){
    }
 
 
-   const archiveCategoryChoice=data.match(/^archivecat:(\\d+):(reel|both):(animale|fisicamente|naturalmente|mondo|dossier)$/);
+   const archiveCategoryChoice=data.match(/^archivecat:(\d+):(reel|both):(animale|fisicamente|naturalmente|mondo|dossier)$/);
    if(archiveCategoryChoice){
     telegramHandled.add(data);
     try{
