@@ -2040,6 +2040,43 @@ async function runCommand(){
   console.log("BUFFER BACKLOG INSPECTION COMPLETE",rows.length);
   return;
  }
+ if(c.action==="recover_failed_story_only"){
+  const postId=Number(c.post_id),sourceId=String(c.source_render_job_id||"");
+  if(postId!==8071||sourceId!=="24f58895-7bb7-49fb-a27f-a4f958a0edc9"){
+   console.error("COMMAND recover_failed_story_only unexpected source");return;
+  }
+  const state=await autoState(),key="recovery_story_8071_drive_confirmed_missing_v1";
+  if(state[key]){console.log("COMMAND story recovery already handled",state[key]);return;}
+  const prior=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(sourceId)+"/output");
+  const outputs=prior.data?.outputs||{};
+  if(prior.status!==200||prior.data?.status!=="failed"||outputs.reel?.status!=="completed"||
+    !outputs.reel?.drive_file_id||outputs.story?.status!=="failed"){
+   console.error("COMMAND story recovery safety check failed",prior.status,
+    JSON.stringify({status:prior.data?.status,reel:outputs.reel?.status,story:outputs.story?.status}));return;
+  }
+  // Original Drive folder inspected: failed Story absent. Never regenerate completed Reel.
+  const post=await publishedPostById(postId);
+  if(!post){console.error("COMMAND story recovery post missing",postId);return;}
+  const category=publicationCategory(post),{scenes,publication}=await checkedAutoPackage(post,category);
+  const musicTitleOverride=autoMusicTitleOverride(postId),musicIdOverride=autoMusicIdOverride(postId);
+  const payload={
+   request_id:"fuoconero-story-only-recovery-8071-20261111-v1",
+   post_id:postId,category,
+   ...(musicIdOverride?{music_id:musicIdOverride}:musicTitleOverride?{music_title:musicTitleOverride}:
+     {music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}),
+   outputs:{story:{preset:"story",scene_texts:scenes.story}},
+   publication,publication_authorized:false
+  };
+  const created=await wp("POST","/reel-maker/render-jobs",payload);
+  console.log("COMMAND story-only recovery",postId,created.status,JSON.stringify(created.data));
+  if(created.status>=200&&created.status<300&&created.data?.render_job_id){
+   state[key]=created.data.render_job_id;await saveAutoState(state);
+   await telegramNotify("🔧 Fuoconero Social\\nRecupero soltanto la Story dell'articolo "+postId+
+    ". Il Reel è già salvato e non sarà rigenerato. Nessuna pubblicazione social senza approvazione.");
+   void pump();
+  }
+  return;
+ }
  if(c.action==="inspect_render_output"){
   if(!c.render_job_id){console.error("COMMAND invalid inspect_render_output");return;}
   const out=await wp("GET","/reel-maker/render-jobs/"+encodeURIComponent(c.render_job_id)+"/output");
