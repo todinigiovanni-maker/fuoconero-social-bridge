@@ -37,6 +37,31 @@ async function telegramReady(job,output){
  }catch(e){console.warn("TELEGRAM ready send failed",e.message);}
 }
 
+
+async function telegramPartialFailure(job,output,error){
+ const reelId=driveFileId(output,"reel"),storyId=driveFileId(output,"story");
+ if(!reelId&&!storyId)return;
+ const token=process.env.FNS_TELEGRAM_BOT_TOKEN;
+ const chatId=process.env.FNS_TELEGRAM_CHAT_ID||(await options.getTelegramChatId?.());
+ if(!token||!chatId)return;
+ const buttons=[
+  reelId?{text:"🎬 APRI REEL",url:"https://drive.google.com/file/d/"+encodeURIComponent(reelId)+"/preview"}:null,
+  storyId?{text:"📱 APRI STORY",url:"https://drive.google.com/file/d/"+encodeURIComponent(storyId)+"/preview"}:null
+ ].filter(Boolean);
+ const message="⚠️ Fuoconero Social\nCreazione parziale per articolo "+job.post_id+".\n"+
+  (reelId?"✅ Reel salvato su Drive.\n":"")+
+  (storyId?"✅ Story salvata su Drive.\n":"")+
+  "L'altro formato non è stato completato. I file esistenti restano disponibili.\nNessuna pubblicazione autorizzata.\nErrore: "+String(error||"").slice(0,180);
+ try{
+  const resp=await fetch("https://api.telegram.org/bot"+token+"/sendMessage",{
+   method:"POST",headers:{"content-type":"application/json"},
+   body:JSON.stringify({chat_id:chatId,text:message,disable_web_page_preview:true,reply_markup:{inline_keyboard:[buttons]}}),
+   signal:AbortSignal.timeout(15000)
+  });
+  console.log(resp.ok?"TELEGRAM partial render notification sent":"TELEGRAM partial render send failed "+resp.status,job.render_job_id);
+ }catch(err){console.warn("TELEGRAM partial render notification failed",err.message);}
+}
+
 function renderMusicFileIdOverride(postId){
  const raw=String(process.env.FNS_RENDER_MUSIC_FILE_ID_BY_POST||"");
  for(const item of raw.split(";")){
@@ -206,7 +231,13 @@ export function worker(wp,options={}){
    if(options.afterRender)await options.afterRender(job,readyOutput);
   }catch(e){
    console.error('RENDER failed',job?.render_job_id||'claim',e.message.replace(/https?:\/\/\S+/g,'[url]'));
-   if(job)try{await call('/'+job.render_job_id+'/fail',{lease:job.lease,error:e.message.replace(/https?:\/\/\S+/g,'[url]')});}catch{/* Durable lease expiry handles recovery; no upload retry. */}
+   if(job){
+    try{await call('/'+job.render_job_id+'/fail',{lease:job.lease,error:e.message.replace(/https?:\/\/\S+/g,'[url]')});}catch{/* Durable lease expiry handles recovery; no upload retry. */}
+    try{
+     const partial=await wp('GET','/reel-maker/render-jobs/'+encodeURIComponent(job.render_job_id)+'/output');
+     if(partial.status===200)await telegramPartialFailure(job,partial.data,e.message.replace(/https?:\/\/\S+/g,'[url]'));
+    }catch(notificationError){console.warn('RENDER partial status check failed',notificationError.message);}
+   }
   }finally{if(dir)await rm(dir,{recursive:true,force:true});busy=false;}
  }
  const timer=setInterval(()=>{void pump();void publishTick();},20000);timer.unref();void publishTick();return pump;
