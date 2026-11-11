@@ -1487,8 +1487,10 @@ async function archiveSuggestionTick(){
  if(!chatId)return;
  await nextArchiveSuggestion(chatId);
 }
-async function telegramArchiveRender(post,mode,chatId){
- const state=await autoState(),category=publicationCategory(post),key=String(post.id)+":"+mode;
+async function telegramArchiveRender(post,mode,chatId,selectedCategory=null){
+ const inferredCategory=publicationCategory(post);
+ const category=selectedCategory|| (inferredCategory==="sala-stampa"?"dossier":inferredCategory);
+ const state=await autoState(),key=String(post.id)+":"+mode;
  if(Number(state.archive_pending_suggestion?.post_id)===Number(post.id))state.archive_pending_suggestion=null;
  const hist=(state.telegram_archive_history&&typeof state.telegram_archive_history==="object")?state.telegram_archive_history:{};
  const previous=hist[key];
@@ -1504,6 +1506,17 @@ async function telegramArchiveRender(post,mode,chatId){
   if(reelId)buttons.push({text:"🎬 APRI REEL",url:"https://drive.google.com/file/d/"+encodeURIComponent(reelId)+"/preview"});
   if(storyId)buttons.push({text:"📱 APRI STORY",url:"https://drive.google.com/file/d/"+encodeURIComponent(storyId)+"/preview"});
   await telegramSend(chatId,"♻️ Questo contenuto era già stato richiesto dal Reel Maker archivio:\n"+post.title+"\n\nNon creo un doppione.",buttons.length?[buttons]:null);
+  return;
+ }
+ if(!["animale","fisicamente","naturalmente","mondo","poesie","canzoni","dossier"].includes(category)){
+  await telegramSend(chatId,"📂 Reel Maker archivio\\n\\n"+post.title+
+   "\\n\\nQuesto articolo non ha una categoria Reel Maker valida. Scegli esplicitamente quale usare:",[
+   [{text:"🐾 ANI…MALE",callback_data:"archivecat:"+post.id+":"+mode+":animale"},
+    {text:"⚛️ FISICA…MENTE",callback_data:"archivecat:"+post.id+":"+mode+":fisicamente"}],
+   [{text:"🌱 NATURAL…MENTE",callback_data:"archivecat:"+post.id+":"+mode+":naturalmente"},
+    {text:"🌍 IL MONDO VISTO DAL NERO",callback_data:"archivecat:"+post.id+":"+mode+":mondo"}],
+   [{text:"📁 DOSSIER",callback_data:"archivecat:"+post.id+":"+mode+":dossier"}]
+  ]);
   return;
  }
  if(category==="poesie"){
@@ -1726,6 +1739,19 @@ async function telegramApprovalTick(){
      await telegramAnswerCallback(token,q.id,"Avvio il render.");
      await telegramArchiveRender(post,archiveRender[2],chat);
     }catch(e){console.warn("TELEGRAM archive render failed",e.message);await telegramAnswerCallback(token,q.id,"Render non avviato.");await telegramSend(chat,"⚠️ Reel Maker archivio: "+e.message);}
+    continue;
+   }
+
+
+   const archiveCategoryChoice=data.match(/^archivecat:(\\d+):(reel|both):(animale|fisicamente|naturalmente|mondo|dossier)$/);
+   if(archiveCategoryChoice){
+    telegramHandled.add(data);
+    try{
+     const post=await publishedPostById(Number(archiveCategoryChoice[1]));
+     if(!post)throw new Error("contenuto non trovato o non pubblicato");
+     await telegramAnswerCallback(token,q.id,"Categoria selezionata.");
+     await telegramArchiveRender(post,archiveCategoryChoice[2],chat,archiveCategoryChoice[3]);
+    }catch(e){console.warn("TELEGRAM archive category failed",e.message);await telegramAnswerCallback(token,q.id,"Render non avviato.");await telegramSend(chat,"⚠️ Reel Maker archivio: "+e.message);}
     continue;
    }
 
