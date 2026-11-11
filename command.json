@@ -1,5 +1,6 @@
 {
-  "id": "diagnostic-reel-8071-20261111",
-  "action": "inspect_render_output",
-  "render_job_id": "24f58895-7bb7-49fb-a27f-a4f958a0edc9"
+  "id": "story-recovery-only-post-8071-20261111",
+  "action": "recover_failed_story_only",
+  "post_id": 8071,
+  "source_render_job_id": "24f58895-7bb7-49fb-a27f-a4f958a0edc9"
 }
