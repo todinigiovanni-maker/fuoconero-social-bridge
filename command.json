@@ -1,4 +1,21 @@
 {
-  "id": "reel-maker-recovery-8071-finished-20261111",
-  "action": "noop"
+  "id": "fontane-10647-render-20261114",
+  "action": "render",
+  "payload": {
+    "request_id": "fontane-10647-approved-audio-reel-20261114",
+    "post_id": 10647,
+    "category": "poesie",
+    "music_title": "Fuoconero",
+    "outputs": {
+      "reel": {
+        "preset": "poesia",
+        "scene_texts": [
+          "Mi siedo sui sanpietrini.\nPoggio i gomiti sulla vasca della fontana.",
+          "I vigili al momento non sono molto vigili.\nE mi ritaglio un momento per la memoria."
+        ],
+        "allow_extended_duration": false
+      }
+    },
+    "publication_authorized": false
+  }
 }
