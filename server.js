@@ -17,6 +17,8 @@ const PORT=process.env.PORT||10000;
 const BASE=(process.env.FNS_BASE_URL||"https://fuoconero.com").replace(/\/$/,"");
 const REST="/wp-json/fuoconero-social/v2";
 const SIGN="/fuoconero-social/v2";
+const GENERIC_ARCHIVE_MUSIC_ID="1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"; // Existing Fuoconero Rock backing track.
+const genericArchivePending=new Set();
 const CATEGORY_LIBRARY={
   "ani-male":"animale",
   "fisica-mente":"fisicamente",
@@ -1487,6 +1489,19 @@ async function archiveSuggestionTick(){
  if(!chatId)return;
  await nextArchiveSuggestion(chatId);
 }
+// Generic is an editorial choice, using the existing WordPress dossier
+// render preset solely for API compatibility.
+async function isGenericArchiveJob(job){
+ const id=String(job?.render_job_id||"");
+ if(!id)return false;
+ if(genericArchivePending.has(String(job?.post_id)))return true;
+ const state=await autoState();
+ return (state.archive_generic_render_ids||[]).includes(id)||
+  Object.values(state.telegram_archive_history||{}).some(x=>x?.category==="fuoconero"&&String(x.render_job_id)===id);
+}
+function rememberGenericArchiveJob(state,id){
+ if(id)state.archive_generic_render_ids=[...new Set([...(state.archive_generic_render_ids||[]),String(id)])].slice(-3000);
+}
 async function telegramArchiveRender(post,mode,chatId,selectedCategory=null){
  const inferredCategory=publicationCategory(post);
  const category=selectedCategory|| (inferredCategory==="sala-stampa"?"dossier":inferredCategory);
@@ -1508,9 +1523,10 @@ async function telegramArchiveRender(post,mode,chatId,selectedCategory=null){
   await telegramSend(chatId,"♻️ Questo contenuto era già stato richiesto dal Reel Maker archivio:\n"+post.title+"\n\nNon creo un doppione.",buttons.length?[buttons]:null);
   return;
  }
- if(!["animale","fisicamente","naturalmente","mondo","poesie","canzoni","dossier"].includes(category)){
+ if((category==="fuoconero"&&!selectedCategory)||!["animale","fisicamente","naturalmente","mondo","poesie","canzoni","dossier","fuoconero"].includes(category)){
   await telegramSend(chatId,"📂 Reel Maker archivio\n\n"+post.title+
    "\n\nQuesto articolo non ha una categoria Reel Maker valida. Scegli esplicitamente quale usare:",[
+   [{text:"🔥 FUOCONERO — Rock",callback_data:"archivecat:"+post.id+":"+mode+":fuoconero"}],
    [{text:"🐾 ANI…MALE",callback_data:"archivecat:"+post.id+":"+mode+":animale"},
     {text:"⚛️ FISICA…MENTE",callback_data:"archivecat:"+post.id+":"+mode+":fisicamente"}],
    [{text:"🌱 NATURAL…MENTE",callback_data:"archivecat:"+post.id+":"+mode+":naturalmente"},
@@ -1550,21 +1566,28 @@ async function telegramArchiveRender(post,mode,chatId,selectedCategory=null){
  const musicTitleOverride=autoMusicTitleOverride(post.id),musicIdOverride=autoMusicIdOverride(post.id);
  const payload={
   request_id:"fuoconero-telegram-archive-v1-post-"+post.id+"-"+mode,
-  post_id:Number(post.id),category,
-  ...(musicIdOverride?{music_id:musicIdOverride}:musicTitleOverride?{music_title:musicTitleOverride}:category==="canzoni"?{music_title:cleanAutoTitle(post.title)}:{music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}),
+  post_id:Number(post.id),category:category==="fuoconero"?"dossier":category,
+  ...(category==="fuoconero"?{music_id:GENERIC_ARCHIVE_MUSIC_ID}:musicIdOverride?{music_id:musicIdOverride}:musicTitleOverride?{music_title:musicTitleOverride}:category==="canzoni"?{music_title:cleanAutoTitle(post.title)}:{music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}),
   outputs,publication,publication_authorized:false
  };
- const created=await wp("POST","/reel-maker/render-jobs",payload);
- if(!(created.status>=200&&created.status<300)&&!isExistingRender(created))throw new Error(String(created?.data?.message||created?.data?.error||"render non creato"));
- const jobId=created?.data?.render_job_id||previous?.render_job_id||null;
- hist[key]={post_id:Number(post.id),title:post.title,mode,render_job_id:jobId,status:"requested",created_at:Date.now()};
- state.telegram_archive_history=hist;await saveAutoState(state);
+ if(category==="fuoconero")genericArchivePending.add(String(post.id));
+ try{
+  const created=await wp("POST","/reel-maker/render-jobs",payload);
+  if(!(created.status>=200&&created.status<300)&&!isExistingRender(created))throw new Error(String(created?.data?.message||created?.data?.error||"render non creato"));
+  const jobId=created?.data?.render_job_id||previous?.render_job_id||null;
+  hist[key]={post_id:Number(post.id),title:post.title,mode,category,render_job_id:jobId,status:"requested",created_at:Date.now()};
+  if(category==="fuoconero")rememberGenericArchiveJob(state,jobId);
+  state.telegram_archive_history=hist;await saveAutoState(state);
+ }finally{genericArchivePending.delete(String(post.id));}
  await telegramSend(chatId,"⚙️ Reel Maker archivio\n\n"+post.title+"\n\n"+(mode==="reel"?"Creo il Reel.":"Creo Reel + Story.")+" Ti mando l’anteprima su Telegram appena il render è pronto.");
  void pump();
 }
 async function telegramCorrectionRender(postId,renderJobId,chatId,mode="normalize",sceneIndex=null,replacement=""){
  const post=await publishedPostById(Number(postId)); if(!post)throw new Error("articolo non disponibile");
- const category=publicationCategory(post),publication=autoPublicationMeta(post,category);
+ const generic=await isGenericArchiveJob({render_job_id:renderJobId,post_id:post.id});
+ const state=await autoState();
+ const previousSelection=Object.values(state.telegram_archive_history||{}).find(x=>String(x?.render_job_id)===String(renderJobId))?.category;
+ const category=generic?"fuoconero":previousSelection||publicationCategory(post),publication=autoPublicationMeta(post,category);
  let scenes=autoScenes(post);
  // Corrections must preserve the exact original render text whenever possible.
  // Read the source job first; only fall back to freshly generated article scenes for legacy jobs.
@@ -1584,11 +1607,18 @@ async function telegramCorrectionRender(postId,renderJobId,chatId,mode="normaliz
  // normalize intentionally keeps wording and scene order unchanged; the renderer fixes display spacing.
  const outputs={reel:{preset:category==="poesie"?"poesia":"articolo",scene_texts:scenes.reel},story:{preset:"story",scene_texts:scenes.story}};
  const musicTitleOverride=autoMusicTitleOverride(post.id),musicIdOverride=autoMusicIdOverride(post.id);
- const payload={request_id:"fuoconero-telegram-correction-"+post.id+"-"+Date.now(),post_id:Number(post.id),category,
-  ...(musicIdOverride?{music_id:musicIdOverride}:musicTitleOverride?{music_title:musicTitleOverride}:category==="canzoni"?{music_title:cleanAutoTitle(post.title)}:{music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}),
+ const payload={request_id:"fuoconero-telegram-correction-"+post.id+"-"+Date.now(),post_id:Number(post.id),category:category==="fuoconero"?"dossier":category,
+  ...(category==="fuoconero"?{music_id:GENERIC_ARCHIVE_MUSIC_ID}:musicIdOverride?{music_id:musicIdOverride}:musicTitleOverride?{music_title:musicTitleOverride}:category==="canzoni"?{music_title:cleanAutoTitle(post.title)}:{music_id:process.env.FNS_AUTO_MUSIC_ID||"1Tf5mgp47tL7Gx1DB_yh0j39p06xIl62B"}),
   outputs,publication,publication_authorized:false};
- const created=await wp("POST","/reel-maker/render-jobs",payload);
- if(!(created.status>=200&&created.status<300)&&!isExistingRender(created))throw new Error(String(created?.data?.message||created?.data?.error||"render corretto non creato"));
+ let created;
+ if(category==="fuoconero")genericArchivePending.add(String(post.id));
+ try{
+  created=await wp("POST","/reel-maker/render-jobs",payload);
+  if(!(created.status>=200&&created.status<300)&&!isExistingRender(created))throw new Error(String(created?.data?.message||created?.data?.error||"render corretto non creato"));
+  if(category==="fuoconero"&&created?.data?.render_job_id){
+   const current=await autoState();rememberGenericArchiveJob(current,created.data.render_job_id);await saveAutoState(current);
+  }
+ }finally{genericArchivePending.delete(String(post.id));}
  await telegramSend(chatId,"🔧 Correzione ricevuta. Mantengo testi e scene originali, applico solo la modifica richiesta e ti mando la nuova anteprima.");
  void pump(); return created?.data?.render_job_id||null;
 }
@@ -1743,7 +1773,7 @@ async function telegramApprovalTick(){
    }
 
 
-   const archiveCategoryChoice=data.match(/^archivecat:(\d+):(reel|both):(animale|fisicamente|naturalmente|mondo|dossier)$/);
+   const archiveCategoryChoice=data.match(/^archivecat:(\d+):(reel|both):(animale|fisicamente|naturalmente|mondo|dossier|fuoconero)$/);
    if(archiveCategoryChoice){
     telegramHandled.add(data);
     try{
@@ -2674,7 +2704,20 @@ async function tiktokDirectPostFromUrl({videoUrl,title="",privacyLevel,allowComm
  return {publish_id:data.data.publish_id,privacy_level:privacyLevel,video_size:size,status,creator};
 }
 
-const pump=worker(wp,{
+const pump=worker(async(method,path,payload)=>{
+ const response=await wp(method,path,payload);
+ if(method==="POST"&&path==="/reel-maker/render-worker/claim"){
+  const job=response?.data?.job;
+  if(job&&await isGenericArchiveJob(job)){
+   job.category="fuoconero";
+   for(const plan of Object.values(job.plans||{})){
+    plan.category="fuoconero";plan.category_label="FUOCONERO";
+   }
+   console.log("RENDER universal Fuoconero archive",job.render_job_id);
+  }
+ }
+ return response;
+},{
  getTelegramChatId:async()=>process.env.FNS_TELEGRAM_CHAT_ID||telegramKnownChatId||await telegramChatId()||null,
  afterRender:async(job,readyOutput)=>{
   const recoverId=Number(process.env.FNS_RECOVER_POST_ID||0);
